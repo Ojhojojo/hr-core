@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api:
+    name: API package (builds on its own)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Verify format
+        run: dotnet format api/check/HrCore.Check.csproj --verify-no-changes
+
+      - name: Build with a minimal stand-in host
+        # Proves api/ needs nothing from Rakkii or Qurio beyond the documented contract.
+        run: dotnet build api/check/HrCore.Check.csproj -p:CI=true

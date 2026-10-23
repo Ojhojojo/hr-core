@@ -1,0 +1,231 @@
+# Editor configuration, see https://editorconfig.org
+root = true
+
+# Top-level default settings matching apps/ops/.editorconfig
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+max_line_length = off
+trim_trailing_whitespace = false
+
+# Exclude generated code and migrations from formatting
+[**/Migrations/**]
+generated_code = true
+
+[**/{obj,bin}/**]
+generated_code = true
+
+[*.designer.cs]
+generated_code = true
+
+# C# source files
+[*.cs]
+indent_style = space
+indent_size = 4
+tab_width = 4
+end_of_line = lf
+
+# Organize usings
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+csharp_using_directive_placement = outside_namespace:warning
+
+# Namespace preferences
+csharp_style_namespace_declarations = file_scoped:warning
+
+# var preferences (existing code heavily favors var)
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:suggestion
+
+# Expression-bodied members
+csharp_style_expression_bodied_methods = false:silent
+csharp_style_expression_bodied_constructors = false:silent
+csharp_style_expression_bodied_operators = true:silent
+csharp_style_expression_bodied_properties = true:silent
+csharp_style_expression_bodied_indexers = true:silent
+csharp_style_expression_bodied_accessors = true:silent
+csharp_style_expression_bodied_lambdas = true:silent
+csharp_style_expression_bodied_local_functions = false:silent
+
+# 'this.' and 'Me.' qualifications
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+dotnet_style_qualification_for_method = false:suggestion
+dotnet_style_qualification_for_event = false:suggestion
+
+# Language keywords vs BCL types
+dotnet_style_predefined_type_for_locals_parameters_members = true:warning
+dotnet_style_predefined_type_for_member_access = true:warning
+
+# Parentheses preferences
+dotnet_style_parentheses_in_arithmetic_binary_operators = always_for_clarity:silent
+dotnet_style_parentheses_in_relational_binary_operators = always_for_clarity:silent
+dotnet_style_parentheses_in_other_binary_operators = always_for_clarity:silent
+dotnet_style_parentheses_in_other_operators = never_if_unnecessary:silent
+
+# Modifier preferences
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:suggestion
+csharp_preferred_modifier_order = public,private,protected,internal,static,extern,new,virtual,abstract,sealed,override,readonly,unsafe,required,volatile,async:suggestion
+
+# Pattern matching preferences
+csharp_style_pattern_matching_over_is_syntax = true:suggestion
+csharp_style_pattern_matching_over_as_syntax = true:suggestion
+csharp_style_inlined_variable_declaration = true:suggestion
+
+# Null-checking preferences
+csharp_style_throw_expression = true:suggestion
+csharp_style_conditional_delegate_call = true:suggestion
+csharp_style_null_propagation = true:suggestion
+
+# Formatting rules
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types = true
+csharp_new_line_between_query_expression_clauses = true
+
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+csharp_indent_labels = one_less_than_current
+
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_between_parentheses = false
+csharp_space_before_colon_in_type_declaration = true
+
+# Analyzer severities
+dotnet_diagnostic.IDE0005.severity = warning
+dotnet_diagnostic.IDE0055.severity = warning
+dotnet_diagnostic.IDE0161.severity = warning
+dotnet_diagnostic.IDE0065.severity = warning
+dotnet_diagnostic.IDE0007.severity = suggestion
+dotnet_diagnostic.IDE0008.severity = none
+dotnet_diagnostic.IDE0044.severity = suggestion
+dotnet_diagnostic.IDE0051.severity = suggestion
+dotnet_diagnostic.IDE0052.severity = suggestion
+dotnet_diagnostic.IDE0060.severity = suggestion
+dotnet_diagnostic.IDE1006.severity = suggestion
+
+# Code quality analyzer severities (downgraded with counts to avoid noisy/unwanted warnings)
+# CA1304: Specify CultureInfo (21 occurrences: 19 api, 2 tests). In EF Core queries (e.g. JobListQuery, BlanketPoService), cultured ToUpper/ToLower cannot be translated to SQL by Npgsql and causes runtime failures.
+dotnet_diagnostic.CA1304.severity = none
+
+# CA1305: Specify IFormatProvider (154 occurrences: 31 api, 123 tests). In EF Core queries, ToString(IFormatProvider) cannot be translated to SQL; throughout the application, standard/invariant formatting is already applied where relevant.
+dotnet_diagnostic.CA1305.severity = none
+
+# CA1310: Specify StringComparison for correctness (10 occurrences: in tests). String comparisons in this app and tests use default ordinals.
+dotnet_diagnostic.CA1310.severity = none
+
+# CA1311: Specify a culture or use an invariant version (21 occurrences: 19 api, 2 tests). Conflicts with EF Core LINQ-to-Entities SQL translation.
+dotnet_diagnostic.CA1311.severity = none
+
+# CA1716: Identifiers should not match keywords (2 occurrences: in api). 'Shared' and 'Public' are intentional architectural domain/folder names in the project.
+dotnet_diagnostic.CA1716.severity = none
+
+# CA1826: Do not use Enumerable methods on indexable collections (15 occurrences: in api). Using FirstOrDefault() / LastOrDefault() on IReadOnlyList protects against empty list IndexOutOfRangeException; replacing blindly with indexers is unsafe.
+dotnet_diagnostic.CA1826.severity = none
+
+# CA1848: Use LoggerMessage delegates (25 occurrences: in api). Heavy boilerplate requiring source-generated LoggerMessage partial methods for every log call across controllers and services.
+dotnet_diagnostic.CA1848.severity = none
+
+# CA1859: Change type of parameter from interface to concrete type (14 occurrences: in api). Suggests changing IReadOnlyList/IReadOnlyCollection abstractions to concrete List<T> or T[], which degrades clean interface-based API design.
+dotnet_diagnostic.CA1859.severity = none
+
+# CA1862: Prefer string comparison method overload (21 occurrences: 18 api, 3 tests). Applying Contains(..., StringComparison) inside EF Core LINQ queries throws runtime InvalidOperationException on PostgreSQL.
+dotnet_diagnostic.CA1862.severity = none
+
+# CA1873: Evaluation of argument may be expensive if logging is disabled (8 occurrences: in api). Accompanies standard structured logging calls throughout services.
+dotnet_diagnostic.CA1873.severity = none
+
+# Naming conventions
+# Interfaces: start with I
+dotnet_naming_rule.interface_should_be_begins_with_i.severity = suggestion
+dotnet_naming_rule.interface_should_be_begins_with_i.symbols = interface_symbols
+dotnet_naming_rule.interface_should_be_begins_with_i.style = begins_with_i_style
+
+dotnet_naming_symbols.interface_symbols.applicable_kinds = interface
+dotnet_naming_symbols.interface_symbols.applicable_accessibilities = *
+
+dotnet_naming_style.begins_with_i_style.required_prefix = I
+dotnet_naming_style.begins_with_i_style.capitalization = pascal_case
+
+# Types: PascalCase
+dotnet_naming_rule.types_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.types_should_be_pascal_case.symbols = type_symbols
+dotnet_naming_rule.types_should_be_pascal_case.style = pascal_case_style
+
+dotnet_naming_symbols.type_symbols.applicable_kinds = class, struct, enum, delegate
+dotnet_naming_symbols.type_symbols.applicable_accessibilities = *
+
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+
+# Private fields: _camelCase
+dotnet_naming_rule.private_fields_should_be_prefix_underscore.severity = suggestion
+dotnet_naming_rule.private_fields_should_be_prefix_underscore.symbols = private_field_symbols
+dotnet_naming_rule.private_fields_should_be_prefix_underscore.style = prefix_underscore_style
+
+dotnet_naming_symbols.private_field_symbols.applicable_kinds = field
+dotnet_naming_symbols.private_field_symbols.applicable_accessibilities = private, private_protected
+
+dotnet_naming_style.prefix_underscore_style.required_prefix = _
+dotnet_naming_style.prefix_underscore_style.capitalization = camel_case
+
+# Public/internal members: PascalCase
+dotnet_naming_rule.members_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.members_should_be_pascal_case.symbols = member_symbols
+dotnet_naming_rule.members_should_be_pascal_case.style = pascal_case_style
+
+dotnet_naming_symbols.member_symbols.applicable_kinds = property, method, event
+dotnet_naming_symbols.member_symbols.applicable_accessibilities = public, internal, protected, protected_internal
+
+# Parameters: camelCase
+dotnet_naming_rule.parameters_should_be_camel_case.severity = suggestion
+dotnet_naming_rule.parameters_should_be_camel_case.symbols = parameter_symbols
+dotnet_naming_rule.parameters_should_be_camel_case.style = camel_case_style
+
+dotnet_naming_symbols.parameter_symbols.applicable_kinds = parameter
+dotnet_naming_symbols.parameter_symbols.applicable_accessibilities = *
+
+dotnet_naming_style.camel_case_style.capitalization = camel_case
+
+# Local variables: camelCase
+dotnet_naming_rule.locals_should_be_camel_case.severity = suggestion
+dotnet_naming_rule.locals_should_be_camel_case.symbols = local_symbols
+dotnet_naming_rule.locals_should_be_camel_case.style = camel_case_style
+
+dotnet_naming_symbols.local_symbols.applicable_kinds = local
+dotnet_naming_symbols.local_symbols.applicable_accessibilities = *
+
+# Constants: PascalCase
+dotnet_naming_rule.constants_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.constants_should_be_pascal_case.symbols = constant_symbols
+dotnet_naming_rule.constants_should_be_pascal_case.style = pascal_case_style
+
+dotnet_naming_symbols.constant_symbols.applicable_kinds = field, local
+dotnet_naming_symbols.constant_symbols.required_modifiers = const
+
+[**/*tests*/**]
+# Test methods often use underscore naming (e.g. Method_Condition_ExpectedResult)
+dotnet_naming_rule.members_should_be_pascal_case.severity = none
+
+# CA1707: Remove underscores from member names (1010 occurrences: in tests). Unit test method names standardly use underscores for readability (Method_Condition_Expected).
+dotnet_diagnostic.CA1707.severity = none
+
+# CA1861: Avoid constant arrays as arguments (18 occurrences: in tests). Passing inline array literals in test assertions/helpers is standard and clean.
+dotnet_diagnostic.CA1861.severity = none
+
+# CA1711: Identifiers should not have incorrect suffix (1 occurrence: in tests). Test class naming helper.
+dotnet_diagnostic.CA1711.severity = none
+
+# CA1869: Cache and reuse JsonSerializerOptions (1 occurrence: in tests). Creating ad-hoc serializer options in test setup is harmless.
+dotnet_diagnostic.CA1869.severity = none
+

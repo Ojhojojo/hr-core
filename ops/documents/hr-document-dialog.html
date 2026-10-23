@@ -1,0 +1,342 @@
+<h2 mat-dialog-title class="hr-doc-chrome">{{ title() }}</h2>
+<mat-dialog-content>
+  @if (error()) {
+    <p class="ops-error" role="alert">{{ error() }}</p>
+  }
+  <div class="hr-doc-fields hr-doc-chrome">
+    <mat-form-field appearance="outline">
+      <mat-label>Staff</mat-label>
+      <mat-select name="hrDocStaff" [(ngModel)]="staffId" (ngModelChange)="onStaff($event)">
+        @for (person of people(); track person.id) {
+          <mat-option [value]="person.id">{{ person.displayName }}</mat-option>
+        }
+      </mat-select>
+      @if (loadingStaff()) {
+        <mat-hint>Loading directory…</mat-hint>
+      }
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Worker name</mat-label>
+      <input matInput name="workerName" [(ngModel)]="draft.workerName" (ngModelChange)="touch()" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Position</mat-label>
+      <input matInput name="position" [(ngModel)]="draft.position" (ngModelChange)="touch()" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Department</mat-label>
+      <input matInput name="department" [(ngModel)]="draft.department" (ngModelChange)="touch()" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Employee no.</mat-label>
+      <input matInput name="employeeNo" [(ngModel)]="draft.employeeNo" (ngModelChange)="touch()" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Issued on</mat-label>
+      <input
+        matInput
+        name="issuedOn"
+        type="date"
+        [(ngModel)]="draft.issuedOn"
+        (ngModelChange)="touch()"
+      />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>TIN</mat-label>
+      <input matInput name="workerTin" [(ngModel)]="draft.workerTin" (ngModelChange)="touch()" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>SSS</mat-label>
+      <input matInput name="sss" [(ngModel)]="draft.sss" (ngModelChange)="touch()" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>PhilHealth</mat-label>
+      <input matInput name="philHealth" [(ngModel)]="draft.philHealth" (ngModelChange)="touch()" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Pag-IBIG</mat-label>
+      <input matInput name="pagIbig" [(ngModel)]="draft.pagIbig" (ngModelChange)="touch()" />
+    </mat-form-field>
+
+    @switch (draft.kind) {
+      @case ('nte') {
+        <mat-form-field appearance="outline">
+          <mat-label>Incident date</mat-label>
+          <input
+            matInput
+            name="incidentDate"
+            type="date"
+            [(ngModel)]="draft.incidentDate"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Incident place</mat-label>
+          <input
+            matInput
+            name="incidentPlace"
+            [(ngModel)]="draft.incidentPlace"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-doc-span">
+          <mat-label>Infraction summary</mat-label>
+          <textarea
+            matInput
+            name="infraction"
+            rows="3"
+            [(ngModel)]="draft.infraction"
+            (ngModelChange)="touch()"
+          ></textarea>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-doc-span">
+          <mat-label>Company code / Labor Code cite</mat-label>
+          <input matInput name="codeCite" [(ngModel)]="draft.codeCite" (ngModelChange)="touch()" />
+          <mat-hint>Defaults to Article 297</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Response window (calendar days)</mat-label>
+          <input
+            matInput
+            name="responseDays"
+            type="number"
+            min="1"
+            [(ngModel)]="draft.responseDays"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Hearing date</mat-label>
+          <input
+            matInput
+            name="hearingDate"
+            type="date"
+            [(ngModel)]="draft.hearingDate"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-doc-span">
+          <mat-label>Hearing venue</mat-label>
+          <input
+            matInput
+            name="hearingVenue"
+            [(ngModel)]="draft.hearingVenue"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+      }
+      @case ('nod') {
+        <mat-form-field appearance="outline">
+          <mat-label>Outcome</mat-label>
+          <mat-select name="nodOutcome" [(ngModel)]="draft.outcome" (ngModelChange)="touch()">
+            <mat-option value="warning">Warning</mat-option>
+            <mat-option value="suspension">Suspension</mat-option>
+            <mat-option value="termination">Termination</mat-option>
+          </mat-select>
+        </mat-form-field>
+        @if (draft.outcome === 'suspension') {
+          <mat-form-field appearance="outline">
+            <mat-label>Suspension days</mat-label>
+            <input
+              matInput
+              name="suspensionDays"
+              type="number"
+              min="1"
+              [(ngModel)]="draft.suspensionDays"
+              (ngModelChange)="touch()"
+            />
+          </mat-form-field>
+        }
+        <mat-form-field appearance="outline">
+          <mat-label>Effective date</mat-label>
+          <input
+            matInput
+            name="effectiveDate"
+            type="date"
+            [(ngModel)]="draft.effectiveDate"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-doc-span">
+          <mat-label>Decision summary</mat-label>
+          <textarea
+            matInput
+            name="decisionSummary"
+            rows="3"
+            [(ngModel)]="draft.decisionSummary"
+            (ngModelChange)="touch()"
+          ></textarea>
+        </mat-form-field>
+      }
+      @case ('warning') {
+        <mat-form-field appearance="outline">
+          <mat-label>Warning level</mat-label>
+          <mat-select
+            name="warningLevel"
+            [ngModel]="draft.warningLevel"
+            (ngModelChange)="onWarningLevel($event)"
+          >
+            <mat-option value="verbal">Verbal warning documented</mat-option>
+            <mat-option value="first">First written warning</mat-option>
+            <mat-option value="final">Final written warning</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Incident date</mat-label>
+          <input
+            matInput
+            name="incidentDate"
+            type="date"
+            [(ngModel)]="draft.incidentDate"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-doc-span">
+          <mat-label>Rule or policy violated</mat-label>
+          <input
+            matInput
+            name="ruleViolated"
+            [(ngModel)]="draft.ruleViolated"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-doc-span">
+          <mat-label>Description of the incident</mat-label>
+          <textarea
+            matInput
+            name="incidentDescription"
+            rows="4"
+            [(ngModel)]="draft.incidentDescription"
+            (ngModelChange)="touch()"
+          ></textarea>
+          <mat-hint>One line per paragraph on the letter</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-doc-span">
+          <mat-label>Corrective action expected</mat-label>
+          <textarea
+            matInput
+            name="correctiveAction"
+            rows="3"
+            [(ngModel)]="draft.correctiveAction"
+            (ngModelChange)="touch()"
+          ></textarea>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-doc-span">
+          <mat-label>Consequence if repeated</mat-label>
+          <textarea
+            matInput
+            name="repeatConsequence"
+            rows="2"
+            [(ngModel)]="draft.repeatConsequence"
+            (ngModelChange)="touch()"
+          ></textarea>
+          <mat-hint>Prefilled from the warning level; edit as needed</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-doc-span">
+          <mat-label>Related notice to explain (optional)</mat-label>
+          <input
+            matInput
+            name="relatedNte"
+            [(ngModel)]="draft.relatedNte"
+            (ngModelChange)="touch()"
+          />
+          <mat-hint>For example, the NTE date or reference</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Issuer name</mat-label>
+          <input
+            matInput
+            name="issuerName"
+            [(ngModel)]="draft.issuerName"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Issuer position</mat-label>
+          <input
+            matInput
+            name="issuerPosition"
+            [(ngModel)]="draft.issuerPosition"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+      }
+      @case ('quitclaim') {
+        <mat-form-field appearance="outline">
+          <mat-label>Separation date</mat-label>
+          <input
+            matInput
+            name="separationDate"
+            type="date"
+            [(ngModel)]="draft.separationDate"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Final pay (PHP)</mat-label>
+          <input
+            matInput
+            name="finalPayPhp"
+            [(ngModel)]="draft.finalPayPhp"
+            (ngModelChange)="touch()"
+          />
+        </mat-form-field>
+      }
+    }
+
+    <mat-form-field appearance="outline">
+      <mat-label>Legal name</mat-label>
+      <input matInput name="legalName" [(ngModel)]="draft.legalName" (ngModelChange)="touch()" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="hr-doc-span">
+      <mat-label>Shop address</mat-label>
+      <input matInput name="shopAddress" [(ngModel)]="draft.address" (ngModelChange)="touch()" />
+    </mat-form-field>
+  </div>
+
+  <article class="hr-doc-sheet" data-hr-document>
+    <header>
+      <h1>{{ draft.tradingName || draft.legalName }}</h1>
+      @if (draft.legalName && draft.legalName !== draft.tradingName) {
+        <p>{{ draft.legalName }}</p>
+      }
+      @if (draft.tin) {
+        <p>TIN {{ draft.tin }}</p>
+      }
+      @if (draft.address || draft.phone) {
+        <p>{{ draft.address }}{{ draft.address && draft.phone ? ' · ' : '' }}{{ draft.phone }}</p>
+      }
+    </header>
+    <h2>{{ title() }}</h2>
+    @for (line of paragraphs(); track $index) {
+      <p>{{ line }}</p>
+    }
+    <div class="hr-doc-signs">
+      @for (label of signatures(); track label) {
+        <div>
+          <span class="hr-doc-line"></span>
+          <p>{{ label }}</p>
+          @for (detail of signatureDetails(label); track $index) {
+            <p>{{ detail }}</p>
+          }
+        </div>
+      }
+    </div>
+  </article>
+</mat-dialog-content>
+<mat-dialog-actions align="end" class="hr-doc-chrome hr-doc-actions">
+  <button matButton="outlined" type="button" (click)="close()">Close</button>
+  <button
+    matButton="outlined"
+    type="button"
+    name="saveHrDoc"
+    [disabled]="saving() || !staffId"
+    (click)="save()"
+  >
+    {{ saving() ? 'Saving…' : 'Save to employment docs' }}
+  </button>
+  <button matButton="outlined" type="button" name="downloadHrDoc" (click)="download()">
+    Download PDF
+  </button>
+  <button matButton="filled" type="button" name="printHrDoc" (click)="print()">Print</button>
+</mat-dialog-actions>

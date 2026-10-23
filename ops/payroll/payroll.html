@@ -1,0 +1,976 @@
+<ops-page-header
+  title="Payroll"
+  infoTooltip="Computed from closed punches and staff rates; payout happens outside the app."
+>
+  <div subhead>
+    <ops-status-badge
+      data-lock-status
+      [attr.data-source]="source()"
+      [tone]="isLocked() ? 'ok' : 'neutral'"
+      [label]="lockStatusLabel()"
+    />
+  </div>
+
+  <div actions>
+    @if (!isLocked()) {
+      <button
+        matButton="filled"
+        type="button"
+        name="lockPeriod"
+        [disabled]="locking() || !lockBranchId()"
+        (click)="lockPeriod()"
+      >
+        {{ locking() ? 'Locking…' : 'Lock period' }}
+      </button>
+    }
+    <button
+      matIconButton
+      type="button"
+      name="payrollMoreMenu"
+      [matMenuTriggerFor]="payrollMenu"
+      aria-label="More actions"
+    >
+      ⋮
+    </button>
+    <mat-menu #payrollMenu="matMenu">
+      <button
+        mat-menu-item
+        name="exportPayrollCsv"
+        [disabled]="downloading()"
+        (click)="exportCsv()"
+      >
+        <span>Export CSV</span>
+      </button>
+      <button
+        mat-menu-item
+        name="printAllPayslips"
+        [disabled]="ratedRows().length === 0"
+        (click)="openAllPayslips()"
+      >
+        <span>Print payslips</span>
+      </button>
+      @if (isLocked() && isOwner()) {
+        <button mat-menu-item name="voidRun" [disabled]="voiding()" (click)="voidRun()">
+          <span>Void run</span>
+        </button>
+      }
+      <button mat-menu-item (click)="load()">
+        <span>Refresh</span>
+      </button>
+    </mat-menu>
+  </div>
+</ops-page-header>
+
+@if (isLocked()) {
+  <ops-banner
+    tone="warn"
+    data-locked-banner
+    [message]="
+      lockLine() +
+      '. Deductions are frozen. Post any correction as an adjustment in the next period.'
+    "
+  />
+}
+
+@if (!isLocked() && openPunchNames().length > 0) {
+  <ops-banner
+    tone="warn"
+    data-open-punch-warning
+    [message]="
+      'Open clock-ins in this period: ' +
+      openPunchNames().join(', ') +
+      '. They have no clock-out and won\'t be paid for those days.'
+    "
+  />
+  <a class="open-punch-link" routerLink="/hr/attendance">Review in Attendance</a>
+}
+
+@if (pendingOtCount() > 0) {
+  <ops-banner tone="warn" data-pending-ot-banner [message]="pendingOtWarning()" />
+}
+
+@if (unpaidBonuses().length > 0) {
+  <ops-banner tone="warn" data-unpaid-bonus-banner [message]="unpaidBonusWarning()" />
+}
+
+@if (rateAdvisory()) {
+  <ops-banner
+    tone="warn"
+    data-rate-advisory
+    message="Some active staff have no pay rate, so their amount on this register is zero until a rate is set on Staff."
+  />
+}
+
+@if (error()) {
+  <ops-banner tone="danger" [message]="error()" />
+}
+
+@if (suggestError()) {
+  <ops-banner tone="danger" [message]="suggestError()" />
+}
+
+@if (suggestNotes().length > 0) {
+  <ul class="ops-notes" data-suggest-notes>
+    @for (note of suggestNotes(); track note) {
+      <li>{{ note }}</li>
+    }
+  </ul>
+}
+
+<ops-card>
+  <div class="ops-payroll-toolbar">
+    <ops-period-nav [from]="from()" [to]="to()" (rangeChange)="onPeriodChange($event)" />
+    <div class="ops-payroll-toolbar-controls">
+      <div class="ops-statutory-toggle-wrap">
+        <span class="ops-statutory-label">Statutory:</span>
+        <mat-button-toggle-group
+          name="statutorySchedule"
+          [value]="statutorySchedule()"
+          (change)="statutorySchedule.set($event.value)"
+          aria-label="Statutory suggestion schedule"
+          class="ops-statutory-toggle"
+        >
+          <mat-button-toggle value="semi_monthly">Semi-monthly (½)</mat-button-toggle>
+          <mat-button-toggle value="full_month">Full month</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+
+      @if (!isLocked() && ratedRows().length > 0) {
+        <button
+          matButton="outlined"
+          type="button"
+          name="suggestAllStatutory"
+          [disabled]="suggestingAll()"
+          (click)="suggestAllStatutory()"
+        >
+          {{ suggestingAll() ? 'Suggesting…' : 'Suggest all' }}
+        </button>
+        <button
+          matButton="outlined"
+          type="button"
+          name="saveAllDeductions"
+          [disabled]="savingAll()"
+          (click)="saveAllDeductions()"
+        >
+          {{ savingAll() ? 'Saving…' : 'Save all' }}
+        </button>
+      }
+
+      <mat-checkbox
+        name="includeInactive"
+        [checked]="includeInactive()"
+        (change)="onIncludeInactiveToggle($event.checked)"
+      >
+        Include inactive
+      </mat-checkbox>
+      @if (needsShopChoice()) {
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
+          <mat-label>Shop to lock</mat-label>
+          <mat-select
+            name="lockBranch"
+            [value]="lockBranchChoice()"
+            (selectionChange)="lockBranchChoice.set($event.value)"
+          >
+            @for (shop of branchOptions(); track shop.id) {
+              <mat-option [value]="shop.id">{{ shop.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+    </div>
+  </div>
+</ops-card>
+
+<mat-expansion-panel class="ops-premium-panel" (opened)="loadPremiums()">
+  <mat-expansion-panel-header>
+    <mat-panel-title>
+      Holidays &amp; premiums
+      <ops-info-tip
+        text="Defaults: Regular holiday 200%, Special day 130%, Rest day 130%, NSD 10% 22:00–06:00"
+      />
+    </mat-panel-title>
+  </mat-expansion-panel-header>
+
+  @if (premiumsError()) {
+    <ops-banner tone="danger" [message]="premiumsError()" />
+  }
+  @if (premiumsNotice()) {
+    <ops-banner tone="ok" [message]="premiumsNotice()" />
+  }
+  @if (premiumsLoading()) {
+    <ops-skeleton [rows]="3" label="Loading holidays and premiums" />
+  } @else {
+    <div class="ops-premium-actions">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Year</mat-label>
+        <input
+          matInput
+          name="holidayYear"
+          type="number"
+          min="2000"
+          max="2100"
+          step="1"
+          [value]="holidayYear()"
+          (change)="setHolidayYear($event)"
+        />
+      </mat-form-field>
+      @if (canEditPremiums()) {
+        <button
+          matButton="outlined"
+          type="button"
+          name="addHoliday"
+          [disabled]="holidayBusy()"
+          (click)="openHoliday()"
+        >
+          Add holiday
+        </button>
+        <button
+          matButton="outlined"
+          type="button"
+          name="copyLastYear"
+          [disabled]="holidayBusy()"
+          (click)="copyLastYear()"
+        >
+          Copy last year
+        </button>
+      }
+    </div>
+
+    @if (holidays().length === 0) {
+      <p class="ops-premium-hint">No holidays for {{ holidayYear() }}.</p>
+    } @else {
+      <div class="ops-table-wrap">
+        <table mat-table [dataSource]="holidays()" class="ops-table">
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let holiday" data-label="Date">{{ holiday.date }}</td>
+          </ng-container>
+          <ng-container matColumnDef="holidayName">
+            <th mat-header-cell *matHeaderCellDef>Name</th>
+            <td mat-cell *matCellDef="let holiday" data-label="Name">{{ holiday.name }}</td>
+          </ng-container>
+          <ng-container matColumnDef="kind">
+            <th mat-header-cell *matHeaderCellDef>Kind</th>
+            <td mat-cell *matCellDef="let holiday" data-label="Kind">
+              {{ premiumLabel(holiday.kind) }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="holidayActions">
+            <th mat-header-cell *matHeaderCellDef></th>
+            <td mat-cell *matCellDef="let holiday" data-label="">
+              @if (canEditPremiums()) {
+                <button
+                  matButton="outlined"
+                  type="button"
+                  [disabled]="holidayBusy()"
+                  (click)="openHoliday(holiday)"
+                >
+                  Edit
+                </button>
+                <button
+                  matButton="outlined"
+                  type="button"
+                  [disabled]="holidayBusy()"
+                  (click)="deleteHoliday(holiday)"
+                >
+                  Delete
+                </button>
+              }
+            </td>
+          </ng-container>
+          <tr
+            mat-header-row
+            *matHeaderRowDef="['date', 'holidayName', 'kind', 'holidayActions']"
+          ></tr>
+          <tr
+            mat-row
+            *matRowDef="let holiday; columns: ['date', 'holidayName', 'kind', 'holidayActions']"
+          ></tr>
+        </table>
+      </div>
+    }
+
+    @if (settingsDraft(); as draft) {
+      <form (ngSubmit)="savePremiumSettings()">
+        <div class="ops-premium-toggles">
+          <mat-slide-toggle
+            name="holidayPremiumEnabled"
+            [(ngModel)]="draft.holidayPremiumEnabled"
+            [disabled]="!canEditPremiums()"
+          >
+            Holiday pay
+          </mat-slide-toggle>
+          <mat-slide-toggle
+            name="restDayPremiumEnabled"
+            [(ngModel)]="draft.restDayPremiumEnabled"
+            [disabled]="!canEditPremiums()"
+          >
+            Rest day
+          </mat-slide-toggle>
+          <mat-slide-toggle
+            name="nightDiffEnabled"
+            [(ngModel)]="draft.nightDiffEnabled"
+            [disabled]="!canEditPremiums()"
+          >
+            Night diff (NSD)
+          </mat-slide-toggle>
+          <mat-slide-toggle
+            name="adminsCanApproveOt"
+            [(ngModel)]="draft.adminsCanApproveOt"
+            [disabled]="!canEditPremiums()"
+          >
+            Admins can approve OT
+          </mat-slide-toggle>
+        </div>
+        <div class="ops-premium-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Regular holiday %</mat-label>
+            <input
+              matInput
+              name="regularHolidayPercent"
+              type="number"
+              min="0"
+              max="1000"
+              step="1"
+              [(ngModel)]="draft.regularHolidayPercent"
+              [disabled]="!canEditPremiums()"
+            />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Special day %</mat-label>
+            <input
+              matInput
+              name="specialDayPercent"
+              type="number"
+              min="0"
+              max="1000"
+              step="1"
+              [(ngModel)]="draft.specialDayPercent"
+              [disabled]="!canEditPremiums()"
+            />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Rest day %</mat-label>
+            <input
+              matInput
+              name="restDayPercent"
+              type="number"
+              min="0"
+              max="1000"
+              step="1"
+              [(ngModel)]="draft.restDayPercent"
+              [disabled]="!canEditPremiums()"
+            />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Night diff (NSD) %</mat-label>
+            <input
+              matInput
+              name="nightDiffPercent"
+              type="number"
+              min="0"
+              max="1000"
+              step="0.01"
+              [(ngModel)]="draft.nightDiffPercent"
+              [disabled]="!canEditPremiums()"
+            />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Night start</mat-label>
+            <input
+              matInput
+              name="nightStart"
+              type="time"
+              [(ngModel)]="draft.nightStart"
+              [disabled]="!canEditPremiums()"
+            />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Night end</mat-label>
+            <input
+              matInput
+              name="nightEnd"
+              type="time"
+              [(ngModel)]="draft.nightEnd"
+              [disabled]="!canEditPremiums()"
+            />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Shift end</mat-label>
+            <input
+              matInput
+              name="shiftEnd"
+              type="time"
+              [(ngModel)]="draft.shiftEnd"
+              [disabled]="!canEditPremiums()"
+            />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>OT grace (minutes)</mat-label>
+            <input
+              matInput
+              name="otGraceMinutes"
+              type="number"
+              min="0"
+              max="240"
+              step="1"
+              [(ngModel)]="draft.otGraceMinutes"
+              [disabled]="!canEditPremiums()"
+            />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>OT premium %</mat-label>
+            <input
+              matInput
+              name="otPremiumPercent"
+              type="number"
+              min="0"
+              max="1000"
+              step="1"
+              [(ngModel)]="draft.otPremiumPercent"
+              [disabled]="!canEditPremiums()"
+            />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Monthly day divisor</mat-label>
+            <input
+              matInput
+              name="otMonthlyDayDivisor"
+              type="number"
+              min="1"
+              max="1000"
+              step="1"
+              [(ngModel)]="draft.otMonthlyDayDivisor"
+              [disabled]="!canEditPremiums()"
+            />
+          </mat-form-field>
+        </div>
+        @if (canEditPremiums()) {
+          <div class="ops-premium-actions">
+            <button
+              matButton="filled"
+              type="submit"
+              name="savePremiumSettings"
+              [disabled]="premiumsSaving()"
+            >
+              {{ premiumsSaving() ? 'Saving…' : 'Save settings' }}
+            </button>
+          </div>
+        }
+      </form>
+    }
+  }
+</mat-expansion-panel>
+
+<ops-card [bleed]="rows().length > 0">
+  @if (loading()) {
+    <ops-skeleton [rows]="5" label="Loading payroll" />
+  } @else if (rows().length === 0) {
+    <ops-empty-state
+      title="No staff"
+      message="Try another period, or include inactive staff."
+      icon="inbox"
+    />
+  } @else {
+    <div class="ops-table-wrap ops-table-scroll ops-table-keep">
+      <table
+        mat-table
+        [dataSource]="rows()"
+        class="ops-table ops-payroll-table"
+        multiTemplateDataRows
+      >
+        <ng-container matColumnDef="name" sticky>
+          <th mat-header-cell *matHeaderCellDef>Staff name</th>
+          <td mat-cell *matCellDef="let row" data-label="Staff name">
+            <span class="ops-name-cell">
+              <a
+                [routerLink]="['/hr/employee-directory', row.staffId]"
+                [queryParams]="{ tab: 'pay' }"
+              >
+                <strong>{{ row.staffName }}</strong>
+              </a>
+              @if (rowWarnings(row)) {
+                <span
+                  class="ops-row-warn"
+                  role="img"
+                  [matTooltip]="rowWarnings(row)"
+                  [attr.aria-label]="rowWarnings(row)"
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"
+                    />
+                  </svg>
+                </span>
+              }
+            </span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="role">
+          <th mat-header-cell *matHeaderCellDef>Role</th>
+          <td mat-cell *matCellDef="let row" data-label="Role">{{ row.role }}</td>
+        </ng-container>
+        <ng-container matColumnDef="shop">
+          <th mat-header-cell *matHeaderCellDef>Shop</th>
+          <td mat-cell *matCellDef="let row" data-label="Shop">{{ row.branchName ?? '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="basis">
+          <th mat-header-cell *matHeaderCellDef>Basis</th>
+          <td mat-cell *matCellDef="let row" data-label="Basis">{{ formatBasis(row) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="rate">
+          <th mat-header-cell *matHeaderCellDef>Rate</th>
+          <td mat-cell *matCellDef="let row" data-label="Rate">
+            <span>{{ formatRate(row) }}</span>
+            @if (rateSlices(row).length > 0) {
+              <ul class="ops-payroll-slices" data-rate-slices>
+                @for (slice of rateSlices(row); track slice) {
+                  <li>{{ slice }}</li>
+                }
+              </ul>
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="regularHours">
+          <th mat-header-cell *matHeaderCellDef>Regular hours</th>
+          <td mat-cell *matCellDef="let row" data-label="Regular hours">
+            {{ formatHours(row.regularHours) }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="otHours">
+          <th mat-header-cell *matHeaderCellDef>OT hours</th>
+          <td mat-cell *matCellDef="let row" data-label="OT hours">
+            {{ formatHours(row.otHours) }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="otPay">
+          <th mat-header-cell *matHeaderCellDef>OT pay</th>
+          <td mat-cell *matCellDef="let row" data-label="OT pay">{{ formatMoney(row.otPay) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="daysPaid">
+          <th mat-header-cell *matHeaderCellDef>Days paid</th>
+          <td mat-cell *matCellDef="let row" data-label="Days paid">{{ row.daysPaid }}</td>
+        </ng-container>
+        <ng-container matColumnDef="holidayHours">
+          <th mat-header-cell *matHeaderCellDef>Holiday pay</th>
+          <td mat-cell *matCellDef="let row" data-label="Holiday pay">
+            {{ formatOptionalHours(row.holidayHours) }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="restDayHours">
+          <th mat-header-cell *matHeaderCellDef>Rest day</th>
+          <td mat-cell *matCellDef="let row" data-label="Rest day">
+            {{ formatOptionalHours(row.restDayHours) }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="nightHours">
+          <th mat-header-cell *matHeaderCellDef>Night diff (NSD)</th>
+          <td mat-cell *matCellDef="let row" data-label="Night diff (NSD)">
+            {{ formatOptionalHours(row.nightHours) }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="premiumPay">
+          <th mat-header-cell *matHeaderCellDef>Premium pay</th>
+          <td mat-cell *matCellDef="let row" data-label="Premium pay">
+            {{ formatOptionalMoney(row.premiumPay) }}
+            @if (row.premiumOverridden) {
+              <span class="ops-premium-edited">edited</span>
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="allowances">
+          <th mat-header-cell *matHeaderCellDef>COLA / allowances</th>
+          <td mat-cell *matCellDef="let row" data-label="COLA / allowances">
+            {{ formatOptionalMoney(row.allowances) }}
+            @if (row.allowancesOverridden) {
+              <span class="ops-premium-edited">edited</span>
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="loans">
+          <th mat-header-cell *matHeaderCellDef>Loans / CA</th>
+          <td mat-cell *matCellDef="let row" data-label="Loans / CA">
+            {{ formatOptionalMoney(row.loanDeductions) }}
+            @for (item of row.loanItems ?? []; track item.loanId) {
+              <span class="ops-loan-item">{{ loanItemLabel(item) }}</span>
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="amount">
+          <th mat-header-cell *matHeaderCellDef>Amount</th>
+          <td mat-cell *matCellDef="let row" data-label="Amount">
+            <strong>{{ formatMoney(row.amount) }}</strong>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="notes">
+          <th mat-header-cell *matHeaderCellDef>Notes</th>
+          <td mat-cell *matCellDef="let row" data-label="Notes">{{ row.notes ?? '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="deductions">
+          <th mat-header-cell *matHeaderCellDef>Deductions</th>
+          <td mat-cell *matCellDef="let row" data-label="Deductions">
+            {{ formatMoney(rowDeductions(row.staffId)) }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="net">
+          <th mat-header-cell *matHeaderCellDef>Net</th>
+          <td mat-cell *matCellDef="let row" data-label="Net">
+            <strong>{{ formatMoney(rowNet(row)) }}</strong>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row" class="ops-td-actions" data-label="Actions">
+            <div class="ops-payroll-actions">
+              <button
+                matButton="outlined"
+                type="button"
+                name="saveDeductions"
+                [disabled]="isLocked() || savingId() === row.staffId"
+                (click)="saveRow(row)"
+              >
+                {{ savingId() === row.staffId ? 'Saving…' : 'Save' }}
+              </button>
+              <button
+                matButton="outlined"
+                type="button"
+                name="suggestStatutory"
+                [disabled]="isLocked() || suggestingId() === row.staffId"
+                (click)="suggestStatutory(row)"
+              >
+                {{ suggestingId() === row.staffId ? 'Suggesting…' : 'Suggest' }}
+              </button>
+              <button matButton="outlined" type="button" name="payslip" (click)="openPayslip(row)">
+                Payslip
+              </button>
+              <button
+                matIconButton
+                type="button"
+                name="rowMenu"
+                [matMenuTriggerFor]="rowMenu"
+                [attr.aria-label]="'More actions for ' + row.staffName"
+              >
+                ⋮
+              </button>
+              <mat-menu #rowMenu="matMenu">
+                @if (!isLocked()) {
+                  <button mat-menu-item type="button" name="editPremium" (click)="openPremium(row)">
+                    Edit premium
+                  </button>
+                  <button
+                    mat-menu-item
+                    type="button"
+                    name="editDayPay"
+                    (click)="openDayPayOverride(row)"
+                  >
+                    Day pay override
+                  </button>
+                  <button
+                    mat-menu-item
+                    type="button"
+                    name="editAllowances"
+                    (click)="openAllowances(row)"
+                  >
+                    Edit allowances
+                  </button>
+                  <button
+                    mat-menu-item
+                    type="button"
+                    name="editLoanInstalment"
+                    (click)="openLoanInstalment(row)"
+                  >
+                    Edit loan instalment
+                  </button>
+                  @if (isOwner()) {
+                    <button mat-menu-item type="button" name="rate" (click)="openRate(row)">
+                      Rate
+                    </button>
+                  }
+                }
+                <button mat-menu-item type="button" name="finalPay" (click)="openFinalPay(row)">
+                  Final pay
+                </button>
+              </mat-menu>
+            </div>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="deductionDetail">
+          <td
+            mat-cell
+            *matCellDef="let row"
+            class="ops-payroll-detail-cell"
+            [attr.colspan]="mainColumns().length"
+            data-label="Statutory deductions"
+          >
+            <div class="ops-payroll-deductions">
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="ops-table-input ops-table-input-sm"
+              >
+                <mat-label>SSS</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [name]="'sss-' + row.staffId"
+                  [disabled]="isLocked()"
+                  [ngModel]="draftAmount(row.staffId, 'sss')"
+                  (ngModelChange)="setDraft(row.staffId, 'sss', $event)"
+                />
+              </mat-form-field>
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="ops-table-input ops-table-input-sm"
+              >
+                <mat-label>PhilHealth</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [name]="'philHealth-' + row.staffId"
+                  [disabled]="isLocked()"
+                  [ngModel]="draftAmount(row.staffId, 'philHealth')"
+                  (ngModelChange)="setDraft(row.staffId, 'philHealth', $event)"
+                />
+              </mat-form-field>
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="ops-table-input ops-table-input-sm"
+              >
+                <mat-label>Pag-IBIG</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [name]="'pagIbig-' + row.staffId"
+                  [disabled]="isLocked()"
+                  [ngModel]="draftAmount(row.staffId, 'pagIbig')"
+                  (ngModelChange)="setDraft(row.staffId, 'pagIbig', $event)"
+                />
+              </mat-form-field>
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="ops-table-input ops-table-input-sm"
+              >
+                <mat-label>WHT</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [name]="'wht-' + row.staffId"
+                  [disabled]="isLocked()"
+                  [ngModel]="draftAmount(row.staffId, 'wht')"
+                  (ngModelChange)="setDraft(row.staffId, 'wht', $event)"
+                />
+              </mat-form-field>
+              <mat-form-field
+                appearance="outline"
+                subscriptSizing="dynamic"
+                class="ops-table-input ops-table-input-sm"
+              >
+                <mat-label>Other</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [name]="'other-' + row.staffId"
+                  [disabled]="isLocked()"
+                  [ngModel]="draftAmount(row.staffId, 'other')"
+                  (ngModelChange)="setDraft(row.staffId, 'other', $event)"
+                />
+              </mat-form-field>
+              @if (issuedLine(row)) {
+                <span class="ops-issued-line" data-issued>{{ issuedLine(row) }}</span>
+              }
+            </div>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="mainColumns()"></tr>
+        <tr mat-row *matRowDef="let row; columns: mainColumns()"></tr>
+        <tr
+          mat-row
+          *matRowDef="let row; columns: detailColumns"
+          class="ops-payroll-detail-row"
+        ></tr>
+      </table>
+    </div>
+    <p class="ops-payroll-total">
+      <strong>Total</strong> {{ formatMoney(totalAmount()) }}
+      @if (showPremiumColumns()) {
+        · Premium pay {{ formatMoney(premiumTotal()) }}
+      }
+      @if (showAllowanceColumn()) {
+        · COLA / allowances {{ formatMoney(allowanceTotal()) }}
+      }
+      @if (showLoanColumn()) {
+        · Loans / CA {{ formatMoney(loanTotal()) }}
+      }
+      · Deductions {{ formatMoney(totalDeductions()) }} · Net {{ formatMoney(totalNet()) }}
+    </p>
+  }
+</ops-card>
+
+<ops-card
+  title="13th-month calculator"
+  infoTooltip="Estimate for the owner to verify. Not a BIR filing; payout happens outside the app."
+>
+  @if (thirteenthError()) {
+    <ops-banner tone="danger" [message]="thirteenthError()" />
+  }
+  <form class="ops-form" (submit)="$event.preventDefault(); loadThirteenth()">
+    <div class="ops-form-row">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
+        <mat-label>Calendar year</mat-label>
+        <input
+          matInput
+          name="thirteenthYear"
+          type="number"
+          min="2000"
+          max="2100"
+          step="1"
+          [value]="thirteenthYear()"
+          (input)="setThirteenthYear($event)"
+        />
+      </mat-form-field>
+    </div>
+    <div class="ops-actions">
+      <button matButton="filled" type="submit">Run</button>
+      <button
+        matButton="outlined"
+        type="button"
+        [disabled]="thirteenthDownloading()"
+        (click)="exportThirteenth()"
+      >
+        {{ thirteenthDownloading() ? 'Exporting…' : 'Export CSV' }}
+      </button>
+      <button
+        matButton="outlined"
+        type="button"
+        name="printThirteenth"
+        [disabled]="thirteenthRows().length === 0"
+        (click)="printThirteenth()"
+      >
+        Print summary
+      </button>
+    </div>
+  </form>
+</ops-card>
+
+<ops-card [bleed]="thirteenthRows().length > 0">
+  @if (thirteenthLoading()) {
+    <ops-skeleton [rows]="4" label="Loading 13th-month" />
+  } @else if (thirteenthRows().length === 0) {
+    <ops-empty-state title="No staff" message="Try another year." icon="inbox" />
+  } @else {
+    <div class="ops-table-wrap">
+      <table mat-table [dataSource]="thirteenthRows()" class="ops-table">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Staff</th>
+          <td mat-cell *matCellDef="let row" data-label="Staff">
+            <strong>{{ row.staffName }}</strong>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="role">
+          <th mat-header-cell *matHeaderCellDef>Role</th>
+          <td mat-cell *matCellDef="let row" data-label="Role">{{ formatRole(row.role) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="branch">
+          <th mat-header-cell *matHeaderCellDef>Shop</th>
+          <td mat-cell *matCellDef="let row" data-label="Shop">{{ row.branch ?? '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="hireDate">
+          <th mat-header-cell *matHeaderCellDef>Hire date</th>
+          <td mat-cell *matCellDef="let row" data-label="Hire date">{{ row.hireDate ?? '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="basis">
+          <th mat-header-cell *matHeaderCellDef>Basis</th>
+          <td mat-cell *matCellDef="let row" data-label="Basis">
+            {{ formatPayBasis(row.payBasis) }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="rate">
+          <th mat-header-cell *matHeaderCellDef>Rate</th>
+          <td mat-cell *matCellDef="let row" data-label="Rate">
+            {{ row.ratePhp == null ? '—' : formatMoney(row.ratePhp) }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="basicAuto">
+          <th mat-header-cell *matHeaderCellDef>Basic auto</th>
+          <td mat-cell *matCellDef="let row" data-label="Basic auto">
+            {{ formatMoney(row.basicEarnedAuto) }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="override">
+          <th mat-header-cell *matHeaderCellDef>Override</th>
+          <td mat-cell *matCellDef="let row" data-label="Override">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
+              <mat-label>Basic earned</mat-label>
+              <input
+                matInput
+                type="number"
+                min="0"
+                step="0.01"
+                name="thirteenthOverride"
+                [ngModel]="thirteenthDraftAmount(row.staffId)"
+                (ngModelChange)="setThirteenthDraft(row.staffId, $event)"
+              />
+            </mat-form-field>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="basic">
+          <th mat-header-cell *matHeaderCellDef>Basic used</th>
+          <td mat-cell *matCellDef="let row" data-label="Basic used">
+            {{ formatMoney(row.basicEarned) }}
+            @if (row.usedOverride) {
+              <span> (override)</span>
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="thirteenth">
+          <th mat-header-cell *matHeaderCellDef>13th month</th>
+          <td mat-cell *matCellDef="let row" data-label="13th month">
+            <strong>{{ formatMoney(row.thirteenthMonth) }}</strong>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row" class="ops-td-actions" data-label="">
+            <button
+              matButton="outlined"
+              type="button"
+              [disabled]="!canSaveThirteenth(row.staffId)"
+              (click)="saveThirteenth(row)"
+            >
+              {{ thirteenthSavingId() === row.staffId ? 'Saving…' : 'Save override' }}
+            </button>
+            <button
+              matButton="outlined"
+              type="button"
+              [disabled]="!row.usedOverride || thirteenthSavingId() === row.staffId"
+              (click)="clearThirteenth(row)"
+            >
+              Clear
+            </button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="thirteenthColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: thirteenthColumns"></tr>
+      </table>
+    </div>
+    <p class="ops-empty thirteenth-total-msg">
+      Total 13th month: <strong>{{ formatMoney(thirteenthTotal()) }}</strong>
+    </p>
+  }
+</ops-card>
