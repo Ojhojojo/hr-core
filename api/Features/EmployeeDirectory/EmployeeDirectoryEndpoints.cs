@@ -169,6 +169,11 @@ public static class EmployeeDirectoryEndpoints
             return Results.BadRequest(new { error = "Name must be 200 characters or fewer." });
         }
 
+        if (!IsValidEmail(request.Email))
+        {
+            return Results.BadRequest(new { error = "Enter a valid email address." });
+        }
+
         var lengthError = LengthError(
             request.Mobile,
             request.EmergencyContactName,
@@ -183,6 +188,11 @@ public static class EmployeeDirectoryEndpoints
         if (lengthError is not null)
         {
             return lengthError;
+        }
+
+        if (!IsValidTin(request.Tin))
+        {
+            return Results.BadRequest(new { error = "TIN must be 9 to 14 digits, for example 123-456-789-000." });
         }
 
         var actor = http.GetStaff();
@@ -354,6 +364,11 @@ public static class EmployeeDirectoryEndpoints
         if (lengthError is not null)
         {
             return lengthError;
+        }
+
+        if (!IsValidTin(request.Tin))
+        {
+            return Results.BadRequest(new { error = "TIN must be 9 to 14 digits, for example 123-456-789-000." });
         }
 
         if (request.RegisteredAddress is not null
@@ -755,6 +770,39 @@ public static class EmployeeDirectoryEndpoints
         }
 
         return issues;
+    }
+
+    internal static bool IsValidEmail(string? email)
+    {
+        var trimmed = email?.Trim() ?? "";
+        if (trimmed.Length == 0 || trimmed.Any(char.IsWhiteSpace))
+        {
+            return false;
+        }
+
+        var at = trimmed.IndexOf('@');
+        return at > 0
+            && at == trimmed.LastIndexOf('@')
+            && trimmed.IndexOf('.', at) > at + 1
+            && !trimmed.EndsWith('.');
+    }
+
+    /// <summary>Blank is fine (TIN is optional). Otherwise digits with optional dashes or spaces.</summary>
+    internal static bool IsValidTin(string? tin)
+    {
+        if (string.IsNullOrWhiteSpace(tin))
+        {
+            return true;
+        }
+
+        var trimmed = tin.Trim();
+        if (trimmed.Any(c => !char.IsAsciiDigit(c) && c != '-' && c != ' '))
+        {
+            return false;
+        }
+
+        var digits = trimmed.Count(char.IsAsciiDigit);
+        return digits is >= 9 and <= 14;
     }
 
     private static IResult? LengthError(

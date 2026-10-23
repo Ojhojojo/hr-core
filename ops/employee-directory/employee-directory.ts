@@ -13,7 +13,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {
   environment,
   AuthService,
-  isHqOwner,
+  canPickHomeShop,
   apiErrorMessage,
   BannerComponent,
   CardComponent,
@@ -289,7 +289,7 @@ export class EmployeeDirectoryPage {
 
   protected openAdd(): void {
     this.error.set('');
-    if (this.isOwner() && isHqOwner(this.auth.me())) {
+    if (this.isOwner() && canPickHomeShop(this.auth.me())) {
       this.http.get<DirectoryShopOption[]>(`${this.base}/api/settings/branches`).subscribe({
         next: (shops) => this.openPersonDialog('add', undefined, shops),
         error: () => this.openPersonDialog('add', undefined, []),
@@ -304,7 +304,7 @@ export class EmployeeDirectoryPage {
       return;
     }
     this.error.set('');
-    if (this.isOwner() && isHqOwner(this.auth.me())) {
+    if (this.isOwner() && canPickHomeShop(this.auth.me())) {
       this.http.get<DirectoryShopOption[]>(`${this.base}/api/settings/branches`).subscribe({
         next: (shops) => this.openPersonDialog('edit', person, shops),
         error: () => this.openPersonDialog('edit', person, []),

@@ -211,6 +211,19 @@ public static class LeaveEndpoints
             return Results.NotFound();
         }
 
+        if (HasDayLimit(request.LeaveType.Value))
+        {
+            var balance = await BalanceForTypeAsync(
+                db, request.StaffId, request.Year, request.LeaveType.Value, cancellationToken);
+            if (request.Days.Value < balance.Used)
+            {
+                return Results.BadRequest(new
+                {
+                    error = $"Days can't be less than the {balance.Used:0.#} already approved this year."
+                });
+            }
+        }
+
         var existing = await db.LeaveAllotments
             .FirstOrDefaultAsync(
                 a => a.StaffId == request.StaffId
@@ -414,10 +427,13 @@ public static class LeaveEndpoints
         }
 
         var year = start.Year;
-        var balance = await BalanceForTypeAsync(db, targetStaff.Id, year, request.LeaveType.Value, cancellationToken);
-        if (balance.Allotment - balance.Used - days < 0)
+        if (HasDayLimit(request.LeaveType.Value))
         {
-            return Results.BadRequest(new { error = "That leave would make the balance negative." });
+            var balance = await BalanceForTypeAsync(db, targetStaff.Id, year, request.LeaveType.Value, cancellationToken);
+            if (balance.Allotment - balance.Used - days < 0)
+            {
+                return Results.BadRequest(new { error = "That leave would make the balance negative." });
+            }
         }
 
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
@@ -499,7 +515,7 @@ public static class LeaveEndpoints
         var year = row.StartDate.Year;
         var calendar = await YearCalendarAsync(db, row.StaffId, year, cancellationToken);
         var days = calendar.Count(row.StartDate, row.EndDate, row.HalfDay);
-        if (request.Decision == LeaveRequestStatus.Approved)
+        if (request.Decision == LeaveRequestStatus.Approved && HasDayLimit(row.LeaveType))
         {
             var balance = await BalanceForTypeAsync(db, row.StaffId, year, row.LeaveType, cancellationToken);
             if (balance.Allotment - balance.Used - days < 0)
@@ -712,6 +728,12 @@ public static class LeaveEndpoints
 
         return balances;
     }
+
+    /// <summary>
+    /// Unpaid leave has no allotment to run out of: it just isn't paid. Every other type is capped
+    /// by the days the owner set.
+    /// </summary>
+    internal static bool HasDayLimit(LeaveType type) => type != LeaveType.Unpaid;
 
     private static async Task<LeaveBalanceResponse> BalanceForTypeAsync(
         IHrDb db,

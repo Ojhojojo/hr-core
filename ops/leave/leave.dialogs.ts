@@ -4,6 +4,7 @@ import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { handoverCandidates } from '../employee-directory/open-work';
 import {
   apiErrorMessage,
   BannerComponent,
@@ -320,7 +321,6 @@ export interface SetAllotmentDialogData {
           <select matNativeControl name="allotmentType" [(ngModel)]="leaveType">
             <option value="vacation">Vacation</option>
             <option value="sick">Sick</option>
-            <option value="unpaid">Unpaid</option>
             <option value="service_incentive">Service incentive (SIL)</option>
           </select>
         </mat-form-field>
@@ -509,7 +509,7 @@ export interface ApproveLeaveDialogResult {
 
 @Component({
   selector: 'app-approve-leave-dialog',
-  imports: [FormsModule, MatButton, MatFormField, MatLabel, DialogComponent],
+  imports: [FormsModule, MatButton, MatFormField, MatInput, MatLabel, DialogComponent],
   template: `
     <ops-dialog title="Approve leave">
       <p class="leave-dialog-message">
@@ -579,7 +579,7 @@ export class ApproveLeaveDialog {
   /** Chosen new assignee per job id. Empty string means keep. */
   protected readonly choices: Record<string, string> = {};
   protected readonly candidates = computed(() =>
-    this.data.staff.filter((person) => person.staffId !== this.data.requesterId),
+    handoverCandidates(this.data.staff, this.data.requesterId),
   );
 
   protected otherNames(job: LeaveAffectedJob): string {

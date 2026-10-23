@@ -116,7 +116,21 @@ public static class StaffEndpoints
         }
         else if (actor is null || actor.Role == StaffRole.Owner)
         {
-            query = query.Where(s => s.BranchId == null || s.Branch!.Code != BranchCodes.Demo);
+            // Company owner: every live shop, without Demo people. When the desk asks for the Demo
+            // shop (the demo showcase), list the Demo people instead, the same as the directory.
+            var onDemo = string.Equals(
+                http.Request.Headers[BranchResolver.HeaderName].ToString(),
+                BranchCodes.Demo,
+                StringComparison.OrdinalIgnoreCase);
+            if (onDemo)
+            {
+                var demoBranchId = await branches.ResolveOpsAsync(http, cancellationToken);
+                query = query.Where(s => s.BranchId == demoBranchId);
+            }
+            else
+            {
+                query = query.Where(s => s.BranchId == null || s.Branch!.Code != BranchCodes.Demo);
+            }
         }
         else
         {

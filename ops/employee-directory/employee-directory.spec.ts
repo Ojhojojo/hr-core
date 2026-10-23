@@ -187,8 +187,8 @@ describe('Employee directory', () => {
     (document.body.querySelector('button[name="edit"]') as HTMLButtonElement).click();
     fixture.detectChanges();
 
-    const branchesReq = http.expectOne((req) => req.url.includes('/api/settings/branches'));
-    branchesReq.flush([{ id: 'branch-1', name: 'Demo', code: 'demo' }]);
+    // The demo owner works the Demo shop only, so no live-shop list is fetched for the picker.
+    http.expectNone((req) => req.url.includes('/api/settings/branches'));
     fixture.detectChanges();
     await fixture.whenStable();
 

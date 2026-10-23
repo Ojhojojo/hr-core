@@ -523,8 +523,12 @@
               <div class="emp-balances-grid">
                 @for (b of leaveBalances(); track b.leaveType) {
                   <div class="emp-balance-card">
-                    <p class="emp-balance-title">{{ b.leaveType }}</p>
-                    <p class="emp-balance-stat">{{ b.remaining }} days left</p>
+                    <p class="emp-balance-title">{{ leaveTypeLabel(b.leaveType) }}</p>
+                    @if (leaveHasDayLimit(b.leaveType)) {
+                      <p class="emp-balance-stat">{{ b.remaining }} days left</p>
+                    } @else {
+                      <p class="emp-balance-stat">{{ b.used }} days taken</p>
+                    }
                     <p class="emp-balance-meta">{{ b.used }} used · {{ b.pending }} pending</p>
                   </div>
                 }

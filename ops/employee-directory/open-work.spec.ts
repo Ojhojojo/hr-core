@@ -55,6 +55,16 @@ describe('handoverCandidates and pickerLabel', () => {
     expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['other']);
   });
 
+  it('leaves out sales staff, who cannot open the workshop', () => {
+    const rows = [
+      person({ staffId: 'tech', role: 'technician' }),
+      person({ staffId: 'desk', role: 'admin' }),
+      person({ staffId: 'boss', role: 'owner' }),
+      person({ staffId: 'seller', role: 'sales' }),
+    ];
+    expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['tech', 'desk', 'boss']);
+  });
+
   it('adds the availability hint to the label', () => {
     expect(pickerLabel(person({ displayName: 'Ana' }))).toBe('Ana');
     expect(pickerLabel(person({ displayName: 'Ana', clockedIn: false }))).toBe(

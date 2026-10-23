@@ -22,6 +22,7 @@ import {
   EmploymentDocType,
   PayBasis,
 } from './employee-directory.api';
+import { personFieldError } from './person-validation';
 
 export interface DirectoryShopOption {
   id: string;
@@ -668,6 +669,12 @@ export class DirectoryPersonDialog {
         this.saving.set(false);
         return;
       }
+      const addError = personFieldError({ email, tin: this.tin });
+      if (addError) {
+        this.error.set(addError);
+        this.saving.set(false);
+        return;
+      }
       const allShops = this.role === 'owner' && this.branchId === '' && this.data.shops.length > 0;
       this.api
         .create({
@@ -725,6 +732,13 @@ export class DirectoryPersonDialog {
 
     if (!this.data.isOwner && person.role === 'owner') {
       this.error.set("You cannot edit an owner's record.");
+      this.saving.set(false);
+      return;
+    }
+
+    const editError = personFieldError({ tin: this.tin });
+    if (editError) {
+      this.error.set(editError);
       this.saving.set(false);
       return;
     }
