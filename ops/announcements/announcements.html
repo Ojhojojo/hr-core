@@ -1,0 +1,41 @@
+<ops-page-header
+  title="Announcements"
+  infoTooltip="Visible on Dashboard for sales and technicians while active and within the date range."
+>
+  <div actions>
+    <button matButton="filled" type="button" (click)="openPost()">New announcement</button>
+    <a routerLink="/workshop" matButton="text">Dashboard</a>
+  </div>
+</ops-page-header>
+
+@if (error()) {
+  <ops-banner tone="danger" role="alert" [message]="error()" />
+}
+
+@if (loading()) {
+  <div class="announcements-loading-wrap">
+    <ops-skeleton [rows]="3" />
+  </div>
+} @else if (rows().length === 0) {
+  <p class="ops-empty">No announcements yet. Write one to post it.</p>
+} @else {
+  <section class="ops-card" aria-label="Posted announcements">
+    <h2>Posted</h2>
+    <ul class="ops-list">
+      @for (row of rows(); track row.id) {
+        @let status = statusOf(row);
+        <li class="announcement-row">
+          <span class="announcement-meta">
+            <strong>{{ row.title }}</strong>
+            <ops-status-badge [tone]="status.tone" [label]="status.label" />
+            <span class="announcement-dates">{{ row.startDate }} – {{ row.endDate }}</span>
+          </span>
+          <span class="ops-actions">
+            <button matButton="tonal" type="button" (click)="edit(row)">Edit</button>
+            <button matButton="text" type="button" (click)="remove(row)">Remove</button>
+          </span>
+        </li>
+      }
+    </ul>
+  </section>
+}

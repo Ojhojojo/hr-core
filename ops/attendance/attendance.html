@@ -1,0 +1,384 @@
+<ops-page-header [title]="title()">
+  <div actions>
+    @if (canManage()) {
+      <button matButton="filled" type="button" (click)="punchFor()">Punch for…</button>
+      <button
+        matIconButton
+        type="button"
+        name="attendanceMoreMenu"
+        [matMenuTriggerFor]="attendanceMenu"
+        aria-label="More actions"
+      >
+        ⋮
+      </button>
+      <mat-menu #attendanceMenu="matMenu">
+        <button mat-menu-item [disabled]="downloading()" (click)="downloadCsv()">
+          <span>Download CSV</span>
+        </button>
+      </mat-menu>
+    } @else {
+      <button
+        matIconButton
+        type="button"
+        name="staffMoreMenu"
+        [matMenuTriggerFor]="staffMenu"
+        aria-label="More actions"
+      >
+        ⋮
+      </button>
+      <mat-menu #staffMenu="matMenu">
+        <button mat-menu-item [disabled]="downloading()" (click)="downloadCsv()">
+          <span>Download CSV</span>
+        </button>
+      </mat-menu>
+    }
+  </div>
+</ops-page-header>
+
+<div class="ops-card ops-attend-toolbar">
+  <ops-period-nav [from]="from()" [to]="to()" (rangeChange)="onPeriodChange($event)" />
+  @if (canManage()) {
+    <mat-chip-listbox
+      aria-label="Approval filter"
+      [value]="approvalFilter()"
+      (change)="onApprovalFilter($event)"
+    >
+      <mat-chip-option value="all">All</mat-chip-option>
+      <mat-chip-option value="pending">
+        Pending
+        @if (pendingCount() > 0) {
+          <span class="ops-attend-pending-badge">{{ pendingCount() }}</span>
+        }
+      </mat-chip-option>
+      <mat-chip-option value="approved">Approved</mat-chip-option>
+      <mat-chip-option value="rejected">Rejected</mat-chip-option>
+    </mat-chip-listbox>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-attend-staff-select">
+      <mat-label>Staff</mat-label>
+      <mat-select
+        name="staff"
+        aria-label="Staff"
+        [value]="staffId()"
+        (selectionChange)="setStaff($event.value)"
+      >
+        <mat-option value="">All staff</mat-option>
+        @for (person of staff(); track person.id) {
+          <mat-option [value]="person.id">{{ person.displayName }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  }
+</div>
+
+@if (error()) {
+  <ops-banner tone="danger" role="alert" [message]="error()" />
+}
+
+<ops-card [title]="canManage() ? 'Register' : 'Punches'" [bleed]="rows().length > 0">
+  @if (loading()) {
+    <div class="attendance-loading-wrap">
+      <ops-skeleton [rows]="5" />
+    </div>
+  } @else if (rows().length === 0) {
+    <ops-empty-state title="No punches" message="Try another date range." icon="inbox" />
+  } @else {
+    <div class="ops-table-wrap">
+      <table mat-table [dataSource]="pagedRows()" class="ops-table ops-attend-table">
+        <ng-container matColumnDef="name" sticky>
+          <th mat-header-cell *matHeaderCellDef>Name</th>
+          <td mat-cell *matCellDef="let row" data-label="Name">
+            <strong>{{ row.staffName }}</strong>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="branch">
+          <th mat-header-cell *matHeaderCellDef>Branch</th>
+          <td mat-cell *matCellDef="let row" data-label="Branch">{{ row.branchName }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="in">
+          <th mat-header-cell *matHeaderCellDef>In</th>
+          <td mat-cell *matCellDef="let row" data-label="In">
+            {{ row.inAtManila }}
+            @if (row.hasInPhoto && row.punchId) {
+              <button
+                matButton="text"
+                type="button"
+                class="ops-attend-photo"
+                (click)="openPhoto(row, 'in')"
+              >
+                In photo
+              </button>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="out">
+          <th mat-header-cell *matHeaderCellDef>Out</th>
+          <td mat-cell *matCellDef="let row" data-label="Out">
+            @if (row.isOpen) {
+              <span class="ops-attend-open">Open</span>
+              @if (canManage()) {
+                <button matButton="tonal" type="button" (click)="closePunch(row)">Close</button>
+              }
+            } @else {
+              {{ outLabel(row) }}
+            }
+            @if (row.closeReason) {
+              <small class="ops-empty">{{ row.closeReason }}</small>
+            }
+            @if (row.hasOutPhoto && row.punchId) {
+              <button
+                matButton="text"
+                type="button"
+                class="ops-attend-photo"
+                (click)="openPhoto(row, 'out')"
+              >
+                Out photo
+              </button>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="hours">
+          <th mat-header-cell *matHeaderCellDef class="text-right">Hours</th>
+          <td mat-cell *matCellDef="let row" class="ops-attend-hours text-right" data-label="Hours">
+            {{ hoursLabel(row) }}
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let row" data-label="Status">
+            <ops-status-badge
+              [tone]="punchStatusTone(row.approvalStatus)"
+              [label]="punchStatusLabel(row.approvalStatus)"
+            />
+            @if (row.offsiteReason) {
+              <small class="ops-attend-reason">{{ row.offsiteReason }}</small>
+            }
+            @if (row.reviewNote) {
+              <small class="ops-attend-reason">{{ row.reviewNote }}</small>
+            }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+          <td mat-cell *matCellDef="let row" class="text-right" data-label="">
+            @if (canReviewPunch(role(), row.approvalStatus) && row.punchId) {
+              <div class="ops-attend-actions-cell">
+                <button
+                  matButton="tonal"
+                  type="button"
+                  name="approve"
+                  (click)="review(row, 'approved')"
+                >
+                  Approve
+                </button>
+                <button
+                  matButton="text"
+                  type="button"
+                  name="reject"
+                  (click)="review(row, 'rejected')"
+                >
+                  Reject
+                </button>
+              </div>
+            }
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="columns()"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns()" [class.warn]="row.isOpen"></tr>
+      </table>
+    </div>
+    <mat-paginator
+      [length]="rows().length"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="pageSizeOptions"
+      showFirstLastButtons
+      (page)="onPage($event)"
+    />
+  }
+</ops-card>
+
+@if (canManage()) {
+  <ops-card title="OT to approve" [bleed]="overtimeRows().length > 0">
+    @if (canFileOvertime()) {
+      <div class="ops-attend-toolbar">
+        <button matButton="filled" type="button" (click)="requestOvertime()">Request OT</button>
+      </div>
+    }
+    @if (overtimeLoading() && overtimeRows().length === 0) {
+      <ops-skeleton [rows]="3" label="Loading overtime" />
+    } @else if (overtimeRows().length === 0) {
+      <ops-empty-state
+        title="No overtime"
+        message="Time past shift end shows up here. It is not paid until someone approves it."
+        icon="inbox"
+      />
+    } @else {
+      <div class="ops-table-wrap">
+        <table mat-table [dataSource]="overtimeRows()" class="ops-table">
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>Name</th>
+            <td mat-cell *matCellDef="let row" data-label="Name">{{ row.staffName }}</td>
+          </ng-container>
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let row" data-label="Date">{{ row.workDate }}</td>
+          </ng-container>
+          <ng-container matColumnDef="kind">
+            <th mat-header-cell *matHeaderCellDef>Source</th>
+            <td mat-cell *matCellDef="let row" data-label="Source">
+              {{ overtimeKind(row) }}
+              @if (row.reason) {
+                <span class="ops-attend-reason">{{ row.reason }}</span>
+              }
+              @if (row.decisionNote) {
+                <span class="ops-attend-reason">{{ row.decisionNote }}</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="hours">
+            <th mat-header-cell *matHeaderCellDef class="text-right">Hours</th>
+            <td mat-cell *matCellDef="let row" class="text-right" data-label="Hours">
+              {{ overtimeHours(row) }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row" data-label="Status">
+              <ops-status-badge
+                [tone]="punchStatusTone(row.status)"
+                [label]="punchStatusLabel(row.status)"
+              />
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
+            <td mat-cell *matCellDef="let row" class="text-right" data-label="">
+              @if (row.canApprove) {
+                <div class="ops-attend-actions-cell">
+                  <button matButton="tonal" type="button" (click)="decideOvertime(row, 'approved')">
+                    Approve
+                  </button>
+                  <button matButton="text" type="button" (click)="decideOvertime(row, 'rejected')">
+                    Reject
+                  </button>
+                </div>
+              }
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="overtimeColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: overtimeColumns"></tr>
+        </table>
+      </div>
+    }
+  </ops-card>
+
+  @if (role() === 'admin') {
+    <ops-card title="My overtime" [bleed]="myOvertimeRows().length > 0">
+      @if (overtimeLoading() && myOvertimeRows().length === 0) {
+        <ops-skeleton [rows]="3" label="Loading overtime" />
+      } @else if (myOvertimeRows().length === 0) {
+        <ops-empty-state
+          title="No overtime"
+          message="No overtime of yours this week."
+          icon="inbox"
+        />
+      } @else {
+        <div class="ops-table-wrap">
+          <table mat-table [dataSource]="myOvertimeRows()" class="ops-table">
+            <ng-container matColumnDef="date">
+              <th mat-header-cell *matHeaderCellDef>Date</th>
+              <td mat-cell *matCellDef="let row" data-label="Date">{{ row.workDate }}</td>
+            </ng-container>
+            <ng-container matColumnDef="kind">
+              <th mat-header-cell *matHeaderCellDef>Source</th>
+              <td mat-cell *matCellDef="let row" data-label="Source">
+                {{ overtimeKind(row) }}
+                @if (row.reason) {
+                  <span class="ops-attend-reason">{{ row.reason }}</span>
+                }
+                @if (row.decisionNote) {
+                  <span class="ops-attend-reason">{{ row.decisionNote }}</span>
+                }
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="hours">
+              <th mat-header-cell *matHeaderCellDef class="text-right">Hours</th>
+              <td mat-cell *matCellDef="let row" class="text-right" data-label="Hours">
+                {{ overtimeHours(row) }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let row" data-label="Status">
+                <ops-status-badge
+                  [tone]="punchStatusTone(row.status)"
+                  [label]="punchStatusLabel(row.status)"
+                />
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="myOvertimeColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: myOvertimeColumns"></tr>
+          </table>
+        </div>
+      }
+    </ops-card>
+  }
+} @else {
+  <ops-card title="My overtime" [bleed]="overtimeRows().length > 0">
+    @if (canFileOvertime()) {
+      <div class="ops-attend-toolbar">
+        <button matButton="filled" type="button" (click)="requestOvertime()">Request OT</button>
+      </div>
+    }
+    @if (overtimeLoading() && overtimeRows().length === 0) {
+      <ops-skeleton [rows]="3" label="Loading overtime" />
+    } @else if (overtimeRows().length === 0) {
+      <ops-empty-state title="No overtime" message="No overtime of yours this week." icon="inbox" />
+    } @else {
+      <div class="ops-table-wrap">
+        <table mat-table [dataSource]="overtimeRows()" class="ops-table">
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let row" data-label="Date">{{ row.workDate }}</td>
+          </ng-container>
+          <ng-container matColumnDef="kind">
+            <th mat-header-cell *matHeaderCellDef>Source</th>
+            <td mat-cell *matCellDef="let row" data-label="Source">
+              {{ overtimeKind(row) }}
+              @if (row.reason) {
+                <span class="ops-attend-reason">{{ row.reason }}</span>
+              }
+              @if (row.decisionNote) {
+                <span class="ops-attend-reason">{{ row.decisionNote }}</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="hours">
+            <th mat-header-cell *matHeaderCellDef class="text-right">Hours</th>
+            <td mat-cell *matCellDef="let row" class="text-right" data-label="Hours">
+              {{ overtimeHours(row) }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row" data-label="Status">
+              <ops-status-badge
+                [tone]="punchStatusTone(row.status)"
+                [label]="punchStatusLabel(row.status)"
+              />
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="myOvertimeColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: myOvertimeColumns"></tr>
+        </table>
+      </div>
+    }
+  </ops-card>
+}

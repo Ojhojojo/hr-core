@@ -1,0 +1,250 @@
+<h2 mat-dialog-title>BIR Form 2316 data sheet</h2>
+
+<mat-dialog-content>
+  <p class="bir-muted">
+    One sheet per employee per year. It lists the values to copy into the official BIR Form 2316 or
+    eBIRForms. It is not the official form and does not file anything.
+  </p>
+
+  @if (error()) {
+    <p class="bir-banner" role="alert">{{ error() }}</p>
+  }
+
+  <div class="bir-grid">
+    <mat-form-field appearance="outline">
+      <mat-label>Employee</mat-label>
+      <mat-select
+        name="staff"
+        [(ngModel)]="staffId"
+        (selectionChange)="load()"
+        [disabled]="loadingPeople()"
+      >
+        @for (person of people(); track person.id) {
+          <mat-option [value]="person.id">{{ person.displayName }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Year</mat-label>
+      <mat-select name="year" [(ngModel)]="year" (selectionChange)="load()">
+        @for (y of years; track y) {
+          <mat-option [value]="y">{{ y }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  @if (loadingSheet()) {
+    <p class="bir-muted">Loading locked payroll runs...</p>
+  }
+
+  @if (sheet(); as sheet) {
+    @if (missingText().length > 0 || sheet.missingMonths.length > 0) {
+      <div class="bir-banner" role="status" data-testid="bir-banner">
+        @if (missingText().length > 0) {
+          <p><strong>Fill in before filing:</strong> {{ missingText().join(', ') }}.</p>
+        }
+        @if (sheet.missingMonths.length > 0) {
+          <p>
+            <strong>No locked payroll run</strong> for: {{ monthText() }}. Check whether the
+            employee was on payroll those months.
+          </p>
+        }
+      </div>
+    }
+
+    <h3 class="bir-section-title">Employee and employer</h3>
+    <table class="bir-sheet-table">
+      <tbody>
+        <tr>
+          <td>Employee name</td>
+          <td class="bir-amount">{{ sheet.employee.name }}</td>
+        </tr>
+        <tr>
+          <td>Employee TIN</td>
+          <td class="bir-amount">{{ sheet.employee.tin || 'Missing' }}</td>
+        </tr>
+        <tr>
+          <td>Registered address</td>
+          <td class="bir-amount">{{ sheet.employee.registeredAddress || 'Missing' }}</td>
+        </tr>
+        <tr>
+          <td>ZIP code</td>
+          <td class="bir-amount">{{ sheet.employee.zipCode || 'Missing' }}</td>
+        </tr>
+        <tr>
+          <td>Birth date</td>
+          <td class="bir-amount">{{ sheet.employee.birthDate || 'Missing' }}</td>
+        </tr>
+        <tr>
+          <td>Employer name</td>
+          <td class="bir-amount">{{ sheet.employer.legalName || 'Missing' }}</td>
+        </tr>
+        <tr>
+          <td>Employer TIN</td>
+          <td class="bir-amount">{{ sheet.employer.tin || 'Missing' }}</td>
+        </tr>
+        <tr>
+          <td>Employer address ({{ sheet.employer.shopName }})</td>
+          <td class="bir-amount">{{ sheet.employer.address || 'Missing' }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="bir-section-title">Locked payroll runs used</h3>
+    @if (sheet.runs.length === 0) {
+      <p class="bir-muted">No locked run for this employee in {{ sheet.year }}.</p>
+    } @else {
+      <table class="bir-sheet-table">
+        <tbody>
+          @for (run of sheet.runs; track run.runId) {
+            <tr>
+              <td>{{ run.periodFrom }} to {{ run.periodTo }}</td>
+              <td class="bir-amount">Locked {{ run.lockedAtUtc || 'n/a' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    <h3 class="bir-section-title">Amounts HR enters</h3>
+    <p class="bir-muted">
+      Enter these from HR records. The 13th-month cap is {{ capLabel }}. Amounts above it become
+      taxable.
+    </p>
+    <div class="bir-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>{{ labels.thirteenthAndOtherBenefits }}</mat-label>
+        <input
+          matInput
+          type="number"
+          min="0"
+          step="0.01"
+          name="thirteenth"
+          [(ngModel)]="inputs.thirteenthAndOtherBenefits"
+        />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>{{ labels.deMinimis }}</mat-label>
+        <input
+          matInput
+          type="number"
+          min="0"
+          step="0.01"
+          name="deMinimis"
+          [(ngModel)]="inputs.deMinimis"
+        />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="bir-span">
+        <mat-label>{{ labels.otherNonTaxable }}</mat-label>
+        <input
+          matInput
+          type="number"
+          min="0"
+          step="0.01"
+          name="otherNonTaxable"
+          [(ngModel)]="inputs.otherNonTaxable"
+        />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>{{ labels.previousTaxableCompensation }}</mat-label>
+        <input
+          matInput
+          type="number"
+          min="0"
+          step="0.01"
+          name="previousTaxable"
+          [(ngModel)]="inputs.previousTaxableCompensation"
+        />
+        <mat-hint>Optional. Only when the employee had a previous employer this year.</mat-hint>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>{{ labels.previousTaxWithheld }}</mat-label>
+        <input
+          matInput
+          type="number"
+          min="0"
+          step="0.01"
+          name="previousWithheld"
+          [(ngModel)]="inputs.previousTaxWithheld"
+        />
+        <mat-hint>Optional.</mat-hint>
+      </mat-form-field>
+    </div>
+
+    @if (computation(); as c) {
+      <h3 class="bir-section-title">Data for Form 2316</h3>
+      <table class="bir-sheet-table" data-testid="bir-sheet">
+        <tbody>
+          <tr>
+            <td>{{ labels.grossCompensation }}</td>
+            <td class="bir-amount">{{ php(c.grossCompensation) }}</td>
+          </tr>
+          <tr>
+            <td>{{ labels.thirteenthNonTaxable }}</td>
+            <td class="bir-amount">{{ php(c.thirteenthNonTaxable) }}</td>
+          </tr>
+          <tr>
+            <td>{{ labels.thirteenthExcessTaxable }}</td>
+            <td class="bir-amount">{{ php(c.thirteenthExcessTaxable) }}</td>
+          </tr>
+          <tr>
+            <td>{{ labels.deMinimis }}</td>
+            <td class="bir-amount">{{ php(c.deMinimis) }}</td>
+          </tr>
+          <tr>
+            <td>{{ labels.contributions }}</td>
+            <td class="bir-amount">{{ php(c.contributions) }}</td>
+          </tr>
+          <tr>
+            <td>{{ labels.otherNonTaxable }}</td>
+            <td class="bir-amount">{{ php(c.otherNonTaxable) }}</td>
+          </tr>
+          <tr class="bir-total">
+            <td>{{ labels.totalNonTaxable }}</td>
+            <td class="bir-amount">{{ php(c.totalNonTaxable) }}</td>
+          </tr>
+          <tr class="bir-total">
+            <td>{{ labels.taxableCompensationPresent }}</td>
+            <td class="bir-amount">{{ php(c.taxableCompensationPresent) }}</td>
+          </tr>
+          <tr>
+            <td>{{ labels.previousTaxableCompensation }}</td>
+            <td class="bir-amount">{{ php(c.previousTaxableCompensation) }}</td>
+          </tr>
+          <tr class="bir-total">
+            <td>{{ labels.totalTaxableCompensation }}</td>
+            <td class="bir-amount">{{ php(c.totalTaxableCompensation) }}</td>
+          </tr>
+          <tr>
+            <td>{{ labels.taxWithheldPresent }}</td>
+            <td class="bir-amount">{{ php(c.taxWithheldPresent) }}</td>
+          </tr>
+          <tr>
+            <td>{{ labels.previousTaxWithheld }}</td>
+            <td class="bir-amount">{{ php(c.previousTaxWithheld) }}</td>
+          </tr>
+          <tr class="bir-total">
+            <td>{{ labels.totalTaxWithheld }}</td>
+            <td class="bir-amount">{{ php(c.totalTaxWithheld) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="bir-muted">
+        Payroll amounts from locked runs: gross {{ php(sheet.amounts.gross) }}, SSS
+        {{ php(sheet.amounts.sss) }}, PhilHealth {{ php(sheet.amounts.philHealth) }}, Pag-IBIG
+        {{ php(sheet.amounts.pagIbig) }}, withholding {{ php(sheet.amounts.wht) }}.
+      </p>
+    }
+  } @else if (!loadingSheet() && staffId) {
+    <p class="bir-muted">No data for this employee and year.</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions class="bir-actions" align="end">
+  <button matButton="text" type="button" (click)="close()">Close</button>
+  <button matButton="outlined" type="button" [disabled]="!sheet()" (click)="download()">
+    Download PDF
+  </button>
+  <button matButton="filled" type="button" [disabled]="!sheet()" (click)="print()">Print</button>
+</mat-dialog-actions>

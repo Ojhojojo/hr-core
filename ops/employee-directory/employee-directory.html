@@ -1,0 +1,166 @@
+<ops-page-header title="Directory" [subtitle]="headcountLabel()">
+  @if (isOwner()) {
+    <button actions matButton="filled" type="button" (click)="openAdd()">Add person</button>
+  }
+</ops-page-header>
+
+@if (error()) {
+  <ops-banner tone="danger" role="alert" [message]="error()" />
+}
+
+@if (showHealth()) {
+  <div class="dir-health">
+    <ops-card title="Setup to finish" data-config-health>
+      <ul class="dir-health-list">
+        @for (item of displayedHealth(); track item.staffId + item.code) {
+          <li class="dir-health-row" [attr.data-health]="item.code">
+            <span>{{ item.displayName }} · {{ item.label }}</span>
+            <button matButton="text" type="button" (click)="openHealth(item.staffId)">Fix</button>
+          </li>
+        }
+      </ul>
+      @if (remainingHealthCount() > 0 && !expandedHealth()) {
+        <div class="dir-health-more">
+          <button matButton="text" type="button" (click)="expandedHealth.set(true)">
+            and {{ remainingHealthCount() }} more
+          </button>
+        </div>
+      }
+    </ops-card>
+  </div>
+}
+
+<div class="ops-form-row">
+  <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
+    <mat-label>Search name or mobile</mat-label>
+    <input
+      matInput
+      name="directorySearch"
+      [ngModel]="search()"
+      (ngModelChange)="onSearch($event)"
+    />
+  </mat-form-field>
+  <mat-checkbox
+    name="includeInactive"
+    [checked]="includeInactive()"
+    (change)="onIncludeInactive($event.checked)"
+  >
+    Include inactive
+  </mat-checkbox>
+</div>
+
+@if (loading()) {
+  <ops-skeleton variant="table" [rows]="5" />
+} @else if (visible().length === 0) {
+  <ops-empty-state
+    title="No people to show"
+    message="Clear the search or include inactive people."
+    icon="inbox"
+  />
+} @else {
+  <ops-card>
+    <div class="ops-table-wrap">
+      <table mat-table [dataSource]="table" class="mat-elevation-z0 ops-table">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Name</th>
+          <td mat-cell *matCellDef="let person" data-label="Name">{{ person.displayName }}</td>
+        </ng-container>
+        <ng-container matColumnDef="position">
+          <th mat-header-cell *matHeaderCellDef>Position</th>
+          <td mat-cell *matCellDef="let person" data-label="Position">
+            {{ person.position || '—' }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="role">
+          <th mat-header-cell *matHeaderCellDef>Role</th>
+          <td mat-cell *matCellDef="let person" data-label="Role">{{ roleLabel(person.role) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let person" data-label="Status">
+            <ops-status-badge [tone]="statusTone(person)" [label]="statusLabel(person)" />
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="mobile">
+          <th mat-header-cell *matHeaderCellDef>Mobile</th>
+          <td mat-cell *matCellDef="let person" data-label="Mobile">{{ person.mobile || '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="hireDate">
+          <th mat-header-cell *matHeaderCellDef>Hire date</th>
+          <td mat-cell *matCellDef="let person" data-label="Hire date">
+            {{ person.hireDate || '—' }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td
+            mat-cell
+            *matCellDef="let person"
+            class="ops-td-actions"
+            data-label=""
+            (click)="$event.stopPropagation()"
+            (keydown.enter)="$event.stopPropagation()"
+          >
+            @if (showRowMenu()) {
+              <button
+                matIconButton
+                type="button"
+                name="rowMenu"
+                [matMenuTriggerFor]="rowMenu"
+                [attr.aria-label]="'Actions for ' + person.displayName"
+                (click)="menuPerson.set(person)"
+              >
+                ⋮
+              </button>
+            }
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="columns"></tr>
+        <tr
+          mat-row
+          *matRowDef="let row; columns: columns"
+          class="ops-row-link"
+          tabindex="0"
+          data-quick-view-row
+          [attr.aria-label]="'View ' + row.displayName"
+          (click)="openDetail(row)"
+          (keydown.enter)="openDetail(row)"
+        ></tr>
+      </table>
+    </div>
+    <mat-paginator [pageSize]="25" [pageSizeOptions]="[10, 25, 50]" />
+  </ops-card>
+}
+
+<mat-menu #rowMenu="matMenu">
+  @if (menuPerson(); as person) {
+    <button mat-menu-item type="button" name="quickView" (click)="openDetail(person)">
+      View details
+    </button>
+    @if (canEditPerson(person)) {
+      <button mat-menu-item type="button" name="edit" (click)="beginEdit(person)">Edit</button>
+    }
+    @if (isOwner() && person.active) {
+      <button
+        mat-menu-item
+        type="button"
+        name="deactivate"
+        [disabled]="saving()"
+        (click)="setActive(person, false)"
+      >
+        Deactivate
+      </button>
+    }
+    @if (isOwner() && !person.active) {
+      <button
+        mat-menu-item
+        type="button"
+        name="reactivate"
+        [disabled]="saving()"
+        (click)="setActive(person, true)"
+      >
+        Reactivate
+      </button>
+    }
+  }
+</mat-menu>

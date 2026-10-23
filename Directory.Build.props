@@ -1,0 +1,21 @@
+<Project>
+  <PropertyGroup>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors Condition="'$(CI)' == 'true'">true</TreatWarningsAsErrors>
+    <!--
+      NU1903 represents package vulnerability/advisory warnings.
+      We do not suppress them with NoWarn so they remain visible,
+      but treat them as warnings rather than build-breaking errors in CI.
+    -->
+    <WarningsNotAsErrors Condition="'$(CI)' == 'true'">$(WarningsNotAsErrors);NU1903</WarningsNotAsErrors>
+    <!--
+      Roslyn emits EnableGenerateDocumentationFile when IDE0005 (remove unnecessary usings)
+      is configured as a warning in .editorconfig without GenerateDocumentationFile=true.
+      Enabling GenerateDocumentationFile causes CS1591 (missing XML documentation comments)
+      across the entire codebase. Suppressing this notice keeps build warnings clean while
+      allowing `dotnet format` to continue pruning unused usings.
+    -->
+    <NoWarn>$(NoWarn);EnableGenerateDocumentationFile</NoWarn>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,140 @@
+<ops-page-header title="Time clock" [subtitle]="pageSubtitle()" [infoTooltip]="pageTooltip()" />
+
+@if (busy() || kioskBusy()) {
+  <mat-progress-bar mode="indeterminate" aria-label="Saving attendance" />
+  @if (busyMessage()) {
+    <p class="ops-clock-busy-status" role="status">{{ busyMessage() }}</p>
+  }
+}
+
+@if (error()) {
+  <ops-banner tone="danger" [message]="error()" />
+}
+
+@if (loading()) {
+  <ops-skeleton [rows]="3" />
+} @else {
+  @if (isSelfClock) {
+    <section class="ops-clock-status" [class.in]="clockedIn()">
+      <p class="ops-clock-status-text">{{ status() }}</p>
+      @if (me()?.open; as open) {
+        <p class="ops-clock-shop">{{ open.branchName }}</p>
+      }
+    </section>
+
+    @if (requirePhoto()) {
+      <p class="ops-empty">This shop requires a photo on clock-in and clock-out.</p>
+      <section class="ops-clock-photo">
+        <app-ops-photo-proof
+          label="Shift photo"
+          [file]="photoFile()"
+          (fileChange)="photoFile.set($event)"
+        />
+      </section>
+    }
+
+    @if (needsReason()) {
+      <ops-banner tone="warn" [message]="offsiteWarning" />
+      <section class="ops-clock-photo">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
+          <mat-label>Reason</mat-label>
+          <textarea
+            matInput
+            name="offsiteReason"
+            rows="3"
+            [value]="offsiteReason()"
+            (input)="setOffsiteReason($event)"
+            required
+          ></textarea>
+          <mat-hint>A reason is required for an off-site punch.</mat-hint>
+        </mat-form-field>
+      </section>
+    }
+
+    <div class="ops-clock-action">
+      @if (clockedIn()) {
+        <button
+          type="button"
+          matButton="outlined"
+          class="ops-clock-btn"
+          [disabled]="busy() || !canSubmitNow()"
+          (click)="clockOut()"
+        >
+          {{ busy() ? busyMessage() || 'Clocking out…' : 'Clock out' }}
+        </button>
+      } @else {
+        <button
+          type="button"
+          matButton="filled"
+          class="ops-clock-btn"
+          [disabled]="busy() || !canSubmitNow()"
+          (click)="clockIn()"
+        >
+          {{ busy() ? busyMessage() || 'Clocking in…' : 'Clock in' }}
+        </button>
+      }
+    </div>
+  }
+
+  @if (isKiosk) {
+    <ops-card title="Desk kiosk">
+      @if (kiosk().length === 0) {
+        <p class="ops-empty">No one at this shop is set to must clock.</p>
+      } @else {
+        <div class="ops-kiosk-list">
+          @for (person of kiosk(); track person.id) {
+            <button
+              type="button"
+              matButton="outlined"
+              class="ops-kiosk-btn"
+              [disabled]="kioskBusy()"
+              (click)="kioskTap(person)"
+            >
+              <strong>{{ person.displayName }}</strong>
+              @if (person.clockedIn) {
+                <span class="ops-kiosk-in">Clocked in — tap to clock out</span>
+              } @else {
+                <span>Clocked out — tap to clock in</span>
+              }
+            </button>
+          }
+        </div>
+      }
+    </ops-card>
+  }
+
+  @if (isSelfClock) {
+    <ops-card title="Today">
+      @if (today().length === 0) {
+        <ops-empty-state
+          title="No punches"
+          message="Punches show here after you clock in."
+          icon="inbox"
+        />
+      } @else {
+        <ul class="ops-clock-list">
+          @for (punch of today(); track punch.id) {
+            <li>
+              <strong>{{ punchTime(punch.inAtUtc) }}</strong>
+              <span>
+                @if (punch.outAtUtc) {
+                  to {{ punchTime(punch.outAtUtc) }}
+                } @else {
+                  still in
+                }
+              </span>
+              <small>{{ punch.branchName }}</small>
+              <ops-status-badge
+                [tone]="punchStatusTone(punch.approvalStatus)"
+                [label]="punchStatusLabel(punch.approvalStatus)"
+              />
+              @if (punch.offsiteReason) {
+                <small>{{ punch.offsiteReason }}</small>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </ops-card>
+  }
+}

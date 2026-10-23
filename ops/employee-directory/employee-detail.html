@@ -1,0 +1,632 @@
+@if (loading()) {
+  <ops-skeleton variant="page" />
+} @else if (error()) {
+  <ops-page-header
+    [backLink]="selfProfile() ? undefined : '/hr/employee-directory'"
+    backLabel="Directory"
+    [title]="selfProfile() ? 'My profile' : 'Employee record'"
+  />
+  <ops-banner tone="danger" role="alert" [message]="error()" />
+} @else if (person(); as p) {
+  <ops-page-header
+    [backLink]="selfProfile() ? undefined : '/hr/employee-directory'"
+    backLabel="Directory"
+    [title]="p.displayName"
+    [subtitle]="(p.position || roleLabel(p.role)) + (p.department ? ' · ' + p.department : '')"
+  >
+    <div subhead>
+      <ops-status-badge [tone]="statusTone(p)" [label]="statusLabel(p)" />
+    </div>
+
+    <div actions>
+      @if (canEdit()) {
+        <button matButton="filled" type="button" (click)="openEdit()">Edit</button>
+      }
+      @if (isManager()) {
+        <button
+          matIconButton
+          type="button"
+          [matMenuTriggerFor]="moreMenu"
+          aria-label="More actions"
+        >
+          ⋮
+        </button>
+        <mat-menu #moreMenu="matMenu">
+          <button mat-menu-item [matMenuTriggerFor]="letterMenu">Issue letter</button>
+          @if (p.active) {
+            <button mat-menu-item type="button" (click)="openMoveJobs()">Move open jobs to…</button>
+          }
+          @if (isOwner() && p.active) {
+            <button mat-menu-item type="button" (click)="toggleActive(false)">Deactivate</button>
+          }
+          @if (isOwner() && !p.active) {
+            <button mat-menu-item type="button" (click)="toggleActive(true)">Reactivate</button>
+          }
+        </mat-menu>
+
+        <mat-menu #letterMenu="matMenu">
+          <button mat-menu-item type="button" (click)="openLetter('offer')">
+            Offer of employment
+          </button>
+          <button mat-menu-item type="button" (click)="openLetter('coe')">
+            Certificate of employment
+          </button>
+          <button mat-menu-item type="button" (click)="openHrDocument('nte')">
+            Notice to explain (NTE)
+          </button>
+          <button mat-menu-item type="button" (click)="openHrDocument('nod')">
+            Notice of decision (NOD)
+          </button>
+          <button mat-menu-item type="button" (click)="openHrDocument('warning')">
+            Warning letter
+          </button>
+          <button mat-menu-item type="button" (click)="openHrDocument('quitclaim')">
+            Quitclaim
+          </button>
+        </mat-menu>
+      }
+    </div>
+  </ops-page-header>
+
+  <mat-tab-group
+    class="emp-tabs"
+    [selectedIndex]="selectedTabIndex()"
+    (selectedIndexChange)="onTabChange($event)"
+  >
+    <!-- OVERVIEW TAB -->
+    <mat-tab label="Overview">
+      <div class="emp-tab-content">
+        <ops-card title="Identity">
+          <ops-key-value-grid>
+            <ops-key-value label="Full name" [value]="p.displayName" />
+            <ops-key-value label="Email" [value]="p.email" />
+            <ops-key-value label="Employee number" [value]="p.employeeNo" />
+            <ops-key-value label="TIN" [value]="p.tin" />
+            <ops-key-value label="SSS" [value]="p.sss" />
+          </ops-key-value-grid>
+        </ops-card>
+
+        <ops-card title="Role and access">
+          <ops-key-value-grid>
+            <ops-key-value label="Role" [value]="roleLabel(p.role)" />
+          </ops-key-value-grid>
+        </ops-card>
+
+        <ops-card title="Employment">
+          <ops-key-value-grid>
+            <ops-key-value label="Position" [value]="p.position" />
+            <ops-key-value label="Department" [value]="p.department" />
+            <ops-key-value label="Status" [value]="statusLabel(p)" />
+            <ops-key-value label="Hire date" [value]="p.hireDate" />
+            <ops-key-value label="Rest day" [value]="restDayText(p.restDays)" />
+            <ops-key-value label="Time here" [value]="formatTenure(p.hireDate)" />
+            <ops-key-value label="PhilHealth" [value]="p.philHealth" />
+            <ops-key-value label="Pag-IBIG" [value]="p.pagIbig" />
+            @if (p.separationDate) {
+              <ops-key-value label="Separation date" [value]="p.separationDate" />
+            }
+            @if (p.separationReason) {
+              <ops-key-value label="Separation reason" [value]="p.separationReason" />
+            }
+          </ops-key-value-grid>
+        </ops-card>
+
+        <ops-card title="Contact">
+          <ops-key-value-grid>
+            <ops-key-value label="Mobile" [value]="p.mobile" />
+            <ops-key-value label="Emergency contact name" [value]="p.emergencyContactName" />
+            <ops-key-value label="Emergency contact phone" [value]="p.emergencyContactPhone" />
+          </ops-key-value-grid>
+        </ops-card>
+      </div>
+    </mat-tab>
+
+    <!-- PAY TAB (Managers only) -->
+    @if (isManager()) {
+      <mat-tab label="Pay">
+        <div class="emp-tab-content">
+          <ops-card title="Current pay rate">
+            <div class="emp-rate-actions">
+              <button matButton="text" type="button" (click)="changeRate()">Change rate</button>
+            </div>
+            @if (payLoading()) {
+              <ops-skeleton variant="table" [rows]="2" />
+            } @else if (payRates(); as rates) {
+              <ops-key-value-grid>
+                <ops-key-value label="Basis" [value]="rates.basis || '—'" />
+                <ops-key-value
+                  label="Rate"
+                  [value]="rates.ratePhp != null ? formatPeso(rates.ratePhp) : '—'"
+                />
+                <ops-key-value
+                  label="OT multiplier"
+                  [value]="rates.otMultiplier != null ? rates.otMultiplier + '×' : '—'"
+                />
+                <ops-key-value
+                  label="OT after hours"
+                  [value]="
+                    rates.otAfterHoursPerDay != null ? rates.otAfterHoursPerDay + ' hrs' : '—'
+                  "
+                />
+                <ops-key-value label="Rest day" [value]="restDayText(p.restDays)" />
+              </ops-key-value-grid>
+            } @else {
+              <p>No pay rates configured.</p>
+            }
+          </ops-card>
+
+          <ops-card title="Rate history">
+            @if (payLoading()) {
+              <ops-skeleton variant="table" [rows]="3" />
+            } @else if (payRates()?.history; as history) {
+              @if (history.length === 0) {
+                <ops-empty-state
+                  title="No rate history"
+                  message="Changes appear here after a rate is set."
+                  icon="inbox"
+                />
+              } @else {
+                <div class="ops-table-wrap">
+                  <table mat-table [dataSource]="history" class="mat-elevation-z0 ops-table">
+                    <ng-container matColumnDef="effectiveFrom">
+                      <th mat-header-cell *matHeaderCellDef>Effective date</th>
+                      <td mat-cell *matCellDef="let row" data-label="Effective date">
+                        {{ row.effectiveFrom }}
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="basis">
+                      <th mat-header-cell *matHeaderCellDef>Basis</th>
+                      <td mat-cell *matCellDef="let row" data-label="Basis">{{ row.basis }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="ratePhp">
+                      <th mat-header-cell *matHeaderCellDef>Rate</th>
+                      <td mat-cell *matCellDef="let row" data-label="Rate">
+                        {{ formatPeso(row.ratePhp) }}
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="changedBy">
+                      <th mat-header-cell *matHeaderCellDef>Changed by</th>
+                      <td mat-cell *matCellDef="let row" data-label="Changed by">
+                        {{ row.createdByName || 'System' }}
+                      </td>
+                    </ng-container>
+                    <tr
+                      mat-header-row
+                      *matHeaderRowDef="['effectiveFrom', 'basis', 'ratePhp', 'changedBy']"
+                    ></tr>
+                    <tr
+                      mat-row
+                      *matRowDef="
+                        let row;
+                        columns: ['effectiveFrom', 'basis', 'ratePhp', 'changedBy']
+                      "
+                    ></tr>
+                  </table>
+                </div>
+              }
+            }
+          </ops-card>
+
+          <ops-card title="Allowances">
+            <div class="emp-rate-actions">
+              <button matButton="text" type="button" (click)="openAllowance(null)">
+                Add allowance
+              </button>
+            </div>
+            @if (allowanceError()) {
+              <ops-banner tone="danger" role="alert" [message]="allowanceError()" />
+            }
+            @if (allowanceLoading()) {
+              <ops-skeleton variant="table" [rows]="2" />
+            } @else if (allowances().length === 0) {
+              <ops-empty-state
+                title="No allowances"
+                message="COLA, rice, transport, and other allowances show up here."
+                icon="inbox"
+              />
+            } @else {
+              <div class="ops-table-wrap">
+                <table mat-table [dataSource]="allowances()" class="mat-elevation-z0 ops-table">
+                  <ng-container matColumnDef="name">
+                    <th mat-header-cell *matHeaderCellDef>Name</th>
+                    <td mat-cell *matCellDef="let row" data-label="Name">{{ row.name }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="amount">
+                    <th mat-header-cell *matHeaderCellDef>Amount</th>
+                    <td mat-cell *matCellDef="let row" data-label="Amount">
+                      {{ money(row.amount) }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="per">
+                    <th mat-header-cell *matHeaderCellDef>Per</th>
+                    <td mat-cell *matCellDef="let row" data-label="Per">
+                      {{ allowancePerLabel(row.per) }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="taxable">
+                    <th mat-header-cell *matHeaderCellDef>Taxable</th>
+                    <td mat-cell *matCellDef="let row" data-label="Taxable">
+                      {{ row.taxable ? 'Yes' : 'No' }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="effectiveFrom">
+                    <th mat-header-cell *matHeaderCellDef>Effective from</th>
+                    <td mat-cell *matCellDef="let row" data-label="Effective from">
+                      {{ row.effectiveFrom || '—' }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="effectiveTo">
+                    <th mat-header-cell *matHeaderCellDef>Effective to</th>
+                    <td mat-cell *matCellDef="let row" data-label="Effective to">
+                      {{ row.effectiveTo || '—' }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="active">
+                    <th mat-header-cell *matHeaderCellDef>Active</th>
+                    <td mat-cell *matCellDef="let row" data-label="Active">
+                      {{ row.active ? 'Yes' : 'No' }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef></th>
+                    <td mat-cell *matCellDef="let row" class="ops-td-actions" data-label="">
+                      <button matButton="text" type="button" (click)="openAllowance(row)">
+                        Edit
+                      </button>
+                      <button matButton="text" type="button" (click)="deleteAllowance(row)">
+                        Delete
+                      </button>
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="allowanceColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: allowanceColumns"></tr>
+                </table>
+              </div>
+            }
+          </ops-card>
+        </div>
+      </mat-tab>
+    }
+
+    @if (isManager()) {
+      <mat-tab label="Loans / Cash advance">
+        <div class="emp-tab-content">
+          <ops-card title="Loans / Cash advance">
+            <div class="emp-rate-actions">
+              <button matButton="text" type="button" (click)="openLoan(null)">Add loan</button>
+            </div>
+            @if (loanError()) {
+              <ops-banner tone="danger" role="alert" [message]="loanError()" />
+            }
+            @if (loanLoading()) {
+              <ops-skeleton variant="table" [rows]="2" />
+            } @else if (loans().length === 0) {
+              <ops-empty-state
+                title="No loans"
+                message="Cash advances and loans show up here. Instalments come off each payroll run."
+                icon="inbox"
+              />
+            } @else {
+              <div class="ops-table-wrap">
+                <table mat-table [dataSource]="loans()" class="mat-elevation-z0 ops-table">
+                  <ng-container matColumnDef="kind">
+                    <th mat-header-cell *matHeaderCellDef>Kind</th>
+                    <td mat-cell *matCellDef="let row" data-label="Kind">{{ row.kind }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="principal">
+                    <th mat-header-cell *matHeaderCellDef>Principal</th>
+                    <td mat-cell *matCellDef="let row" data-label="Principal">
+                      {{ money(row.principal) }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="perPeriod">
+                    <th mat-header-cell *matHeaderCellDef>Per period</th>
+                    <td mat-cell *matCellDef="let row" data-label="Per period">
+                      {{ money(row.perPeriodAmount) }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="paid">
+                    <th mat-header-cell *matHeaderCellDef>Paid</th>
+                    <td mat-cell *matCellDef="let row" data-label="Paid">
+                      {{ money(row.paid) }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="balance">
+                    <th mat-header-cell *matHeaderCellDef>Loan balance</th>
+                    <td mat-cell *matCellDef="let row" data-label="Loan balance">
+                      {{ money(row.balance) }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="status">
+                    <th mat-header-cell *matHeaderCellDef>Status</th>
+                    <td mat-cell *matCellDef="let row" data-label="Status">
+                      <ops-status-badge
+                        [tone]="loanTone(row.status)"
+                        [label]="loanStatusLabel(row.status)"
+                      />
+                      @if (row.cancelReason) {
+                        <span class="emp-history-meta">{{ row.cancelReason }}</span>
+                      }
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="periodsLeft">
+                    <th mat-header-cell *matHeaderCellDef>Periods left</th>
+                    <td mat-cell *matCellDef="let row" data-label="Periods left">
+                      {{ periodsRemaining(row.balance, row.perPeriodAmount) }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef></th>
+                    <td mat-cell *matCellDef="let row" class="ops-td-actions" data-label="">
+                      <button matButton="text" type="button" (click)="openLoan(row)">Edit</button>
+                      <button matButton="text" type="button" (click)="loadLoanPayments(row.id)">
+                        Payments
+                      </button>
+                      @if (row.status === 'active') {
+                        <button matButton="text" type="button" (click)="cancelLoan(row)">
+                          Cancel
+                        </button>
+                      }
+                      @if (canDeleteLoan(row)) {
+                        <button matButton="text" type="button" (click)="deleteLoan(row)">
+                          Delete
+                        </button>
+                      }
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="loanColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: loanColumns"></tr>
+                </table>
+              </div>
+            }
+          </ops-card>
+
+          @if (loanDetail(); as detail) {
+            <ops-card title="Payment history">
+              <p class="emp-history-meta">
+                {{ detail.kind }} · Loan balance {{ money(detail.balance) }}
+              </p>
+              @if (loanDetailLoading()) {
+                <ops-skeleton variant="table" [rows]="2" />
+              } @else if (detail.payments.length === 0) {
+                <ops-empty-state
+                  title="No payments"
+                  message="Instalments appear here after a payroll run is locked. Reversed payments stay on the list."
+                  icon="inbox"
+                />
+              } @else {
+                <div class="ops-table-wrap">
+                  <table
+                    mat-table
+                    [dataSource]="detail.payments"
+                    class="mat-elevation-z0 ops-table"
+                  >
+                    <ng-container matColumnDef="period">
+                      <th mat-header-cell *matHeaderCellDef>Period</th>
+                      <td mat-cell *matCellDef="let row" data-label="Period">
+                        {{ row.periodFrom }} – {{ row.periodTo }}
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="amount">
+                      <th mat-header-cell *matHeaderCellDef>Amount</th>
+                      <td
+                        mat-cell
+                        *matCellDef="let row"
+                        data-label="Amount"
+                        [class.emp-loan-reversed]="row.reversedAtUtc"
+                      >
+                        {{ money(row.amount) }}
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="state">
+                      <th mat-header-cell *matHeaderCellDef></th>
+                      <td mat-cell *matCellDef="let row" data-label="">
+                        {{ row.reversedAtUtc ? 'Reversed' : '—' }}
+                      </td>
+                    </ng-container>
+                    <tr mat-header-row *matHeaderRowDef="loanPaymentColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: loanPaymentColumns"></tr>
+                  </table>
+                </div>
+              }
+            </ops-card>
+          }
+        </div>
+      </mat-tab>
+    }
+
+    <!-- DOCUMENTS TAB -->
+    <mat-tab label="Documents">
+      <div class="emp-tab-content">
+        @if (canEdit()) {
+          <div class="emp-docs-head">
+            <button matButton="filled" type="button" (click)="openAddDocument()">
+              Add document
+            </button>
+          </div>
+        }
+
+        <ops-card title="Employee documents">
+          @if (docsLoading()) {
+            <ops-skeleton variant="table" [rows]="3" />
+          } @else if (documents().length === 0) {
+            <ops-empty-state
+              title="No documents"
+              message="Added files show up here."
+              icon="inbox"
+            />
+          } @else {
+            <div class="ops-table-wrap">
+              <table mat-table [dataSource]="documents()" class="mat-elevation-z0 ops-table">
+                <ng-container matColumnDef="type">
+                  <th mat-header-cell *matHeaderCellDef>Type</th>
+                  <td mat-cell *matCellDef="let doc" data-label="Type">
+                    {{ docLabel(doc.docType) }}
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="fileName">
+                  <th mat-header-cell *matHeaderCellDef>File name</th>
+                  <td mat-cell *matCellDef="let doc" data-label="File name">{{ doc.fileName }}</td>
+                </ng-container>
+                <ng-container matColumnDef="createdAt">
+                  <th mat-header-cell *matHeaderCellDef>Added on</th>
+                  <td mat-cell *matCellDef="let doc" data-label="Added on">
+                    {{ doc.createdAtUtc | date: 'd MMM y' }}
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="byteSize">
+                  <th mat-header-cell *matHeaderCellDef>Size</th>
+                  <td mat-cell *matCellDef="let doc" data-label="Size">
+                    {{ formatBytes(doc.byteSize) }}
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="note">
+                  <th mat-header-cell *matHeaderCellDef>Note</th>
+                  <td mat-cell *matCellDef="let doc" data-label="Note">{{ doc.note || '—' }}</td>
+                </ng-container>
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef></th>
+                  <td mat-cell *matCellDef="let doc" class="ops-td-actions" data-label="">
+                    <button matButton="text" type="button" (click)="downloadDocument(doc)">
+                      Download
+                    </button>
+                  </td>
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="docColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: docColumns"></tr>
+              </table>
+            </div>
+          }
+        </ops-card>
+      </div>
+    </mat-tab>
+
+    <!-- SCORECARDS TAB (My profile, read-only finalised cards) -->
+    @if (selfProfile()) {
+      <mat-tab label="Scorecards">
+        <div class="emp-tab-content">
+          <app-kpi-scorecards-panel [staffId]="p.id" mode="self" [active]="scorecardsTabActive()" />
+        </div>
+      </mat-tab>
+    }
+
+    <!-- LEAVE TAB (Managers only) -->
+    @if (isManager()) {
+      <mat-tab label="Leave">
+        <div class="emp-tab-content">
+          <ops-card title="Leave balances">
+            @if (leaveLoading()) {
+              <ops-skeleton variant="card" />
+            } @else if (leaveBalances().length === 0) {
+              <p>No leave balances found for current year.</p>
+            } @else {
+              <div class="emp-balances-grid">
+                @for (b of leaveBalances(); track b.leaveType) {
+                  <div class="emp-balance-card">
+                    <p class="emp-balance-title">{{ b.leaveType }}</p>
+                    <p class="emp-balance-stat">{{ b.remaining }} days left</p>
+                    <p class="emp-balance-meta">{{ b.used }} used · {{ b.pending }} pending</p>
+                  </div>
+                }
+              </div>
+            }
+          </ops-card>
+
+          <ops-card title="Leave requests">
+            @if (leaveLoading()) {
+              <ops-skeleton variant="table" [rows]="3" />
+            } @else if (leaveRequests().length === 0) {
+              <ops-empty-state
+                title="No requests"
+                message="No leave requests filed this year."
+                icon="inbox"
+              />
+            } @else {
+              <div class="ops-table-wrap">
+                <table mat-table [dataSource]="leaveRequests()" class="mat-elevation-z0 ops-table">
+                  <ng-container matColumnDef="leaveType">
+                    <th mat-header-cell *matHeaderCellDef>Type</th>
+                    <td mat-cell *matCellDef="let req" data-label="Type">{{ req.leaveType }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="dates">
+                    <th mat-header-cell *matHeaderCellDef>Dates</th>
+                    <td mat-cell *matCellDef="let req" data-label="Dates">
+                      {{ req.startDate }} – {{ req.endDate }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="status">
+                    <th mat-header-cell *matHeaderCellDef>Status</th>
+                    <td mat-cell *matCellDef="let req" data-label="Status">
+                      <ops-status-badge [tone]="leaveTone(req.status)" [label]="req.status" />
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="note">
+                    <th mat-header-cell *matHeaderCellDef>Note</th>
+                    <td mat-cell *matCellDef="let req" data-label="Note">{{ req.note || '—' }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="leaveColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: leaveColumns"></tr>
+                </table>
+              </div>
+            }
+          </ops-card>
+        </div>
+      </mat-tab>
+    }
+
+    <!-- SCORECARDS TAB (Owner, other people's records) -->
+    @if (ownerScorecards()) {
+      <mat-tab label="Scorecards">
+        <div class="emp-tab-content">
+          <app-kpi-scorecards-panel
+            [staffId]="p.id"
+            mode="owner"
+            [period]="branchPeriod()"
+            [active]="scorecardsTabActive()"
+          />
+        </div>
+      </mat-tab>
+    }
+
+    <!-- HISTORY TAB (Managers only) -->
+    @if (isManager()) {
+      <mat-tab label="History">
+        <div class="emp-tab-content">
+          <ops-card title="Change history">
+            @if (historyLoading()) {
+              <ops-skeleton variant="table" [rows]="5" />
+            } @else if (history().length === 0) {
+              <ops-empty-state
+                title="No changes recorded"
+                message="Edits to this record show up here."
+                icon="inbox"
+              />
+            } @else {
+              <ul class="emp-history-list" data-change-log>
+                @for (row of history(); track row.id) {
+                  <li class="emp-history-row" data-change-log-row>
+                    <div class="emp-history-head">
+                      <strong>{{ fieldLabel(row.field) }}</strong>
+                      <span class="emp-history-when">{{ historyWhen(row.atUtc) }}</span>
+                    </div>
+                    <p class="emp-history-change">
+                      <span>{{ valueLabel(row.field, row.oldValue) }}</span>
+                      <span aria-hidden="true"> → </span>
+                      <span>{{ valueLabel(row.field, row.newValue) }}</span>
+                    </p>
+                    <p class="emp-history-meta">
+                      {{ row.actorName || 'System' }}
+                      @if (historyContext(row)) {
+                        · {{ historyContext(row) }}
+                      }
+                    </p>
+                  </li>
+                }
+              </ul>
+            }
+          </ops-card>
+        </div>
+      </mat-tab>
+    }
+  </mat-tab-group>
+}
