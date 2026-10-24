@@ -1,4 +1,4 @@
-import { availabilityWarning, type StaffAvailabilityRow } from '@hr-host';
+import { availabilityWarning, canBeAssignedJobs, type StaffAvailabilityRow } from '@hr-host';
 import type {
   DeactivationSummary,
   HandoverMove,
@@ -33,12 +33,12 @@ export function applyMoveAll(
   return Object.fromEntries(jobs.map((job) => [job.jobId, staffId]));
 }
 
-/** Picker candidates: active shop staff except the person being handed over. */
+/** Picker candidates: active shop staff who can work jobs, except the person being handed over. */
 export function handoverCandidates(
   staff: readonly StaffAvailabilityRow[],
   personId: string,
 ): StaffAvailabilityRow[] {
-  return staff.filter((row) => row.staffId !== personId);
+  return staff.filter((row) => row.staffId !== personId && canBeAssignedJobs(row.role));
 }
 
 /** "Name (On leave today)" style label for a picker option. */

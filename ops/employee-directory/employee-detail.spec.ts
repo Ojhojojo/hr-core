@@ -91,9 +91,12 @@ async function mountDetail(
   expect(getReq.request.method).toBe('GET');
   getReq.flush(structuredClone(employee));
 
-  // Branch and shop calls
-  const branchReq = http.expectOne('/api/settings/branches');
-  branchReq.flush([]);
+  // Branch and shop calls. The shop list is owner-only settings, so other roles skip it.
+  if (role === 'owner') {
+    http.expectOne('/api/settings/branches').flush([]);
+  } else {
+    http.expectNone('/api/settings/branches');
+  }
   const shopReq = http.expectOne('/api/shop');
   shopReq.flush({
     tradingName: 'Demo Shop',
@@ -316,7 +319,11 @@ describe('EmployeeDetailPage', () => {
       const getReq = http.expectOne(`/api/employee-directory/${staffId}`);
       expect(getReq.request.method).toBe('GET');
       getReq.flush(person);
-      http.expectOne('/api/settings/branches').flush([]);
+      if (role === 'owner') {
+        http.expectOne('/api/settings/branches').flush([]);
+      } else {
+        http.expectNone('/api/settings/branches');
+      }
       http.expectOne('/api/shop').flush({ tradingName: 'Demo Shop' });
       fixture.detectChanges();
       await fixture.whenStable();
@@ -365,7 +372,7 @@ describe('EmployeeDetailPage', () => {
     const http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(EmployeeDetailPage);
     fixture.detectChanges();
-    http.expectOne('/api/settings/branches').flush([]);
+    http.expectNone('/api/settings/branches');
     http.expectOne('/api/shop').flush({ tradingName: 'Demo Shop' });
     fixture.detectChanges();
     await fixture.whenStable();

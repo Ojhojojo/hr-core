@@ -219,13 +219,29 @@ public sealed partial class PayrollService
             .Include(s => s.Branch)
             .FirstOrDefaultAsync(s => s.Id == staffId, cancellationToken);
 
+    /// <param name="windowEnd">
+    /// Last day to count instead of the usual year cap (final pay counts through the separation date).
+    /// </param>
     private async Task<Dictionary<Guid, decimal>> AutoBasicsAsync(
         IReadOnlyList<Domain.Staff> staffList,
         int year,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateOnly? windowEnd = null)
     {
         var totals = staffList.ToDictionary(s => s.Id, _ => 0m);
-        if (staffList.Count == 0 || !TryYearCap(year, ManilaTime.Today(), out var yearStart, out var yearEndCap))
+        DateOnly yearStart;
+        DateOnly yearEndCap;
+        if (windowEnd is DateOnly end)
+        {
+            yearStart = new DateOnly(year, 1, 1);
+            yearEndCap = end;
+        }
+        else if (!TryYearCap(year, ManilaTime.Today(), out yearStart, out yearEndCap))
+        {
+            return totals;
+        }
+
+        if (staffList.Count == 0)
         {
             return totals;
         }

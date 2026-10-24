@@ -8,6 +8,18 @@ export type LeaveType = 'vacation' | 'sick' | 'unpaid' | 'service_incentive';
 export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 export type LeaveHalfDay = 'am' | 'pm';
 
+export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
+  vacation: 'Vacation',
+  sick: 'Sick',
+  unpaid: 'Unpaid',
+  service_incentive: 'Service incentive (SIL)',
+};
+
+/** Unpaid leave has no allotment to run out of (it just isn't paid), so screens show days taken. */
+export function leaveHasDayLimit(type: LeaveType): boolean {
+  return type !== 'unpaid';
+}
+
 export interface LeaveRequestRow {
   id: string;
   staffId: string;

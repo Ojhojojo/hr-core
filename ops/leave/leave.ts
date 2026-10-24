@@ -22,12 +22,14 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
 import {
+  LEAVE_TYPE_LABELS,
   LeaveApi,
   LeaveBalance,
   LeaveHalfDay,
   LeavePerson,
   LeaveRequestRow,
   LeaveType,
+  leaveHasDayLimit,
   StaffLeaveBalances,
 } from './leave.api';
 import {
@@ -40,13 +42,6 @@ import {
   RequestLeaveDialog,
   SetAllotmentDialog,
 } from './leave.dialogs';
-
-const TYPE_LABELS: Record<LeaveType, string> = {
-  vacation: 'Vacation',
-  sick: 'Sick',
-  unpaid: 'Unpaid',
-  service_incentive: 'Service incentive (SIL)',
-};
 
 @Component({
   selector: 'app-leave',
@@ -339,7 +334,7 @@ export class LeavePage {
   }
 
   protected typeLabel(type: LeaveType): string {
-    return TYPE_LABELS[type] ?? type;
+    return LEAVE_TYPE_LABELS[type] ?? type;
   }
 
   protected halfDayLabel(halfDay: LeaveHalfDay | null): string {
@@ -419,7 +414,11 @@ export class LeavePage {
 
   /** Placeholder until the balance request answers, so the card never shows a fake 0. */
   protected balanceValue(type: LeaveType): string | number {
-    return this.balancesLoaded() ? this.balance(type).remaining : '—';
+    if (!this.balancesLoaded()) {
+      return '—';
+    }
+    const row = this.balance(type);
+    return leaveHasDayLimit(type) ? row.remaining : row.used;
   }
 
   protected balanceSubtext(type: LeaveType): string {
@@ -427,12 +426,19 @@ export class LeavePage {
       return '';
     }
     const row = this.balance(type);
+    if (!leaveHasDayLimit(type)) {
+      return `No limit · Pending: ${row.pending}`;
+    }
     return `Allotted: ${row.allotment} · Used: ${row.used} · Pending: ${row.pending}`;
   }
 
   /** Same placeholder rule for the owner team table, which falls back to zero-filled rows. */
   protected memberRemaining(member: StaffLeaveBalances, type: LeaveType): string | number {
     return this.teamBalancesLoaded() ? this.memberBalance(member, type).remaining : '—';
+  }
+
+  protected memberUsed(member: StaffLeaveBalances, type: LeaveType): string | number {
+    return this.teamBalancesLoaded() ? this.memberBalance(member, type).used : '—';
   }
 
   protected memberAllotment(member: StaffLeaveBalances, type: LeaveType): string | number {

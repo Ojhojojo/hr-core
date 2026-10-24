@@ -44,24 +44,15 @@ public sealed partial class PayrollService
             payslipShops, from, separation, true, includeUnscopedOwners, cancellationToken);
         var wagesRow = wagesRegister.Rows.FirstOrDefault(r => r.StaffId == staff.Id);
 
-        // 13th month: the separation year's basic earned, pro-rated by the months worked.
-        var basicEarned = 0m;
-        var yearStart = new DateOnly(separation.Year, 1, 1);
-        var monthCursor = staff.HireDate is DateOnly hired && hired > yearStart ? hired : yearStart;
-        while (monthCursor <= separation)
-        {
-            var monthStart = new DateOnly(monthCursor.Year, monthCursor.Month, 1);
-            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
-            var sliceFrom = monthCursor > monthStart ? monthCursor : monthStart;
-            var sliceTo = separation < monthEnd ? separation : monthEnd;
-            var monthRegister = await GetRegisterAsync(
-                payslipShops, sliceFrom, sliceTo, true, includeUnscopedOwners, cancellationToken);
-            var monthRow = monthRegister.Rows.FirstOrDefault(r => r.StaffId == staff.Id);
-            basicEarned += monthRow?.Amount ?? 0m;
-            monthCursor = monthEnd.AddDays(1);
-        }
+        // 13th month: the separation year's basic earned through the separation date, the same
+        // basic pay the 13th-month page counts (overtime and premiums excluded). An owner override
+        // for that year wins, as it does on the 13th-month page.
+        var thirteenthOverride = await db.PayrollThirteenthOverrides.AsNoTracking()
+            .FirstOrDefaultAsync(o => o.StaffId == staff.Id && o.Year == separation.Year, cancellationToken);
+        var basicEarned = thirteenthOverride?.BasicEarnedOverride
+            ?? (await AutoBasicsAsync([staff], separation.Year, cancellationToken, separation))[staff.Id];
 
-        var thirteenthMonth = RoundMoney(basicEarned / 12m);
+        var thirteenthMonth = ThirteenthAmount(basicEarned);
         var sil = await FinalPaySilAsync(staff, separation, cancellationToken);
         var wagesGross = wagesRow?.Amount ?? 0m;
         var grossTotal = RoundMoney(wagesGross + thirteenthMonth + sil.Amount);
@@ -78,7 +69,9 @@ public sealed partial class PayrollService
             [
                 "Estimate — owner verify. Deductions are typed by the owner when paying.",
                 "Wages start the day after the last locked payroll period on this shop. With nothing locked, they start at the later of the hire date and the first of the separation month.",
-                "13th month is the separation year's basic earned divided by 12, pro-rated by the months worked.",
+                thirteenthOverride is null
+                    ? "13th month is the separation year's basic pay earned through the separation date (overtime excluded), divided by 12."
+                    : "13th month uses the owner's basic earned override for this year, divided by 12.",
                 "SIL encashes at the daily rate equivalent: daily as stored, hourly x 8, monthly x 12 / 313."
             ]), null);
     }

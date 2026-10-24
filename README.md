@@ -44,7 +44,8 @@ with a lint rule. `hr-host.ts` exports:
 - the business's name and address
 - shared UI components, dialogs and toasts
 - money and Manila date helpers
-- staff availability
+- staff availability, and `canBeAssignedJobs(role)` (who may take over open work)
+- `canPickHomeShop(me)`: whether the signed-in owner may choose a person's home shop
 
 It also passes in app-only pieces shown inside HR screens. In Rakkii these are the job
 handover dialog and the KPI scorecards tab, and another app can supply stubs. The app

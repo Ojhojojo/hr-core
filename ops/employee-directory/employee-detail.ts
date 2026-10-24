@@ -37,7 +37,14 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HrDocumentDialog } from '../documents/hr-document-dialog';
 import { HrDocumentKind } from '../documents/hr-templates';
-import { LeaveApi, LeaveBalance, LeaveRequestRow } from '../leave/leave.api';
+import {
+  LEAVE_TYPE_LABELS,
+  LeaveApi,
+  LeaveBalance,
+  leaveHasDayLimit,
+  LeaveRequestRow,
+  LeaveType,
+} from '../leave/leave.api';
 import { AllowanceDialogResult, StaffAllowanceDialog } from '../payroll/payroll-allowance-dialog';
 import { allowancePerLabel } from '../payroll/payroll-allowances.format';
 import { LoanDialogResult, StaffLoanDialog } from '../payroll/payroll-loan-dialog';
@@ -355,6 +362,10 @@ export class EmployeeDetailPage implements OnInit {
   // Leave data
   protected readonly leaveLoading = signal(false);
   protected readonly leaveBalances = signal<LeaveBalance[]>([]);
+  protected readonly leaveHasDayLimit = leaveHasDayLimit;
+  protected leaveTypeLabel(type: LeaveType): string {
+    return LEAVE_TYPE_LABELS[type] ?? type;
+  }
   protected readonly leaveRequests = signal<LeaveRequestRow[]>([]);
   protected readonly leaveColumns = ['leaveType', 'dates', 'status', 'note'];
 
@@ -405,12 +416,15 @@ export class EmployeeDetailPage implements OnInit {
   }
 
   private loadShops(): void {
-    this.http.get<DirectoryShopOption[]>(`${this.base}/api/settings/branches`).subscribe({
-      next: (branches) => {
-        this.shops.set(branches);
-      },
-      error: () => this.shops.set([]),
-    });
+    // The shop list is owner-only (settings). Other roles never pick a shop here.
+    if (this.isOwner()) {
+      this.http.get<DirectoryShopOption[]>(`${this.base}/api/settings/branches`).subscribe({
+        next: (branches) => {
+          this.shops.set(branches);
+        },
+        error: () => this.shops.set([]),
+      });
+    }
     this.shopApi.getShop().subscribe({
       next: (s) => this.currentShop.set(s),
     });
