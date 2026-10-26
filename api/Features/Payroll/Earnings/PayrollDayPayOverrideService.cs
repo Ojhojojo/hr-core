@@ -107,7 +107,7 @@ public sealed partial class PayrollService
             var slice = slices.GetValueOrDefault(staff.Id)?.FirstOrDefault();
             if (slice is not null)
             {
-                var normal = NormalDayPay(slice, regularHours: 0m);
+                var normal = NormalDayPay(slice, request.WorkDate, regularHours: 0m);
                 if (custom > normal + 0.009m)
                 {
                     return PayrollDayPayOverrideSaveResult.Bad(
