@@ -45,6 +45,11 @@ export function clockModeFrom(data: Record<string, unknown> | undefined): ClockM
   return data?.['mode'] === 'kiosk' ? 'kiosk' : 'self';
 }
 
+/** Only people set to must clock can clock in themselves. Unknown (not yet loaded or older API) allows it. */
+export function canSelfClockIn(me: Pick<AttendanceMe, 'mustClock'> | null): boolean {
+  return me?.mustClock !== false;
+}
+
 @Component({
   selector: 'app-ops-clock',
   imports: [
@@ -87,6 +92,7 @@ export class ClockPage {
   protected readonly kiosk = signal<KioskStaff[]>([]);
 
   protected readonly clockedIn = computed(() => this.me()?.clockedIn === true);
+  protected readonly canClockIn = computed(() => canSelfClockIn(this.me()));
   protected readonly status = computed(() => this.me()?.status ?? 'Checking…');
   protected readonly today = computed(() => this.me()?.today ?? []);
   protected readonly clockLabel = computed(() => formatManilaClock(this.now()));
@@ -302,7 +308,7 @@ export class ClockPage {
   }
 
   private async selfPunch(side: 'in' | 'out'): Promise<void> {
-    if (this.busy()) {
+    if (this.busy() || (side === 'in' && !this.canClockIn())) {
       return;
     }
 

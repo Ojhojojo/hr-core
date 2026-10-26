@@ -106,6 +106,7 @@ export type DirectoryHealthCode =
   | 'missing_hire_date'
   | 'missing_pay_rate'
   | 'must_clock_no_rate'
+  | 'not_clocking_paid_by_day_or_hour'
   | 'below_minimum_wage'
   | 'missing_statutory_ids'
   | 'sil_missing_allotment';
@@ -120,6 +121,7 @@ export const HEALTH_LABELS: Record<DirectoryHealthCode, string> = {
   missing_hire_date: 'Missing hire date',
   missing_pay_rate: 'Missing pay rate',
   must_clock_no_rate: 'Must clock, no rate',
+  not_clocking_paid_by_day_or_hour: 'Paid by day or hour but not set to clock. Pay is ₱0 without day overrides.',
   below_minimum_wage: 'Rate below minimum wage',
   missing_statutory_ids: 'Missing statutory IDs',
   sil_missing_allotment: 'SIL allotment missing',

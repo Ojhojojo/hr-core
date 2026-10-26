@@ -10,6 +10,8 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
 {
     public const string OverlapMessage = "This overlaps another punch for this person.";
     public const string AlreadyClockedInMessage = "Already clocked in.";
+    public const string NotSetToClockInMessage =
+        "You're not set up to clock in. Ask the owner or admin if that's wrong.";
 
     public async Task<AttendancePunchDto> ClockInAsync(
         Domain.Staff staff,
@@ -18,6 +20,11 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
         IFormFile? photo,
         CancellationToken cancellationToken)
     {
+        if (!staff.MustClock)
+        {
+            throw new AttendanceBadRequestException(NotSetToClockInMessage);
+        }
+
         var branch = await db.Branches.AsNoTracking()
             .FirstAsync(b => b.Id == branchId, cancellationToken);
         var (status, reason) = ResolveSelfPunch(
@@ -406,7 +413,7 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
             .Select(b => b.RequireClockPhoto)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return new AttendanceMeResponse(open is not null, status, open, dtos, requireClockPhoto);
+        return new AttendanceMeResponse(open is not null, status, open, dtos, requireClockPhoto, staff.MustClock);
     }
 
     public async Task<AttendanceRegisterResponse> GetRegisterAsync(

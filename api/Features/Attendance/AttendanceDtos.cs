@@ -28,7 +28,8 @@ public sealed record AttendanceMeResponse(
     string Status,
     AttendancePunchDto? Open,
     IReadOnlyList<AttendancePunchDto> Today,
-    bool RequireClockPhoto = false);
+    bool RequireClockPhoto = false,
+    bool MustClock = true);
 
 public sealed record AttendanceRegisterRowDto(
     Guid StaffId,

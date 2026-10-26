@@ -118,6 +118,11 @@ public sealed partial class PayrollService(IHrDb db)
             var premium = PriceStaffPremium(staff, staffPunches, slices, premiums);
             var allowance = PriceStaffAllowances(staff, DaysWorked(staffPunches), start, end, allowanceContext);
             var amount = gross.Amount + overtime.Pay + premium.AddedToGross + allowance.AddedToGross;
+            var notClockingWarning = NotClockingPaidWarning(
+                staff,
+                staffPunches,
+                paidLeaveDays is { Count: > 0 },
+                staffDayOverrides is { Count: > 0 });
 
             var hasRate = staff.RatePhp is not null && staff.PayBasis is not null;
             string? notes = hasRate ? null : "No rate";
@@ -181,7 +186,8 @@ public sealed partial class PayrollService(IHrDb db)
                     premium.Warnings,
                     allowance.Warnings,
                     loan.Warnings,
-                    capped.Warning is null ? [] : [capped.Warning]),
+                    capped.Warning is null ? [] : [capped.Warning],
+                    notClockingWarning is null ? [] : [notClockingWarning]),
                 Allowances: allowance.Allowances,
                 AllowanceItems: allowance.Items,
                 AllowancesOverridden: allowance.Overridden,
@@ -503,6 +509,26 @@ public sealed partial class PayrollService(IHrDb db)
                 slice?.RatePhp);
         });
         return OvertimeMath.SumDays(inputs, divisor, premium);
+    }
+
+    /// <summary>
+    /// Warns when a daily or hourly person is not set to clock and the period has no closed punches,
+    /// paid leave or day overrides, so their pay is zero. The pay rule itself is unchanged.
+    /// </summary>
+    internal static string? NotClockingPaidWarning(
+        Domain.Staff staff,
+        IReadOnlyCollection<AttendancePunch> closedPunches,
+        bool hasPaidLeave,
+        bool hasDayOverrides)
+    {
+        if (staff.MustClock || staff.PayBasis is not (PayBasis.Daily or PayBasis.Hourly))
+        {
+            return null;
+        }
+
+        return closedPunches.Count == 0 && !hasPaidLeave && !hasDayOverrides
+            ? "Not set to clock: paid only for day overrides"
+            : null;
     }
 
     /// <summary>

@@ -62,7 +62,7 @@
         >
           {{ busy() ? busyMessage() || 'Clocking out…' : 'Clock out' }}
         </button>
-      } @else {
+      } @else if (canClockIn()) {
         <button
           type="button"
           matButton="filled"
@@ -72,6 +72,8 @@
         >
           {{ busy() ? busyMessage() || 'Clocking in…' : 'Clock in' }}
         </button>
+      } @else {
+        <p class="ops-empty">You're not set up to clock in.</p>
       }
     </div>
   }
