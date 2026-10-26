@@ -194,7 +194,7 @@ describe('Employee directory', () => {
 
     expect(document.body.querySelector('mat-select[name="role"]')).toBeTruthy();
     expect(document.body.textContent).toContain('Pay rate');
-    expect(document.body.textContent).toContain('Can canvass & pay suppliers');
+    expect(document.body.textContent).toContain('May canvass & pay suppliers');
     expect(document.body.textContent).toContain('Uses time clock');
 
     const rateInput = document.body.querySelector('input[name="ratePhp"]') as HTMLInputElement;
