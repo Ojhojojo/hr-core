@@ -543,8 +543,7 @@ export class DirectoryPersonDialog {
   protected canCanvassAndPaySuppliers = this.data.person?.canCanvassAndPaySuppliers ?? true;
   protected canOpenLoaPdf = this.data.person?.canOpenLoaPdf ?? true;
   protected canSeeLoaPesos = this.data.person?.canSeeLoaPesos ?? true;
-  protected mustClock =
-    this.data.person?.mustClock ?? mustClockDefault(this.role, clocksByDefault);
+  protected mustClock = this.data.person?.mustClock ?? mustClockDefault(this.role, clocksByDefault);
   /** Set once the user ticks or unticks Must clock. A new person's role then stops changing it. */
   private mustClockTouched = false;
   protected payBasis: PayBasis | null = this.data.person?.payBasis ?? null;
