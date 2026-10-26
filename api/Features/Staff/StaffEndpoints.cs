@@ -171,7 +171,7 @@ public static class StaffEndpoints
 
         if (request.MustClock == true && request.Role == StaffRole.Owner)
         {
-            return Results.BadRequest(new { error = "Owner does not clock in." });
+            return Results.BadRequest(new { error = "Owners do not use the time clock." });
         }
 
         if (request.Role == StaffRole.Owner)
@@ -342,7 +342,7 @@ public static class StaffEndpoints
         var nextRole = request.Role ?? staff.Role;
         if (request.MustClock == true && nextRole == StaffRole.Owner)
         {
-            return Results.BadRequest(new { error = "Owner does not clock in." });
+            return Results.BadRequest(new { error = "Owners do not use the time clock." });
         }
 
         var hasPayEdits = request.PayBasis != null
@@ -738,7 +738,7 @@ public static class StaffEndpoints
 
         if (role == StaffRole.Owner && mustClock == true)
         {
-            return new StaffPersistResult(Results.BadRequest(new { error = "Owner does not clock in." }), null, null, null);
+            return new StaffPersistResult(Results.BadRequest(new { error = "Owners do not use the time clock." }), null, null, null);
         }
 
         var clock = role == StaffRole.Owner

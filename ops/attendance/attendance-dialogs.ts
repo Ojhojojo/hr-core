@@ -142,7 +142,7 @@ export class PunchForDialog {
 
   protected save(): void {
     if (!this.staffId()) {
-      this.error.set('Choose a staff member who must clock.');
+      this.error.set('Choose someone who uses the time clock.');
       return;
     }
 
