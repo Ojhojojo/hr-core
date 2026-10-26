@@ -169,7 +169,8 @@ public sealed partial class PayrollService
 
     /// <summary>
     /// The days per-day allowances are counted on. A Monthly person who does not clock in is counted on
-    /// their schedule, provided rest days are set. Everyone else is counted on approved clock punches.
+    /// their schedule, provided rest days are set, on the days a monthly rate slice covers (when
+    /// <paramref name="slices"/> is given). Everyone else is counted on approved clock punches.
     /// </summary>
     internal static IReadOnlySet<DateOnly> AllowanceDaysWorked(
         Domain.Staff staff,
@@ -178,7 +179,8 @@ public sealed partial class PayrollService
         DateOnly end,
         IEnumerable<DateOnly>? unpaidDays,
         IReadOnlyDictionary<DateOnly, decimal>? paidLeaveDays,
-        IEnumerable<PayrollDayPayOverride>? dayOverrides)
+        IEnumerable<PayrollDayPayOverride>? dayOverrides,
+        IReadOnlyList<RateSlice>? slices = null)
     {
         var restDays = RestDayList.Parse(staff.RestDays);
         if (staff.PayBasis != PayBasis.Monthly || staff.MustClock || restDays.Count == 0)
@@ -191,7 +193,14 @@ public sealed partial class PayrollService
         var noneDays = (dayOverrides ?? Enumerable.Empty<PayrollDayPayOverride>())
             .Where(row => row.Mode == PayrollDayPayMode.None)
             .Select(row => row.WorkDate);
-        return ScheduledDaysWorked(start, end, restDays, leaveDays, noneDays);
+        var scheduled = ScheduledDaysWorked(start, end, restDays, leaveDays, noneDays);
+        if (slices is not null)
+        {
+            // Only days a monthly rate covers: before hire or after a basis change the person is not on this schedule.
+            scheduled.RemoveWhere(day => SliceFor(slices, day)?.Basis != PayBasis.Monthly);
+        }
+
+        return scheduled;
     }
 
     /// <summary>

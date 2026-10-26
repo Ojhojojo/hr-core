@@ -118,7 +118,15 @@ public sealed partial class PayrollService(IHrDb db)
             var premium = PriceStaffPremium(staff, staffPunches, slices, premiums);
             var allowance = PriceStaffAllowances(
                 staff,
-                AllowanceDaysWorked(staff, staffPunches, start, end, unpaidDays, paidLeaveDays, staffDayOverrides),
+                AllowanceDaysWorked(
+                    staff,
+                    staffPunches,
+                    start,
+                    end,
+                    unpaidDays,
+                    paidLeaveDays,
+                    staffDayOverrides,
+                    slices),
                 start,
                 end,
                 allowanceContext);
