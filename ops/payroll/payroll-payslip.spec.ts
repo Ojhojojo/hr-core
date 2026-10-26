@@ -17,7 +17,7 @@ import { Payslip } from './payroll.models';
 import { buildThirteenthPdf, thirteenthFileName } from './payroll-thirteenth-print';
 
 const shop: ShopInfo = {
-  tradingName: 'Rakkii Auto Service',
+  tradingName: 'Rakkii Cars',
   legalName: 'RAKKII CARS OPC',
   address: '249 Roosevelt',
   phone: '(02) 7001-9011',

@@ -107,7 +107,6 @@ import { canReviewPunch, punchStatusLabel, punchStatusTone } from './punch-revie
           z-index: 2;
         }
       }
-      .mat-column-hours,
       .mat-column-actions {
         text-align: right;
       }
