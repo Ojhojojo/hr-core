@@ -218,7 +218,7 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
                     name="canCanvassAndPaySuppliers"
                     [(ngModel)]="canCanvassAndPaySuppliers"
                   >
-                    Can canvass &amp; pay suppliers
+                    May canvass &amp; pay suppliers
                   </mat-checkbox>
                   <div class="dir-perm-hinted">
                     <mat-checkbox name="canOpenLoaPdf" [(ngModel)]="canOpenLoaPdf">
