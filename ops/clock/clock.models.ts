@@ -40,5 +40,7 @@ export interface AttendanceMe {
   open: AttendancePunch | null;
   today: AttendancePunch[];
   requireClockPhoto?: boolean;
+  /** False when the person is not set to clock. Missing from older APIs, so treat undefined as true. */
+  mustClock?: boolean;
   allowOffsitePunchWithApproval?: boolean;
 }

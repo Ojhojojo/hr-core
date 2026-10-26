@@ -17,7 +17,7 @@ import {
 import { EmployeeCard } from './employee-directory.api';
 
 const shop: ShopInfo = {
-  tradingName: 'Rakkii Auto Service',
+  tradingName: 'Rakkii Cars',
   legalName: 'RAKKII CARS OPC',
   address: '249 Roosevelt',
   phone: '(02) 7001-9011',

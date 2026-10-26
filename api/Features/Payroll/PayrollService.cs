@@ -103,11 +103,7 @@ public sealed partial class PayrollService(IHrDb db)
             var graceMinutes = staff.Branch?.OtGraceMinutes ?? Branch.DefaultOtGraceMinutes;
             paidLeaveByStaff.TryGetValue(staff.Id, out var paidLeaveDays);
             dayPayOverridesByStaff.TryGetValue(staff.Id, out var staffDayOverrides);
-            var dayOverrideSpecs = staffDayOverrides is null
-                ? null
-                : staffDayOverrides.ToDictionary(
-                    row => row.WorkDate,
-                    row => new DayPayOverrideSpec(row.Mode, row.CustomAmount));
+            var dayOverrideSpecs = ToDayPayOverrideSpecs(staffDayOverrides);
             var gross = ComputePeriodGross(
                 slices,
                 staffPunches,
@@ -120,8 +116,26 @@ public sealed partial class PayrollService(IHrDb db)
                 dayOverrideSpecs);
             var overtime = PriceStaffOvertime(staff, staffPunches, slices, overtimeByStaff, shiftEnd, graceMinutes);
             var premium = PriceStaffPremium(staff, staffPunches, slices, premiums);
-            var allowance = PriceStaffAllowances(staff, DaysWorked(staffPunches), start, end, allowanceContext);
+            var allowance = PriceStaffAllowances(
+                staff,
+                AllowanceDaysWorked(
+                    staff,
+                    staffPunches,
+                    start,
+                    end,
+                    unpaidDays,
+                    paidLeaveDays,
+                    staffDayOverrides,
+                    slices),
+                start,
+                end,
+                allowanceContext);
             var amount = gross.Amount + overtime.Pay + premium.AddedToGross + allowance.AddedToGross;
+            var notClockingWarning = NotClockingPaidWarning(
+                staff,
+                staffPunches,
+                paidLeaveDays is { Count: > 0 },
+                staffDayOverrides is { Count: > 0 });
 
             var hasRate = staff.RatePhp is not null && staff.PayBasis is not null;
             string? notes = hasRate ? null : "No rate";
@@ -185,7 +199,8 @@ public sealed partial class PayrollService(IHrDb db)
                     premium.Warnings,
                     allowance.Warnings,
                     loan.Warnings,
-                    capped.Warning is null ? [] : [capped.Warning]),
+                    capped.Warning is null ? [] : [capped.Warning],
+                    notClockingWarning is null ? [] : [notClockingWarning]),
                 Allowances: allowance.Allowances,
                 AllowanceItems: allowance.Items,
                 AllowancesOverridden: allowance.Overridden,
@@ -510,6 +525,26 @@ public sealed partial class PayrollService(IHrDb db)
     }
 
     /// <summary>
+    /// Warns when a daily or hourly person is not set to clock and the period has no closed punches,
+    /// paid leave or day overrides, so their pay is zero. The pay rule itself is unchanged.
+    /// </summary>
+    internal static string? NotClockingPaidWarning(
+        Domain.Staff staff,
+        IReadOnlyCollection<AttendancePunch> closedPunches,
+        bool hasPaidLeave,
+        bool hasDayOverrides)
+    {
+        if (staff.MustClock || staff.PayBasis is not (PayBasis.Daily or PayBasis.Hourly))
+        {
+            return null;
+        }
+
+        return closedPunches.Count == 0 && !hasPaidLeave && !hasDayOverrides
+            ? "Not set to clock: paid only for day overrides"
+            : null;
+    }
+
+    /// <summary>
     /// Gross for one register period from a single basis/rate snapshot. Kept for the tests and for
     /// callers that have no dated rate history; the register uses the rate-slice overload below.
     /// </summary>
@@ -600,7 +635,7 @@ public sealed partial class PayrollService(IHrDb db)
                 && slice is not null
                 && closed)
             {
-                var normal = NormalDayPay(slice, regular);
+                var normal = NormalDayPay(slice, day, regular);
                 var (pay, days) = ApplyDayPayOverride(dayOverride, normal);
                 totalAmount += pay;
                 daysPaid += days;
@@ -641,7 +676,7 @@ public sealed partial class PayrollService(IHrDb db)
                     continue;
                 }
 
-                var normal = NormalDayPay(slice, regularHours: 0m);
+                var normal = NormalDayPay(slice, day, regularHours: 0m);
                 var (pay, days) = ApplyDayPayOverride(dayOverride, normal);
                 totalAmount += pay;
                 daysPaid += days;
@@ -694,7 +729,7 @@ public sealed partial class PayrollService(IHrDb db)
                 continue;
             }
 
-            var (monthlyGross, monthlyPaidDays) = ComputeMonthlySliceGross(slice, unpaidDays, start, end);
+            var (monthlyGross, monthlyPaidDays) = ComputeMonthlySliceGross(slice, unpaidDays, overriddenDays, start, end);
             totalAmount += monthlyGross;
             daysPaid += monthlyPaidDays;
         }
@@ -715,8 +750,22 @@ public sealed partial class PayrollService(IHrDb db)
         return null;
     }
 
-    /// <summary>Normal pay for one day before a #390 override: daily rate, or 8× hourly, or monthly/daysInMonth.</summary>
-    private static decimal NormalDayPay(RateSlice slice, decimal regularHours)
+    /// <summary>
+    /// Maps stored day-pay rows onto the spec dictionary <see cref="ComputePeriodGross"/> takes.
+    /// Null when the staff has no override rows.
+    /// </summary>
+    internal static Dictionary<DateOnly, DayPayOverrideSpec>? ToDayPayOverrideSpecs(IEnumerable<PayrollDayPayOverride>? rows) =>
+        rows is null
+            ? null
+            : rows.ToDictionary(
+                row => row.WorkDate,
+                row => new DayPayOverrideSpec(row.Mode, row.CustomAmount));
+
+    /// <summary>
+    /// Normal pay for one day before a #390 override: daily rate, or 8× hourly, or monthly rate / days in
+    /// that day's calendar month (the same share the monthly slice pays per day).
+    /// </summary>
+    private static decimal NormalDayPay(RateSlice slice, DateOnly day, decimal regularHours)
     {
         if (slice.RatePhp is not decimal rate)
         {
@@ -730,7 +779,10 @@ public sealed partial class PayrollService(IHrDb db)
                 (regularHours > 0m ? regularHours : PayrollPaidLeave.HoursPerLeaveDay) * rate,
                 2,
                 MidpointRounding.AwayFromZero),
-            PayBasis.Monthly => Math.Round(rate / 30m, 2, MidpointRounding.AwayFromZero),
+            PayBasis.Monthly => Math.Round(
+                rate / DateTime.DaysInMonth(day.Year, day.Month),
+                2,
+                MidpointRounding.AwayFromZero),
             _ => 0m
         };
     }
@@ -754,11 +806,14 @@ public sealed partial class PayrollService(IHrDb db)
 
     /// <summary>
     /// One rate slice of a monthly gross. Each calendar-month piece is rounded AwayFromZero,
-    /// exactly like the single-rate Mode 4 rule.
+    /// exactly like the single-rate Mode 4 rule. Unpaid days and day-pay-overridden days are both
+    /// excluded from the monthly share (a day counted in both is excluded once); overridden days are
+    /// paid by their override in <see cref="ComputePeriodGross"/>.
     /// </summary>
     private static (decimal Gross, int PaidDays) ComputeMonthlySliceGross(
         RateSlice slice,
         IReadOnlySet<DateOnly>? unpaidDays,
+        IReadOnlySet<DateOnly>? overriddenDays,
         DateOnly start,
         DateOnly end)
     {
@@ -780,19 +835,30 @@ public sealed partial class PayrollService(IHrDb db)
             var sliceStart = from > monthStart ? from : monthStart;
             var sliceEnd = to < monthEnd ? to : monthEnd;
             var calendarDays = sliceEnd.DayNumber - sliceStart.DayNumber + 1;
-            var unpaidInSlice = 0;
+            var excludedInSlice = 0;
             if (unpaidDays is not null)
             {
                 foreach (var day in unpaidDays)
                 {
                     if (day >= sliceStart && day <= sliceEnd)
                     {
-                        unpaidInSlice++;
+                        excludedInSlice++;
                     }
                 }
             }
 
-            var slicePaid = Math.Max(0, calendarDays - unpaidInSlice);
+            if (overriddenDays is not null)
+            {
+                foreach (var day in overriddenDays)
+                {
+                    if (day >= sliceStart && day <= sliceEnd && (unpaidDays is null || !unpaidDays.Contains(day)))
+                    {
+                        excludedInSlice++;
+                    }
+                }
+            }
+
+            var slicePaid = Math.Max(0, calendarDays - excludedInSlice);
             paidDays += slicePaid;
             if (slice.RatePhp is decimal monthlyRate)
             {

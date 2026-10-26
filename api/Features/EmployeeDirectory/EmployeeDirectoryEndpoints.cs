@@ -20,6 +20,7 @@ public static class EmployeeDirectoryEndpoints
     public const string HealthMissingHireDate = "missing_hire_date";
     public const string HealthMissingPayRate = "missing_pay_rate";
     public const string HealthMustClockNoRate = "must_clock_no_rate";
+    public const string HealthNotClockingPaidByDayOrHour = "not_clocking_paid_by_day_or_hour";
     public const string HealthBelowMinimumWage = "below_minimum_wage";
     public const string HealthMissingStatutoryIds = "missing_statutory_ids";
     public const string HealthSilMissingAllotment = "sil_missing_allotment";
@@ -730,6 +731,13 @@ public static class EmployeeDirectoryEndpoints
             if (person.MustClock && rateBlank)
             {
                 codes.Add(HealthMustClockNoRate);
+            }
+
+            // Daily or hourly pay comes only from closed punches, so a person who never clocks earns nothing
+            // unless the owner adds day overrides.
+            if (!person.MustClock && person.PayBasis is (PayBasis.Daily or PayBasis.Hourly))
+            {
+                codes.Add(HealthNotClockingPaidByDayOrHour);
             }
 
             // Below the shop's verified daily minimum. Hourly compares rate x standard 8 hours.

@@ -9,6 +9,7 @@ import { MatInput } from '@angular/material/input';
 import {
   type ScorecardPeriod,
   apiErrorMessage,
+  clocksByDefault,
   TIN_FORMAT_HINT,
   BannerComponent,
   DialogComponent,
@@ -22,6 +23,7 @@ import {
   EmploymentDocType,
   PayBasis,
 } from './employee-directory.api';
+import { mustClockAfterBasisChange, mustClockDefault } from './must-clock';
 import { personFieldError } from './person-validation';
 
 export interface DirectoryShopOption {
@@ -234,7 +236,8 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
                   <div class="dir-perm-hinted">
                     <mat-checkbox
                       name="mustClock"
-                      [(ngModel)]="mustClock"
+                      [ngModel]="mustClock"
+                      (ngModelChange)="onMustClockChange($event)"
                       [disabled]="role === 'owner'"
                     >
                       Must clock
@@ -540,7 +543,9 @@ export class DirectoryPersonDialog {
   protected canCanvassAndPaySuppliers = this.data.person?.canCanvassAndPaySuppliers ?? true;
   protected canOpenLoaPdf = this.data.person?.canOpenLoaPdf ?? true;
   protected canSeeLoaPesos = this.data.person?.canSeeLoaPesos ?? true;
-  protected mustClock = this.data.person?.mustClock ?? (this.role === 'owner' ? false : true);
+  protected mustClock = this.data.person?.mustClock ?? mustClockDefault(this.role, clocksByDefault);
+  /** Set once the user ticks or unticks Must clock. A new person's role then stops changing it. */
+  private mustClockTouched = false;
   protected payBasis: PayBasis | null = this.data.person?.payBasis ?? null;
   protected ratePhp: number | null = this.data.person?.ratePhp ?? null;
   protected otAfterHoursPerDay: number | null =
@@ -629,11 +634,22 @@ export class DirectoryPersonDialog {
     if (role === 'owner') {
       this.mustClock = false;
       this.branchId = '';
+    } else if (!this.data.person && !this.mustClockTouched) {
+      this.mustClock = mustClockAfterBasisChange(
+        mustClockDefault(role, clocksByDefault),
+        this.payBasis,
+      );
     }
+  }
+
+  protected onMustClockChange(value: boolean): void {
+    this.mustClock = value;
+    this.mustClockTouched = true;
   }
 
   protected onPayBasisChange(basis: PayBasis | null): void {
     this.payBasis = basis;
+    this.mustClock = mustClockAfterBasisChange(this.mustClock, basis);
     if (basis === 'hourly') {
       if (this.otAfterHoursPerDay == null) {
         this.otAfterHoursPerDay = 8;

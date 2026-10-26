@@ -92,17 +92,21 @@ import { myPayslipDetailToPayslip } from './my-payslip.format';
         <table mat-table [dataSource]="payslips()" class="ops-table">
           <ng-container matColumnDef="period">
             <th mat-header-cell *matHeaderCellDef>Period</th>
-            <td mat-cell *matCellDef="let row">{{ row.periodFrom }} → {{ row.periodTo }}</td>
+            <td mat-cell *matCellDef="let row" data-label="Period">
+              {{ row.periodFrom }} → {{ row.periodTo }}
+            </td>
           </ng-container>
 
           <ng-container matColumnDef="gross">
-            <th mat-header-cell *matHeaderCellDef>Gross</th>
-            <td mat-cell *matCellDef="let row">{{ money(row.gross) }}</td>
+            <th mat-header-cell *matHeaderCellDef class="num">Gross</th>
+            <td mat-cell *matCellDef="let row" data-label="Gross" class="num">
+              {{ money(row.gross) }}
+            </td>
           </ng-container>
 
           <ng-container matColumnDef="net">
-            <th mat-header-cell *matHeaderCellDef>Net</th>
-            <td mat-cell *matCellDef="let row">
+            <th mat-header-cell *matHeaderCellDef class="num">Net</th>
+            <td mat-cell *matCellDef="let row" data-label="Net" class="num">
               <strong>{{ money(row.net) }}</strong>
             </td>
           </ng-container>

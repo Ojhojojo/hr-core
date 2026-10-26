@@ -311,6 +311,12 @@ public sealed partial class PayrollService
             earliest.Value,
             yearEndCap,
             cancellationToken);
+        // Day-pay overrides (#390) are loaded once for the whole window, same as paid leave.
+        var dayPayOverridesByStaff = await LoadDayPayOverridesByStaffAsync(
+            windowedStaff.Select(s => s.Id).ToList(),
+            earliest.Value,
+            yearEndCap,
+            cancellationToken);
 
         foreach (var staff in staffList)
         {
@@ -319,12 +325,14 @@ public sealed partial class PayrollService
                 continue;
             }
 
+            dayPayOverridesByStaff.TryGetValue(staff.Id, out var staffDayOverrides);
             totals[staff.Id] = SumMonthSlices(
                 staff,
                 slicesByStaff.GetValueOrDefault(staff.Id, []),
                 punchesByStaff.GetValueOrDefault(staff.Id, []),
                 leavesByStaff.GetValueOrDefault(staff.Id, []),
                 paidLeaveByStaff.GetValueOrDefault(staff.Id),
+                ToDayPayOverrideSpecs(staffDayOverrides),
                 windowStart,
                 yearEndCap);
         }
@@ -338,6 +346,7 @@ public sealed partial class PayrollService
         IReadOnlyList<AttendancePunch> punches,
         IReadOnlyList<LeaveRequest> leaves,
         IReadOnlyDictionary<DateOnly, decimal>? paidLeaveDays,
+        IReadOnlyDictionary<DateOnly, DayPayOverrideSpec>? dayPayOverrides,
         DateOnly windowStart,
         DateOnly windowEnd)
     {
@@ -371,7 +380,8 @@ public sealed partial class PayrollService
                 unpaid,
                 sliceStart,
                 sliceEnd,
-                paidLeaveDays: paidLeaveDays).Amount;
+                paidLeaveDays: paidLeaveDays,
+                dayPayOverrides: dayPayOverrides).Amount;
         }
 
         return total;
