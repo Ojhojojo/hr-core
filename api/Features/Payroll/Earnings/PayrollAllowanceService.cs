@@ -147,16 +147,77 @@ public sealed partial class PayrollService
         var warnings = new List<string>();
         if (staff.PayBasis == PayBasis.Monthly)
         {
+            var noRestDays = !staff.MustClock && RestDayList.Parse(staff.RestDays).Count == 0;
             foreach (var item in computed.Items)
             {
                 if (item.Per == AllowancePer.Day && item.Quantity == 0)
                 {
-                    warnings.Add($"Per-day allowance {item.Name} needs clock punches");
+                    if (staff.MustClock)
+                    {
+                        warnings.Add($"Per-day allowance {item.Name} needs clock punches");
+                    }
+                    else if (noRestDays)
+                    {
+                        warnings.Add($"Set rest days so per-day allowance {item.Name} can be counted");
+                    }
                 }
             }
         }
 
         return new AllowancePricing(allowances, items, hasOverride, allowances ?? 0m, warnings);
+    }
+
+    /// <summary>
+    /// The days per-day allowances are counted on. A Monthly person who does not clock in is counted on
+    /// their schedule, provided rest days are set. Everyone else is counted on approved clock punches.
+    /// </summary>
+    internal static IReadOnlySet<DateOnly> AllowanceDaysWorked(
+        Domain.Staff staff,
+        IReadOnlyList<AttendancePunch> punches,
+        DateOnly start,
+        DateOnly end,
+        IEnumerable<DateOnly>? unpaidDays,
+        IReadOnlyDictionary<DateOnly, decimal>? paidLeaveDays,
+        IEnumerable<PayrollDayPayOverride>? dayOverrides)
+    {
+        var restDays = RestDayList.Parse(staff.RestDays);
+        if (staff.PayBasis != PayBasis.Monthly || staff.MustClock || restDays.Count == 0)
+        {
+            return DaysWorked(punches);
+        }
+
+        var leaveDays = (unpaidDays ?? Enumerable.Empty<DateOnly>())
+            .Concat(paidLeaveDays?.Keys ?? Enumerable.Empty<DateOnly>());
+        var noneDays = (dayOverrides ?? Enumerable.Empty<PayrollDayPayOverride>())
+            .Where(row => row.Mode == PayrollDayPayMode.None)
+            .Select(row => row.WorkDate);
+        return ScheduledDaysWorked(start, end, restDays, leaveDays, noneDays);
+    }
+
+    /// <summary>
+    /// Every date in [start, end] that is not a rest day, not approved leave (paid or unpaid) and not a
+    /// day overridden to None. Overrides Full, Half and Custom count as worked days.
+    /// </summary>
+    internal static HashSet<DateOnly> ScheduledDaysWorked(
+        DateOnly start,
+        DateOnly end,
+        IReadOnlySet<DayOfWeek> restDays,
+        IEnumerable<DateOnly> leaveDays,
+        IEnumerable<DateOnly> noneOverrideDays)
+    {
+        var excluded = new HashSet<DateOnly>(leaveDays);
+        excluded.UnionWith(noneOverrideDays);
+
+        var days = new HashSet<DateOnly>();
+        for (var day = start; day <= end; day = day.AddDays(1))
+        {
+            if (!restDays.Contains(day.DayOfWeek) && !excluded.Contains(day))
+            {
+                days.Add(day);
+            }
+        }
+
+        return days;
     }
 
     private static HashSet<DateOnly> DaysWorked(IReadOnlyList<AttendancePunch> punches)

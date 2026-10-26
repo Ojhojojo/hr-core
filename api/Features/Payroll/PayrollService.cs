@@ -116,7 +116,12 @@ public sealed partial class PayrollService(IHrDb db)
                 dayOverrideSpecs);
             var overtime = PriceStaffOvertime(staff, staffPunches, slices, overtimeByStaff, shiftEnd, graceMinutes);
             var premium = PriceStaffPremium(staff, staffPunches, slices, premiums);
-            var allowance = PriceStaffAllowances(staff, DaysWorked(staffPunches), start, end, allowanceContext);
+            var allowance = PriceStaffAllowances(
+                staff,
+                AllowanceDaysWorked(staff, staffPunches, start, end, unpaidDays, paidLeaveDays, staffDayOverrides),
+                start,
+                end,
+                allowanceContext);
             var amount = gross.Amount + overtime.Pay + premium.AddedToGross + allowance.AddedToGross;
             var notClockingWarning = NotClockingPaidWarning(
                 staff,
