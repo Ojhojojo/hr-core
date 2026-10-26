@@ -120,7 +120,7 @@ export interface DirectoryConfigIssue {
 export const HEALTH_LABELS: Record<DirectoryHealthCode, string> = {
   missing_hire_date: 'Missing hire date',
   missing_pay_rate: 'Missing pay rate',
-  must_clock_no_rate: 'Must clock, no rate',
+  must_clock_no_rate: 'Uses clock, missing pay rate',
   not_clocking_paid_by_day_or_hour: 'Paid by day or hour, not clocking',
   below_minimum_wage: 'Rate below minimum wage',
   missing_statutory_ids: 'Missing statutory IDs',

@@ -866,12 +866,12 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
 
         if (target.Role == StaffRole.Owner)
         {
-            throw new AttendanceBadRequestException("Owner does not clock in.");
+            throw new AttendanceBadRequestException("Owners do not use the time clock.");
         }
 
         if (!target.MustClock)
         {
-            throw new AttendanceBadRequestException("This person is not set to must clock.");
+            throw new AttendanceBadRequestException("This person does not use the time clock.");
         }
 
         return target;

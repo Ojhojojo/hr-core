@@ -37,7 +37,7 @@ const FIELD_LABELS: Record<string, string> = {
   'staff.sss': 'SSS',
   'staff.philhealth': 'PhilHealth',
   'staff.pagibig': 'Pag-IBIG',
-  'staff.must_clock': 'Must clock',
+  'staff.must_clock': 'Uses time clock',
   'leave.allotment': 'Leave allotment',
   'leave.decision': 'Leave decision',
   'leave.request': 'Leave request',
@@ -64,7 +64,7 @@ export function hrChangeFieldLabel(field: string): string {
 
 const TRUE_FALSE_LABELS: Record<string, [string, string]> = {
   'staff.active': ['Active', 'Inactive'],
-  'staff.must_clock': ['Must clock', 'No clock'],
+  'staff.must_clock': ['Uses time clock', "Doesn't use clock"],
 };
 
 /** Value shown next to the label. Stored booleans read better as words. */

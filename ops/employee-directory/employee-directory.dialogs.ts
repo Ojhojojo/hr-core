@@ -52,7 +52,7 @@ export const DIRECTORY_ROLE_LABELS: Record<DirectoryRole, string> = {
 
 const ROLE_HINTS: Record<DirectoryRole, string> = {
   owner: 'Full access, including staff and settings.',
-  admin: 'Runs the shop day to day. Cannot change roles.',
+  admin: 'Runs the shop day to day.',
   technician: 'Works jobs on the floor.',
   sales: 'Front desk: customers and estimates.',
 };
@@ -197,7 +197,6 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
                 <mat-form-field appearance="outline">
                   <mat-label>Role</mat-label>
                   <input matInput name="roleReadonly" [value]="roleLabel(role)" disabled />
-                  <mat-hint>Only the owner can change roles.</mat-hint>
                 </mat-form-field>
               }
               @if ((data.mode === 'add' || data.isOwner) && data.shops.length > 0) {
@@ -223,29 +222,24 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
                   </mat-checkbox>
                   <div class="dir-perm-hinted">
                     <mat-checkbox name="canOpenLoaPdf" [(ngModel)]="canOpenLoaPdf">
-                      Can open LOA PDF
+                      May open LOA files
                     </mat-checkbox>
                     <small class="dir-perm-hint">
-                      PDF on does not turn pesos on. If the PDF prints the amount, viewing it will
-                      reveal it.
+                      The PDF can still show amounts if the file includes them.
                     </small>
                   </div>
                   <mat-checkbox name="canSeeLoaPesos" [(ngModel)]="canSeeLoaPesos">
-                    Can see LOA pesos / job margin
+                    May see LOA amounts
                   </mat-checkbox>
-                  <div class="dir-perm-hinted">
+                  @if (role !== 'owner') {
                     <mat-checkbox
                       name="mustClock"
                       [ngModel]="mustClock"
                       (ngModelChange)="onMustClockChange($event)"
-                      [disabled]="role === 'owner'"
                     >
-                      Must clock
+                      Uses time clock
                     </mat-checkbox>
-                    <small class="dir-perm-hint">
-                      On for technician and front desk. Off for sales. Owner does not clock in.
-                    </small>
-                  </div>
+                  }
                 </div>
               }
             </div>
@@ -544,7 +538,7 @@ export class DirectoryPersonDialog {
   protected canOpenLoaPdf = this.data.person?.canOpenLoaPdf ?? true;
   protected canSeeLoaPesos = this.data.person?.canSeeLoaPesos ?? true;
   protected mustClock = this.data.person?.mustClock ?? mustClockDefault(this.role, clocksByDefault);
-  /** Set once the user ticks or unticks Must clock. A new person's role then stops changing it. */
+  /** Set once the user ticks or unticks Uses time clock. A new person's role then stops changing it. */
   private mustClockTouched = false;
   protected payBasis: PayBasis | null = this.data.person?.payBasis ?? null;
   protected ratePhp: number | null = this.data.person?.ratePhp ?? null;

@@ -81,7 +81,7 @@
   @if (isKiosk) {
     <ops-card title="Desk kiosk">
       @if (kiosk().length === 0) {
-        <p class="ops-empty">No one at this shop is set to must clock.</p>
+        <p class="ops-empty">No one at this shop uses the time clock yet.</p>
       } @else {
         <div class="ops-kiosk-list">
           @for (person of kiosk(); track person.id) {
