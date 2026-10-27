@@ -6,6 +6,7 @@ import {
   apiErrorMessage,
   manilaToday,
   BannerComponent,
+  OpsConfirmService,
   OpsToastService,
   PageHeaderComponent,
   SkeletonComponent,
@@ -64,6 +65,7 @@ export class AnnouncementsPage {
   private readonly api = inject(AnnouncementsApi);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(OpsToastService);
+  private readonly confirm = inject(OpsConfirmService);
 
   protected readonly today = manilaToday();
   protected readonly loading = signal(true);
@@ -122,6 +124,21 @@ export class AnnouncementsPage {
   }
 
   remove(row: Announcement): void {
+    this.confirm
+      .confirm({
+        title: `Remove “${row.title}”?`,
+        message: 'The announcement is deleted for everyone. This cannot be undone.',
+        confirmLabel: 'Remove',
+        tone: 'danger',
+      })
+      .subscribe((result) => {
+        if (result.confirmed) {
+          this.removeNow(row);
+        }
+      });
+  }
+
+  private removeNow(row: Announcement): void {
     this.error.set('');
     this.api.remove(row.id).subscribe({
       next: () => {

@@ -5,7 +5,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ShopInfo } from '@hr-host';
+import { of } from 'rxjs';
+import { OpsConfirmService, ShopInfo } from '@hr-host';
 import {
   PayslipDialog,
   buildPayslipPdf,
@@ -149,6 +150,7 @@ describe('PayslipDialog', () => {
           },
         },
         { provide: MatDialogRef, useValue: { close } },
+        { provide: OpsConfirmService, useValue: { confirm: () => of({ confirmed: true }) } },
       ],
     }).compileComponents();
 

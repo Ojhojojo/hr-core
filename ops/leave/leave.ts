@@ -539,7 +539,7 @@ export class LeavePage {
     this.api.affectedJobs(row.id).subscribe({
       next: (jobs) => {
         if (jobs.length === 0) {
-          this.submitDecision(row.id, 'approved');
+          this.confirmApprove(row);
           return;
         }
         this.availabilityApi.forDay().subscribe({
@@ -549,6 +549,21 @@ export class LeavePage {
       },
       error: (err) => this.reportError(err),
     });
+  }
+
+  /** No affected jobs: a plain confirm so one tap cannot approve leave by mistake. */
+  private confirmApprove(row: LeaveRequestRow): void {
+    this.confirm
+      .confirm({
+        title: `Approve leave for ${row.displayName}?`,
+        message: `${row.startDate} to ${row.endDate}, ${row.days} working day${row.days === 1 ? '' : 's'} from their balance.`,
+        confirmLabel: 'Approve',
+      })
+      .subscribe((res) => {
+        if (res.confirmed) {
+          this.submitDecision(row.id, 'approved');
+        }
+      });
   }
 
   private openApproveDialog(
