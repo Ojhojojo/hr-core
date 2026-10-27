@@ -746,6 +746,21 @@ export class PayrollPage {
       return;
     }
 
+    this.confirm
+      .confirm({
+        title: `Save deductions for all ${targetRows.length} staff?`,
+        message:
+          'Every row on this period is saved with the values shown, replacing what was saved before.',
+        confirmLabel: 'Save all',
+      })
+      .subscribe((result) => {
+        if (result.confirmed) {
+          this.saveAllDeductionsNow(targetRows);
+        }
+      });
+  }
+
+  private saveAllDeductionsNow(targetRows: PayrollStaffRow[]): void {
     this.savingAll.set(true);
     this.error.set('');
 
@@ -1206,6 +1221,21 @@ export class PayrollPage {
       return;
     }
 
+    this.confirm
+      .confirm({
+        title: `Clear the 13th-month override for ${row.staffName}?`,
+        message: `The ${year} amount goes back to the computed value.`,
+        confirmLabel: 'Clear override',
+        tone: 'danger',
+      })
+      .subscribe((result) => {
+        if (result.confirmed) {
+          this.clearThirteenthNow(row, year);
+        }
+      });
+  }
+
+  private clearThirteenthNow(row: ThirteenthMonthRow, year: number): void {
     this.thirteenthSavingId.set(row.staffId);
     this.thirteenthError.set('');
     this.api.clearThirteenthOverride(row.staffId, year).subscribe({

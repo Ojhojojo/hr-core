@@ -2,7 +2,13 @@ import { Component, ViewEncapsulation, inject, signal } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { jsPDF } from 'jspdf';
-import { ShopInfo, apiErrorMessage, printPdfBlob, DialogComponent } from '@hr-host';
+import {
+  ShopInfo,
+  apiErrorMessage,
+  printPdfBlob,
+  DialogComponent,
+  OpsConfirmService,
+} from '@hr-host';
 import { manilaLockDate } from './payroll-lock';
 import { PayrollApi } from './payroll.api';
 import { Payslip, PayrollDeductionDraft, PayrollStaffRow } from './payroll.models';
@@ -612,6 +618,7 @@ export function buildPayslipPdf(
 export class PayslipDialog {
   private readonly api = inject(PayrollApi);
   private readonly ref = inject(MatDialogRef<PayslipDialog, PayslipDialogResult>);
+  private readonly confirm = inject(OpsConfirmService);
   protected readonly data = inject<PayslipDialogData>(MAT_DIALOG_DATA);
   protected readonly head = letterheadLines(this.data.shop);
   protected readonly issuing = signal(false);
@@ -640,22 +647,36 @@ export class PayslipDialog {
       this.error.set('Choose a period before issuing a payslip.');
       return;
     }
+    const from = this.data.periodFrom;
+    const to = this.data.periodTo;
+    this.confirm
+      .confirm({
+        title: 'Issue this payslip?',
+        message: `The employee can see the payslip for ${from} to ${to} once it is issued.`,
+        confirmLabel: 'Issue payslip',
+      })
+      .subscribe((result) => {
+        if (result.confirmed) {
+          this.issueNow(staffId, from, to);
+        }
+      });
+  }
+
+  private issueNow(staffId: string, from: string, to: string): void {
     this.error.set('');
     this.issuing.set(true);
-    this.api
-      .issuePayslip({ staffId, from: this.data.periodFrom, to: this.data.periodTo })
-      .subscribe({
-        next: (payslip) => {
-          this.issuing.set(false);
-          const at = payslip.issuedAtUtc ?? '';
-          this.issuedAtUtc = at || undefined;
-          this.issuedLine.set(at ? `Issued ${manilaLockDate(at)}` : 'Issued');
-        },
-        error: (err: unknown) => {
-          this.issuing.set(false);
-          this.error.set(apiErrorMessage(err));
-        },
-      });
+    this.api.issuePayslip({ staffId, from, to }).subscribe({
+      next: (payslip) => {
+        this.issuing.set(false);
+        const at = payslip.issuedAtUtc ?? '';
+        this.issuedAtUtc = at || undefined;
+        this.issuedLine.set(at ? `Issued ${manilaLockDate(at)}` : 'Issued');
+      },
+      error: (err: unknown) => {
+        this.issuing.set(false);
+        this.error.set(apiErrorMessage(err));
+      },
+    });
   }
 
   protected print(): void {
