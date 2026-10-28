@@ -197,6 +197,8 @@ export class AttendancePage {
   protected readonly loading = signal(true);
   protected readonly downloading = signal(false);
   protected readonly error = signal('');
+  /** True while a review, overtime decision or close is open or saving, so a second tap does nothing. */
+  protected readonly acting = signal(false);
 
   protected readonly pageIndex = signal(0);
   protected readonly pageSize = signal(10);
@@ -318,9 +320,10 @@ export class AttendancePage {
   }
 
   decideOvertime(row: OvertimeRow, decision: 'approved' | 'rejected'): void {
-    if (!row.canApprove) {
+    if (!row.canApprove || this.acting()) {
       return;
     }
+    this.acting.set(true);
     const ref = this.dialog.open(
       OvertimeDecisionDialog,
       fitDialogToHandset(
@@ -337,6 +340,7 @@ export class AttendancePage {
     );
     ref.afterClosed().subscribe((result) => {
       if (!result) {
+        this.acting.set(false);
         return;
       }
       const call =
@@ -345,10 +349,14 @@ export class AttendancePage {
           : this.api.rejectOvertime(row.id, result.note);
       call.subscribe({
         next: () => {
+          this.acting.set(false);
           this.toast.success(decision === 'approved' ? 'Overtime approved.' : 'Overtime rejected.');
           this.load();
         },
-        error: (err: unknown) => this.error.set(apiErrorMessage(err)),
+        error: (err: unknown) => {
+          this.acting.set(false);
+          this.error.set(apiErrorMessage(err));
+        },
       });
     });
   }
@@ -388,9 +396,10 @@ export class AttendancePage {
   }
 
   review(row: AttendanceRegisterRow, decision: 'approved' | 'rejected'): void {
-    if (!row.punchId || !canReviewPunch(this.role(), row.approvalStatus)) {
+    if (!row.punchId || !canReviewPunch(this.role(), row.approvalStatus) || this.acting()) {
       return;
     }
+    this.acting.set(true);
 
     const punchId = row.punchId;
     const ref = this.dialog.open(
@@ -410,6 +419,7 @@ export class AttendancePage {
     );
     ref.afterClosed().subscribe((result) => {
       if (result == null || !punchId) {
+        this.acting.set(false);
         return;
       }
 
@@ -420,10 +430,14 @@ export class AttendancePage {
           : this.api.reject(punchId, result.note);
       call.subscribe({
         next: () => {
+          this.acting.set(false);
           this.toast.success(decision === 'approved' ? 'Punch approved.' : 'Punch rejected.');
           this.load();
         },
-        error: (err: unknown) => this.error.set(apiErrorMessage(err)),
+        error: (err: unknown) => {
+          this.acting.set(false);
+          this.error.set(apiErrorMessage(err));
+        },
       });
     });
   }
@@ -454,9 +468,10 @@ export class AttendancePage {
   }
 
   closePunch(row: AttendanceRegisterRow): void {
-    if (!row.punchId) {
+    if (!row.punchId || this.acting()) {
       return;
     }
+    this.acting.set(true);
 
     const ref = this.dialog.open(
       ClosePunchDialog,
@@ -471,13 +486,20 @@ export class AttendancePage {
     );
     ref.afterClosed().subscribe((result) => {
       if (!result || !row.punchId) {
+        this.acting.set(false);
         return;
       }
 
       this.error.set('');
       this.api.closePunch(row.punchId, result).subscribe({
-        next: () => this.load(),
-        error: (err: unknown) => this.error.set(apiErrorMessage(err)),
+        next: () => {
+          this.acting.set(false);
+          this.load();
+        },
+        error: (err: unknown) => {
+          this.acting.set(false);
+          this.error.set(apiErrorMessage(err));
+        },
       });
     });
   }

@@ -4,7 +4,7 @@ import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
-import { BannerComponent, DialogComponent } from '@hr-host';
+import { BannerComponent, DialogComponent, OpsToneDirective } from '@hr-host';
 import { AttendanceStaffOption } from './attendance.models';
 
 export interface PunchForDialogData {
@@ -287,7 +287,15 @@ export class AttendancePhotoDialog {
 
 @Component({
   selector: 'app-review-punch-dialog',
-  imports: [FormsModule, MatButton, MatFormField, MatLabel, MatInput, DialogComponent],
+  imports: [
+    FormsModule,
+    MatButton,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    DialogComponent,
+    OpsToneDirective,
+  ],
   template: `
     <ops-dialog
       [title]="title"
@@ -307,7 +315,12 @@ export class AttendancePhotoDialog {
       </form>
       <div dialogActions>
         <button matButton="text" type="button" (click)="dialogRef.close()">Cancel</button>
-        <button matButton="filled" type="submit" form="review-punch-form">
+        <button
+          matButton="filled"
+          type="submit"
+          form="review-punch-form"
+          [opsTone]="data.decision === 'rejected' ? 'danger' : null"
+        >
           {{ confirmLabel }}
         </button>
       </div>
@@ -473,6 +486,7 @@ export class OvertimeRequestDialog {
     MatInput,
     DialogComponent,
     BannerComponent,
+    OpsToneDirective,
   ],
   template: `
     <ops-dialog
@@ -505,7 +519,14 @@ export class OvertimeRequestDialog {
       </form>
       <div dialogActions>
         <button matButton="text" type="button" (click)="dialogRef.close()">Cancel</button>
-        <button matButton="filled" type="submit" form="ot-decision-form">{{ confirmLabel }}</button>
+        <button
+          matButton="filled"
+          type="submit"
+          form="ot-decision-form"
+          [opsTone]="data.decision === 'rejected' ? 'danger' : null"
+        >
+          {{ confirmLabel }}
+        </button>
       </div>
     </ops-dialog>
   `,
