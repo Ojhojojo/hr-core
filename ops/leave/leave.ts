@@ -156,6 +156,8 @@ export class LeavePage {
   protected readonly year = new Date().getFullYear();
   protected readonly loading = signal(true);
   protected readonly error = signal('');
+  /** True while an approve, reject or cancel is open or saving, so a second tap does nothing. */
+  protected readonly acting = signal(false);
   /** Signed-in user's own rows (`mine=true`). Empty for the owner, who has no personal leave. */
   protected readonly ownRequests = signal<LeaveRequestRow[]>([]);
   /** Shop rows for the decision list and history. Owner and admin only. */
@@ -352,6 +354,8 @@ export class LeavePage {
   }
 
   protected cancelRequest(row: LeaveRequestRow): void {
+    if (this.acting()) return;
+    this.acting.set(true);
     const approved = row.status === 'approved';
     const data: CancelLeaveDialogData = {
       title: approved ? 'Cancel approved leave?' : 'Cancel leave request?',
@@ -368,14 +372,19 @@ export class LeavePage {
       ),
     );
     ref.afterClosed().subscribe((reason) => {
-      if (reason === undefined) return;
+      if (reason === undefined) {
+        this.acting.set(false);
+        return;
+      }
       this.error.set('');
       this.api.cancel(row.id, reason || undefined).subscribe({
         next: () => {
+          this.acting.set(false);
           this.toast.success('Leave cancelled.');
           this.reload(false);
         },
         error: (err) => {
+          this.acting.set(false);
           const message = apiErrorMessage(err);
           this.error.set(message);
           this.toast.error(message);
@@ -516,6 +525,8 @@ export class LeavePage {
   }
 
   protected decide(row: LeaveRequestRow, decision: 'approved' | 'rejected'): void {
+    if (this.acting()) return;
+    this.acting.set(true);
     if (decision === 'rejected') {
       this.confirm
         .confirm({
@@ -525,7 +536,10 @@ export class LeavePage {
           tone: 'danger',
         })
         .subscribe((res) => {
-          if (!res.confirmed) return;
+          if (!res.confirmed) {
+            this.acting.set(false);
+            return;
+          }
           this.submitDecision(row.id, decision);
         });
     } else {
@@ -562,6 +576,8 @@ export class LeavePage {
       .subscribe((res) => {
         if (res.confirmed) {
           this.submitDecision(row.id, 'approved');
+        } else {
+          this.acting.set(false);
         }
       });
   }
@@ -589,7 +605,10 @@ export class LeavePage {
       ),
     );
     ref.afterClosed().subscribe((result) => {
-      if (!result) return;
+      if (!result) {
+        this.acting.set(false);
+        return;
+      }
       this.submitDecision(row.id, 'approved', result.reassignments);
     });
   }
@@ -602,6 +621,7 @@ export class LeavePage {
     this.error.set('');
     this.api.decide(id, decision, reassignments).subscribe({
       next: () => {
+        this.acting.set(false);
         this.toast.success(decision === 'approved' ? 'Leave approved.' : 'Leave rejected.');
         this.reload(false);
       },
@@ -610,6 +630,7 @@ export class LeavePage {
   }
 
   private reportError(err: unknown): void {
+    this.acting.set(false);
     const message = apiErrorMessage(err);
     this.error.set(message);
     this.toast.error(message);

@@ -117,6 +117,7 @@
                   matButton="text"
                   type="button"
                   name="cancelLeave"
+                  [disabled]="acting()"
                   (click)="cancelRequest(row)"
                 >
                   Cancel
@@ -199,6 +200,7 @@
                     matButton="tonal"
                     type="button"
                     name="approve"
+                    [disabled]="acting()"
                     (click)="decide(row, 'approved')"
                   >
                     Approve
@@ -207,6 +209,7 @@
                     matButton="text"
                     type="button"
                     name="reject"
+                    [disabled]="acting()"
                     (click)="decide(row, 'rejected')"
                   >
                     Reject
@@ -218,6 +221,7 @@
                   matButton="text"
                   type="button"
                   name="cancelLeave"
+                  [disabled]="acting()"
                   (click)="cancelRequest(row)"
                 >
                   Cancel
@@ -380,6 +384,7 @@
                   matButton="text"
                   type="button"
                   name="cancelLeave"
+                  [disabled]="acting()"
                   (click)="cancelRequest(row)"
                 >
                   Cancel

@@ -119,7 +119,14 @@
             @if (row.isOpen) {
               <span class="ops-attend-open">Open</span>
               @if (canManage()) {
-                <button matButton="tonal" type="button" (click)="closePunch(row)">Close</button>
+                <button
+                  matButton="tonal"
+                  type="button"
+                  [disabled]="acting()"
+                  (click)="closePunch(row)"
+                >
+                  Close
+                </button>
               }
             } @else {
               {{ outLabel(row) }}
@@ -172,6 +179,7 @@
                   matButton="tonal"
                   type="button"
                   name="approve"
+                  [disabled]="acting()"
                   (click)="review(row, 'approved')"
                 >
                   Approve
@@ -180,6 +188,7 @@
                   matButton="text"
                   type="button"
                   name="reject"
+                  [disabled]="acting()"
                   (click)="review(row, 'rejected')"
                 >
                   Reject
@@ -262,10 +271,20 @@
             <td mat-cell *matCellDef="let row" class="text-right" data-label="">
               @if (row.canApprove) {
                 <div class="ops-attend-actions-cell">
-                  <button matButton="tonal" type="button" (click)="decideOvertime(row, 'approved')">
+                  <button
+                    matButton="tonal"
+                    type="button"
+                    [disabled]="acting()"
+                    (click)="decideOvertime(row, 'approved')"
+                  >
                     Approve
                   </button>
-                  <button matButton="text" type="button" (click)="decideOvertime(row, 'rejected')">
+                  <button
+                    matButton="text"
+                    type="button"
+                    [disabled]="acting()"
+                    (click)="decideOvertime(row, 'rejected')"
+                  >
                     Reject
                   </button>
                 </div>
