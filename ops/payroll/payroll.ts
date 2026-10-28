@@ -661,11 +661,11 @@ export class PayrollPage {
           const isSemi = this.statutorySchedule() === 'semi_monthly';
           if (isSemi) {
             notes.unshift(
-              `Suggested at semi-monthly rate (50% of monthly: SSS ₱${suggestion.sss.toFixed(2)}, PhilHealth ₱${suggestion.philHealth.toFixed(2)}, Pag-IBIG ₱${suggestion.pagIbig.toFixed(2)}, WHT ₱${suggestion.wht.toFixed(2)}).`,
+              `Suggested at semi-monthly rate (50% of monthly: SSS ${this.formatMoney(suggestion.sss)}, PhilHealth ${this.formatMoney(suggestion.philHealth)}, Pag-IBIG ${this.formatMoney(suggestion.pagIbig)}, WHT ${this.formatMoney(suggestion.wht)}).`,
             );
           } else {
             notes.unshift(
-              `Suggested at full monthly rate (SSS ₱${suggestion.sss.toFixed(2)}, PhilHealth ₱${suggestion.philHealth.toFixed(2)}, Pag-IBIG ₱${suggestion.pagIbig.toFixed(2)}, WHT ₱${suggestion.wht.toFixed(2)}).`,
+              `Suggested at full monthly rate (SSS ${this.formatMoney(suggestion.sss)}, PhilHealth ${this.formatMoney(suggestion.philHealth)}, Pag-IBIG ${this.formatMoney(suggestion.pagIbig)}, WHT ${this.formatMoney(suggestion.wht)}).`,
             );
           }
         }
