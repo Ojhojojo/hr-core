@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ShopInfo } from '@hr-host';
+import { ShopInfo, formatPhp } from '@hr-host';
 import { EmployeeCard } from '../employee-directory/employee-directory.api';
 import {
   BLANK_LINE,
@@ -196,12 +196,13 @@ describe('HR document templates', () => {
     draft.separationDate = '2026-10-04';
     draft.finalPayPhp = '15000';
     const text = documentParagraphs(draft).join(' ');
-    expect(formatManualPhp('15000')).toBe('PHP 15,000.00');
+    // The host decides the currency style (PHP 15,000.00 or ₱15,000.00).
+    expect(formatManualPhp('15000')).toBe(formatPhp(15000));
     expect(formatManualPhp('see payroll')).toBe('see payroll');
     expect(text).toContain('Ana Active');
     expect(text).toContain('Lead painter');
     expect(text).toContain('October 4, 2026');
-    expect(text).toContain('PHP 15,000.00');
+    expect(text).toContain(formatPhp(15000));
     expect(text).toContain('Republic Act No. 7641');
     expect(text).not.toMatch(/13th/i);
     expect(text).not.toMatch(/computed|formula/i);

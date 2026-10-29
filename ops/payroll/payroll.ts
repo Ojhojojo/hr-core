@@ -208,9 +208,10 @@ import { formatDay } from '../hr-dates';
       color: var(--ops-muted, #5b6178);
       overflow-wrap: anywhere;
     }
+    /* One line: wrapped buttons made every payroll row four buttons tall. */
     .ops-payroll-actions {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       align-items: center;
       gap: var(--space-1);
     }
@@ -1327,7 +1328,8 @@ export class PayrollPage {
     if (!role) {
       return '—';
     }
-    return role.charAt(0).toUpperCase() + role.slice(1);
+    const words = role.replace(/_/g, ' ');
+    return words.charAt(0).toUpperCase() + words.slice(1);
   }
 
   private rememberThirteenthDrafts(rows: ThirteenthMonthRow[]): void {
