@@ -174,7 +174,11 @@ export class EmployeeDirectoryPage {
   );
 
   protected readonly showRowMenu = computed(() => this.canEdit() || this.isOwner());
-  protected readonly headcountLabel = computed(() => `${this.headcount()} active`);
+  /** True once the first list arrives, so the subtitle never shows a false "0 active" (rakkii #451). */
+  private readonly headcountLoaded = signal(false);
+  protected readonly headcountLabel = computed(() =>
+    this.headcountLoaded() ? `${this.headcount()} active` : this.error() ? '' : 'Loading…',
+  );
 
   protected readonly visible = computed(() => {
     const term = this.search().trim().toLowerCase();
@@ -263,6 +267,7 @@ export class EmployeeDirectoryPage {
         this.people.set(body.items);
         this.configHealth.set(body.configHealth ?? []);
         this.headcount.set(body.headcount);
+        this.headcountLoaded.set(true);
         this.loading.set(false);
         const editId = this.route?.snapshot.queryParamMap.get('edit');
         if (editId) {

@@ -60,6 +60,7 @@ async function mount(
   role: AuthMe['staffRole'],
   people: EmployeeCard[] = [activePerson, inactivePerson],
   healthIssues: any[] = [],
+  beforeFlush?: (host: HTMLElement) => void,
 ) {
   const routerSpy = {
     navigate: vi.fn(),
@@ -86,6 +87,7 @@ async function mount(
   expect(initial.request.method).toBe('GET');
   expect(initial.request.params.get('includeInactive')).toBe('false');
   expect(initial.request.params.has('search')).toBe(false);
+  beforeFlush?.(fixture.nativeElement as HTMLElement);
   initial.flush({
     headcount: people.filter((p) => p.active).length,
     items: structuredClone(people),
@@ -101,6 +103,16 @@ describe('Employee directory', () => {
   afterEach(() => {
     TestBed.inject(HttpTestingController).verify();
     TestBed.resetTestingModule();
+  });
+
+  it('shows Loading in the subtitle until the list arrives, never 0 active', async () => {
+    let early = '';
+    const { host } = await mount('owner', [activePerson], [], (el) => {
+      early = el.querySelector('ops-page-header')?.textContent ?? '';
+    });
+    expect(early).toContain('Loading');
+    expect(early).not.toContain('0 active');
+    expect(host.querySelector('ops-page-header')?.textContent).toContain('1 active');
   });
 
   it('hides inactive people until include inactive is on', async () => {
