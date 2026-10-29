@@ -378,7 +378,7 @@ describe('PayrollPage', () => {
 
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain("Danilo 'Danny' Santos");
-    expect(text).toContain('technician');
+    expect(text).toContain('Technician');
     expect(text).toContain('Hourly');
     expect(text).toContain('₱120.00');
     expect(text).toContain('40.00');
@@ -387,7 +387,7 @@ describe('PayrollPage', () => {
     expect(text).toContain('5h OT');
 
     expect(text).toContain('Rezza Desk');
-    expect(text).toContain('admin');
+    expect(text).toContain('Admin');
     expect(text).toContain('Daily');
     expect(text).toContain('₱800.00');
     expect(text).toContain('₱4,000.00');
@@ -402,6 +402,13 @@ describe('PayrollPage', () => {
     expect(text).toContain('₱24,550.00');
 
     http.verify();
+  });
+
+  it('shows role names as words, not raw codes', () => {
+    const formatRole = PayrollPage.prototype.formatRole;
+    expect(formatRole('front_desk')).toBe('Front desk');
+    expect(formatRole('technician')).toBe('Technician');
+    expect(formatRole(null)).toBe('—');
   });
 
   it('triggers API call with includeInactive=true when toggle is checked', async () => {

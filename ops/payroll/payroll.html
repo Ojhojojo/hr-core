@@ -511,7 +511,7 @@
         </ng-container>
         <ng-container matColumnDef="role">
           <th mat-header-cell *matHeaderCellDef>Role</th>
-          <td mat-cell *matCellDef="let row" data-label="Role">{{ row.role }}</td>
+          <td mat-cell *matCellDef="let row" data-label="Role">{{ formatRole(row.role) }}</td>
         </ng-container>
         <ng-container matColumnDef="shop">
           <th mat-header-cell *matHeaderCellDef>Shop</th>
