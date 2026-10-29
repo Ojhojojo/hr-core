@@ -7,7 +7,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { describe, expect, it } from 'vitest';
-import { AuthMe, AuthService, ShopInfo } from '@hr-host';
+import { AuthMe, AuthService, ShopInfo, formatPhp } from '@hr-host';
 import { EmployeeCard } from '../employee-directory/employee-directory.api';
 import { HrDocumentDialog } from './hr-document-dialog';
 
@@ -86,7 +86,7 @@ describe('HrDocumentDialog', () => {
     dialog.touch();
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(document.body.textContent).toContain('PHP 15,000.00');
+    expect(document.body.textContent).toContain(formatPhp(15000));
 
     (document.body.querySelector('button[name="saveHrDoc"]') as HTMLButtonElement).click();
     const save = http.expectOne(
@@ -99,7 +99,7 @@ describe('HrDocumentDialog', () => {
     expect(file.name).toBe('quitclaim-ana-active.html');
     expect(file.type).toBe('text/html');
     const html = await file.text();
-    expect(html).toContain('PHP 15,000.00');
+    expect(html).toContain(formatPhp(15000));
     expect(html).toContain('Harbor Lane Motors OPC');
     save.flush({ id: 'doc-1' });
     http.verify();
