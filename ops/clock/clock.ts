@@ -35,6 +35,7 @@ import {
   needsOffsiteReason,
 } from './offsite-punch';
 import { punchStatusLabel, punchStatusTone } from '../attendance/punch-review';
+import { formatDay } from '../hr-dates';
 
 const GPS_IN = 'Turn on location to clock in from your phone.';
 const GPS_OUT = 'Turn on location to clock out from your phone.';
@@ -178,7 +179,7 @@ export class ClockPage {
     this.confirm
       .confirm({
         title: `Clock ${side} ${person.displayName}?`,
-        message: `${person.displayName} will be clocked ${side} for today (${manilaToday()}).`,
+        message: `${person.displayName} will be clocked ${side} for today (${formatDay(manilaToday())}).`,
         confirmLabel: clockingOut ? 'Clock out' : 'Clock in',
       })
       .subscribe((result) => {

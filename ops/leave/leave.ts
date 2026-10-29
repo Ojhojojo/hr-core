@@ -42,6 +42,7 @@ import {
   RequestLeaveDialog,
   SetAllotmentDialog,
 } from './leave.dialogs';
+import { formatDayRange } from '../hr-dates';
 
 @Component({
   selector: 'app-leave',
@@ -98,11 +99,11 @@ import {
         .mat-column-sick,
         .mat-column-unpaid,
         .mat-column-service_incentive {
-          width: 19%;
-          min-width: 110px;
+          width: 14%;
+          min-width: 80px;
         }
         .mat-column-dates {
-          min-width: 170px;
+          min-width: 130px;
         }
         .mat-column-type {
           min-width: 90px;
@@ -114,7 +115,7 @@ import {
           min-width: 100px;
         }
         .mat-column-actions {
-          min-width: 160px;
+          min-width: 110px;
         }
       }
       .ops-table th:first-child,
@@ -124,6 +125,10 @@ import {
       .ops-table th:last-child,
       .ops-table td:last-child {
         padding-right: var(--space-4);
+      }
+      .leave-balance-key {
+        margin: 0 var(--space-4) var(--space-2);
+        font-size: 0.85rem;
       }
       .leave-actions-cell {
         display: flex;
@@ -145,6 +150,7 @@ import {
   ],
 })
 export class LeavePage {
+  protected readonly formatDayRange = formatDayRange;
   private readonly api = inject(LeaveApi);
   private readonly availabilityApi = inject(StaffAvailabilityApi);
   private readonly auth = inject(AuthService);
@@ -259,15 +265,8 @@ export class LeavePage {
   });
 
   // Table columns
-  protected readonly employeeColumns = [
-    'staff',
-    'dates',
-    'type',
-    'days',
-    'status',
-    'note',
-    'actions',
-  ];
+  /** My requests: every row is the signed-in person, so no Staff column (it pushed Actions off-screen). */
+  protected readonly employeeColumns = ['dates', 'type', 'days', 'status', 'note', 'actions'];
   protected readonly pendingColumns = ['staff', 'dates', 'type', 'days', 'note', 'actions'];
   protected readonly teamColumns = [
     'staff',

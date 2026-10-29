@@ -18,6 +18,7 @@ import {
 } from '@hr-host';
 import { ClockPage, clockModeFrom } from './clock';
 import { AttendanceMe } from './clock.models';
+import { formatDay } from '../hr-dates';
 
 const techMe: AuthMe = {
   authUserId: 'tech',
@@ -220,7 +221,7 @@ describe('ClockPage', () => {
     expect(confirm.calls).toEqual([
       {
         title: 'Clock in Front Desk Ana?',
-        message: `Front Desk Ana will be clocked in for today (${manilaToday()}).`,
+        message: `Front Desk Ana will be clocked in for today (${formatDay(manilaToday())}).`,
         confirmLabel: 'Clock in',
       },
     ]);

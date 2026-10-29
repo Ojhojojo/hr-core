@@ -243,7 +243,9 @@
         <table mat-table [dataSource]="holidays()" class="ops-table">
           <ng-container matColumnDef="date">
             <th mat-header-cell *matHeaderCellDef>Date</th>
-            <td mat-cell *matCellDef="let holiday" data-label="Date">{{ holiday.date }}</td>
+            <td mat-cell *matCellDef="let holiday" data-label="Date">
+              {{ formatDay(holiday.date) }}
+            </td>
           </ng-container>
           <ng-container matColumnDef="holidayName">
             <th mat-header-cell *matHeaderCellDef>Name</th>
@@ -894,7 +896,9 @@
         </ng-container>
         <ng-container matColumnDef="hireDate">
           <th mat-header-cell *matHeaderCellDef>Hire date</th>
-          <td mat-cell *matCellDef="let row" data-label="Hire date">{{ row.hireDate ?? '—' }}</td>
+          <td mat-cell *matCellDef="let row" data-label="Hire date">
+            {{ formatDay(row.hireDate) }}
+          </td>
         </ng-container>
         <ng-container matColumnDef="basis">
           <th mat-header-cell *matHeaderCellDef>Basis</th>

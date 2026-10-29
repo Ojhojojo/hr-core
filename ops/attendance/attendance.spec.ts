@@ -236,8 +236,10 @@ describe('AttendancePage', () => {
     flushOvertime(http, '2026-10-01', '2026-10-07');
   });
 
-  it('manilaWeekRange is Sunday through Saturday', () => {
-    expect(manilaWeekRange('2026-09-17')).toEqual({ from: '2026-09-13', to: '2026-09-19' });
+  it('manilaWeekRange is Monday through Sunday, like the API', () => {
+    expect(manilaWeekRange('2026-09-17')).toEqual({ from: '2026-09-14', to: '2026-09-20' });
+    expect(manilaWeekRange('2026-09-20')).toEqual({ from: '2026-09-14', to: '2026-09-20' });
+    expect(manilaWeekRange('2026-09-14')).toEqual({ from: '2026-09-14', to: '2026-09-20' });
   });
 
   it('paginates punches across multiple pages', async () => {

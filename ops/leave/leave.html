@@ -81,7 +81,7 @@
           <ng-container matColumnDef="dates">
             <th mat-header-cell *matHeaderCellDef>Dates</th>
             <td mat-cell *matCellDef="let row" data-label="Dates">
-              {{ row.startDate }} – {{ row.endDate }}{{ halfDayLabel(row.halfDay) }}
+              {{ formatDayRange(row.startDate, row.endDate) }}{{ halfDayLabel(row.halfDay) }}
             </td>
           </ng-container>
 
@@ -170,7 +170,7 @@
           <ng-container matColumnDef="dates">
             <th mat-header-cell *matHeaderCellDef>Dates</th>
             <td mat-cell *matCellDef="let row" data-label="Dates">
-              {{ row.startDate }} – {{ row.endDate }}{{ halfDayLabel(row.halfDay) }}
+              {{ formatDayRange(row.startDate, row.endDate) }}{{ halfDayLabel(row.halfDay) }}
             </td>
           </ng-container>
 
@@ -245,6 +245,7 @@
     <div class="ops-card-header">
       <h2>Team balances</h2>
     </div>
+    <p class="ops-muted leave-balance-key">Days left / allotted. Unpaid shows days taken.</p>
     @if (loading()) {
       <div class="leave-empty-msg">
         <ops-skeleton [rows]="3" />
@@ -272,9 +273,7 @@
           </ng-container>
 
           <ng-container matColumnDef="vacation">
-            <th mat-header-cell *matHeaderCellDef class="text-center">
-              Vacation <small class="ops-muted">(left / allotted)</small>
-            </th>
+            <th mat-header-cell *matHeaderCellDef class="text-center">Vacation</th>
             <td mat-cell *matCellDef="let member" class="text-center" data-label="Vacation">
               <span class="ops-balance-cell">
                 <strong>{{ memberRemaining(member, 'vacation') }}</strong>
@@ -284,9 +283,7 @@
           </ng-container>
 
           <ng-container matColumnDef="sick">
-            <th mat-header-cell *matHeaderCellDef class="text-center">
-              Sick <small class="ops-muted">(left / allotted)</small>
-            </th>
+            <th mat-header-cell *matHeaderCellDef class="text-center">Sick</th>
             <td mat-cell *matCellDef="let member" class="text-center" data-label="Sick">
               <span class="ops-balance-cell">
                 <strong>{{ memberRemaining(member, 'sick') }}</strong>
@@ -296,9 +293,7 @@
           </ng-container>
 
           <ng-container matColumnDef="unpaid">
-            <th mat-header-cell *matHeaderCellDef class="text-center">
-              Unpaid <small class="ops-muted">(days taken)</small>
-            </th>
+            <th mat-header-cell *matHeaderCellDef class="text-center">Unpaid</th>
             <td mat-cell *matCellDef="let member" class="text-center" data-label="Unpaid">
               <span class="ops-balance-cell">
                 <strong>{{ memberUsed(member, 'unpaid') }}</strong>
@@ -307,9 +302,7 @@
           </ng-container>
 
           <ng-container matColumnDef="service_incentive">
-            <th mat-header-cell *matHeaderCellDef class="text-center">
-              SIL <small class="ops-muted">(left / allotted)</small>
-            </th>
+            <th mat-header-cell *matHeaderCellDef class="text-center">SIL</th>
             <td mat-cell *matCellDef="let member" class="text-center" data-label="SIL">
               <span class="ops-balance-cell">
                 <strong>{{ memberRemaining(member, 'service_incentive') }}</strong>
@@ -348,7 +341,7 @@
           <ng-container matColumnDef="dates">
             <th mat-header-cell *matHeaderCellDef>Dates</th>
             <td mat-cell *matCellDef="let row" data-label="Dates">
-              {{ row.startDate }} – {{ row.endDate }}{{ halfDayLabel(row.halfDay) }}
+              {{ formatDayRange(row.startDate, row.endDate) }}{{ halfDayLabel(row.halfDay) }}
             </td>
           </ng-container>
 

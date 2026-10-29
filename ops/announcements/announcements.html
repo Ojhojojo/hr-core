@@ -28,7 +28,7 @@
           <span class="announcement-meta">
             <strong>{{ row.title }}</strong>
             <ops-status-badge [tone]="status.tone" [label]="status.label" />
-            <span class="announcement-dates">{{ row.startDate }} – {{ row.endDate }}</span>
+            <span class="announcement-dates">{{ formatDayRange(row.startDate, row.endDate) }}</span>
           </span>
           <span class="ops-actions">
             <button matButton="tonal" type="button" (click)="edit(row)">Edit</button>

@@ -99,7 +99,7 @@
         <tbody>
           @for (run of sheet.runs; track run.runId) {
             <tr>
-              <td>{{ run.periodFrom }} to {{ run.periodTo }}</td>
+              <td>{{ formatDayRange(run.periodFrom, run.periodTo) }}</td>
               <td class="bir-amount">Locked {{ run.lockedAtUtc || 'n/a' }}</td>
             </tr>
           }
