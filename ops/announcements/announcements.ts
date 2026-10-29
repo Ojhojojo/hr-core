@@ -15,6 +15,7 @@ import {
 import { Announcement, announcementStatus, AnnouncementStatus } from './announcement-visibility';
 import { AnnouncementDialog } from './announcement-dialog';
 import { AnnouncementsApi } from './announcements.api';
+import { formatDayRange } from '../hr-dates';
 
 @Component({
   selector: 'app-ops-announcements',
@@ -62,6 +63,7 @@ import { AnnouncementsApi } from './announcements.api';
   `,
 })
 export class AnnouncementsPage {
+  protected readonly formatDayRange = formatDayRange;
   private readonly api = inject(AnnouncementsApi);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(OpsToastService);

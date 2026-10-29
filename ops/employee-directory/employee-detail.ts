@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { MatButton, MatIconButton } from '@angular/material/button';
@@ -89,6 +88,7 @@ import {
   sortChangeLogNewestFirst,
 } from './hr-change-log';
 import { formatPayslipMoney } from '../payroll/payroll-payslip';
+import { formatDay, formatDayRange } from '../hr-dates';
 
 const STATUS_LABELS: Record<DirectoryStatus, string> = {
   active: 'Active',
@@ -107,7 +107,6 @@ const DOC_LABELS: Record<EmploymentDocType, string> = {
 @Component({
   selector: 'app-employee-detail',
   imports: [
-    DatePipe,
     MatButton,
     MatIconButton,
     MatIconModule,
@@ -231,6 +230,8 @@ const DOC_LABELS: Record<EmploymentDocType, string> = {
   `,
 })
 export class EmployeeDetailPage implements OnInit {
+  protected readonly formatDay = formatDay;
+  protected readonly formatDayRange = formatDayRange;
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(EmployeeDirectoryApi);

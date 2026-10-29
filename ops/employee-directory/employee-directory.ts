@@ -38,6 +38,7 @@ import {
   DirectoryPersonDialog,
   DirectoryShopOption,
 } from './employee-directory.dialogs';
+import { formatDay } from '../hr-dates';
 
 const ROLE_LABELS = DIRECTORY_ROLE_LABELS;
 
@@ -109,6 +110,7 @@ const STATUS_LABELS: Record<DirectoryStatus, string> = {
   `,
 })
 export class EmployeeDirectoryPage {
+  protected readonly formatDay = formatDay;
   private readonly api = inject(EmployeeDirectoryApi);
   private readonly auth = inject(AuthService);
   private readonly http = inject(HttpClient);

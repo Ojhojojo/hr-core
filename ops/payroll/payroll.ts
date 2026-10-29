@@ -73,6 +73,7 @@ import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltip } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
+import { formatDay } from '../hr-dates';
 
 @Component({
   selector: 'app-ops-payroll',
@@ -256,6 +257,7 @@ import { RouterLink } from '@angular/router';
   `,
 })
 export class PayrollPage {
+  protected readonly formatDay = formatDay;
   private readonly api = inject(PayrollApi);
   private readonly dialog = inject(MatDialog);
   private readonly breakpoints = inject(OpsBreakpoints);

@@ -41,6 +41,7 @@ import {
   OvertimeRow,
 } from './attendance.models';
 import { canReviewPunch, punchStatusLabel, punchStatusTone } from './punch-review';
+import { formatDay, formatDayPrefix } from '../hr-dates';
 
 @Component({
   selector: 'app-ops-attendance',
@@ -173,6 +174,8 @@ import { canReviewPunch, punchStatusLabel, punchStatusTone } from './punch-revie
   ],
 })
 export class AttendancePage {
+  protected readonly formatDay = formatDay;
+  protected readonly formatDayPrefix = formatDayPrefix;
   private readonly api = inject(AttendanceApi);
   private readonly auth = inject(AuthService);
   private readonly dialog = inject(MatDialog);
@@ -512,7 +515,7 @@ export class AttendancePage {
   }
 
   outLabel(row: AttendanceRegisterRow): string {
-    return row.isOpen || !row.outAtManila ? 'Open' : row.outAtManila;
+    return row.isOpen || !row.outAtManila ? 'Open' : formatDayPrefix(row.outAtManila);
   }
 
   openPhoto(row: AttendanceRegisterRow, side: 'in' | 'out'): void {
@@ -588,10 +591,15 @@ export class AttendancePage {
   }
 }
 
+/**
+ * Monday through Sunday, the same week the API uses (ManilaTime.CurrentWeek) and the shop
+ * default week start. Payroll and the "This week" button use it, so every HR screen agrees.
+ */
 export function manilaWeekRange(anchor = manilaToday()): { from: string; to: string } {
   const [year, month, day] = anchor.split('-').map(Number);
   const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-  const from = addDays(anchor, -dow);
+  const sinceMonday = (dow + 6) % 7;
+  const from = addDays(anchor, -sinceMonday);
   return { from, to: addDays(from, 6) };
 }
 
