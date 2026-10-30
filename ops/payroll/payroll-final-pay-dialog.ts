@@ -5,6 +5,7 @@ import { apiErrorMessage, DialogComponent } from '@hr-host';
 import { PayrollApi } from './payroll.api';
 import { money } from './payroll-lock';
 import { PayrollFinalPay } from './payroll.models';
+import { formatDay } from '../hr-dates';
 
 export interface PayrollFinalPayDialogData {
   staffId: string;
@@ -27,7 +28,7 @@ export interface PayrollFinalPayDialogData {
         <p class="ops-hint">Set the separation date on the person in Directory first.</p>
       } @else if (result(); as final) {
         <p data-final-pay-date>
-          <strong>Separated:</strong> {{ final.separationDate }}
+          <strong>Separated:</strong> {{ formatDay(final.separationDate) }}
           @if (final.separationReason) {
             — {{ final.separationReason }}
           }
@@ -75,6 +76,7 @@ export interface PayrollFinalPayDialogData {
   `,
 })
 export class PayrollFinalPayDialog {
+  protected readonly formatDay = formatDay;
   protected readonly dialogRef = inject(MatDialogRef<PayrollFinalPayDialog>);
   private readonly api = inject(PayrollApi);
   protected readonly data = inject<PayrollFinalPayDialogData>(MAT_DIALOG_DATA);

@@ -21,6 +21,7 @@ import {
   LeaveType,
   StaffLeaveBalances,
 } from './leave.api';
+import { formatDay } from '../hr-dates';
 
 @Component({
   selector: 'app-request-leave-dialog',
@@ -523,7 +524,7 @@ export interface ApproveLeaveDialogResult {
               <strong>{{ job.plate }}</strong>
               · {{ job.reference }}
               @if (job.promisedDate) {
-                · promised {{ job.promisedDate }}
+                · promised {{ formatDay(job.promisedDate) }}
               }
               <br />
               <small class="ops-muted"> With {{ otherNames(job) || 'nobody else' }} </small>
@@ -574,6 +575,7 @@ export interface ApproveLeaveDialogResult {
   `,
 })
 export class ApproveLeaveDialog {
+  protected readonly formatDay = formatDay;
   protected readonly dialogRef = inject(MatDialogRef<ApproveLeaveDialog, ApproveLeaveDialogResult>);
   protected readonly data = inject<ApproveLeaveDialogData>(MAT_DIALOG_DATA);
   /** Chosen new assignee per job id. Empty string means keep. */
