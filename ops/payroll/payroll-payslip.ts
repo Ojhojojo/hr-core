@@ -12,6 +12,8 @@ import {
 import { manilaLockDate } from './payroll-lock';
 import { PayrollApi } from './payroll.api';
 import { Payslip, PayrollDeductionDraft, PayrollStaffRow } from './payroll.models';
+import { formatDayRange } from '../hr-dates';
+import { pdfText } from '../pdf-text';
 
 export { printPdfBlob } from '@hr-host';
 
@@ -322,7 +324,7 @@ export function buildPayslipPdf(
     const writeWrapped = (text: string, fontSize: number, style: 'normal' | 'bold' = 'normal') => {
       doc.setFont('times', style);
       doc.setFontSize(fontSize);
-      const lines = doc.splitTextToSize(text, maxWidth) as string[];
+      const lines = doc.splitTextToSize(pdfText(text), maxWidth) as string[];
       ensureSpace(lines.length * lineGap + 2);
       doc.text(lines, margin, y);
       y += lines.length * lineGap;
@@ -332,8 +334,8 @@ export function buildPayslipPdf(
       ensureSpace(lineGap + 2);
       doc.setFont('times', 'normal');
       doc.setFontSize(11);
-      doc.text(label, margin, y);
-      doc.text(value, pageWidth - margin, y, { align: 'right' });
+      doc.text(pdfText(label), margin, y);
+      doc.text(pdfText(value), pageWidth - margin, y, { align: 'right' });
       y += lineGap;
     };
 
@@ -348,7 +350,7 @@ export function buildPayslipPdf(
 
     y += 6;
     writeWrapped('Payslip', 14, 'bold');
-    writeWrapped(`${periodFrom} to ${periodTo}`, 11);
+    writeWrapped(formatDayRange(periodFrom, periodTo), 11);
     if (lockLine) {
       writeWrapped(lockLine, 11, 'bold');
     }
@@ -413,7 +415,7 @@ export function buildPayslipPdf(
             }
           </header>
           <h2>Payslip</h2>
-          <p class="payslip-period">{{ data.periodFrom }} to {{ data.periodTo }}</p>
+          <p class="payslip-period">{{ period }}</p>
           @if (data.lockLine) {
             <p class="payslip-lock" data-payslip-lock>{{ data.lockLine }}</p>
           }
@@ -620,6 +622,7 @@ export class PayslipDialog {
   private readonly ref = inject(MatDialogRef<PayslipDialog, PayslipDialogResult>);
   private readonly confirm = inject(OpsConfirmService);
   protected readonly data = inject<PayslipDialogData>(MAT_DIALOG_DATA);
+  protected readonly period = formatDayRange(this.data.periodFrom, this.data.periodTo);
   protected readonly head = letterheadLines(this.data.shop);
   protected readonly issuing = signal(false);
   protected readonly error = signal('');

@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import { ShopInfo, formatPhp } from '@hr-host';
 import { EmployeeCard } from '../employee-directory/employee-directory.api';
 import { formatLetterDate } from '../employee-directory/employment-letter';
+import { pdfText } from '../pdf-text';
 
 export type HrDocumentKind = 'nte' | 'nod' | 'quitclaim' | 'warning';
 /** Templates that open their own dialog instead of the letter editor. */
@@ -416,7 +417,7 @@ export function buildHrDocumentPdf(draft: HrDocumentDraft): Blob {
   const writeWrapped = (text: string, fontSize: number, style: 'normal' | 'bold' = 'normal') => {
     doc.setFont('times', style);
     doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(text, maxWidth) as string[];
+    const lines = doc.splitTextToSize(pdfText(text), maxWidth) as string[];
     ensureSpace(lines.length * lineGap + 2);
     doc.text(lines, margin, y);
     y += lines.length * lineGap;
@@ -460,9 +461,9 @@ export function buildHrDocumentPdf(draft: HrDocumentDraft): Blob {
       doc.line(x, rowTop, x + Math.min(60, colWidth), rowTop);
       doc.setFont('times', 'normal');
       doc.setFontSize(11);
-      doc.text(label, x, rowTop + 7);
+      doc.text(pdfText(label), x, rowTop + 7);
       signatureDetailLines(draft, label).forEach((line, index) => {
-        doc.text(line, x, rowTop + 13 + index * 6);
+        doc.text(pdfText(line), x, rowTop + 13 + index * 6);
       });
     });
     y = rowTop + 22;
