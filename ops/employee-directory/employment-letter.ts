@@ -7,6 +7,7 @@ import { MatInput } from '@angular/material/input';
 import { jsPDF } from 'jspdf';
 import { ShopInfo, apiErrorMessage, manilaToday } from '@hr-host';
 import { EmployeeCard, EmployeeDirectoryApi, EmploymentDocType } from './employee-directory.api';
+import { pdfText } from '../pdf-text';
 
 export type EmploymentLetterKind = 'offer' | 'coe';
 
@@ -82,13 +83,23 @@ export function emptyLetterDraft(
   };
 }
 
+/** "22000" → "22,000.00"; anything that is not a plain number is printed as typed. */
+export function formatLetterRate(raw: string): string {
+  const typed = raw.trim();
+  const value = Number(typed.replace(/,/g, ''));
+  if (!typed || !Number.isFinite(value)) {
+    return typed;
+  }
+  return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function letterParagraphs(draft: EmploymentLetterDraft): string[] {
   const company = draft.legalName.trim() || draft.tradingName.trim() || 'the company';
   const worker = draft.workerName.trim() || 'the employee';
   const position = draft.position.trim() || 'staff';
   const start = draft.startDate ? formatLetterDate(draft.startDate) : 'the agreed start date';
   const place = [draft.address.trim(), draft.phone.trim()].filter(Boolean).join(' · ');
-  const rate = draft.ratePhp.trim();
+  const rate = formatLetterRate(draft.ratePhp);
   const basis = draft.payBasis.trim();
   const payLine =
     rate && basis ? `Pay is PHP ${rate} on a ${basis} basis.` : rate ? `Pay is PHP ${rate}.` : '';
@@ -146,7 +157,7 @@ export function buildEmploymentLetterPdf(draft: EmploymentLetterDraft): Blob {
   const writeWrapped = (text: string, fontSize: number, style: 'normal' | 'bold' = 'normal') => {
     doc.setFont('times', style);
     doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(text, maxWidth) as string[];
+    const lines = doc.splitTextToSize(pdfText(text), maxWidth) as string[];
     ensureSpace(lines.length * lineGap + 2);
     doc.text(lines, margin, y);
     y += lines.length * lineGap;

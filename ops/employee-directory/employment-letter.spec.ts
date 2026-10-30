@@ -12,6 +12,7 @@ import {
   emptyLetterDraft,
   employmentLetterPdfFile,
   letterFileName,
+  formatLetterRate,
   letterParagraphs,
 } from './employment-letter';
 import { EmployeeCard } from './employee-directory.api';
@@ -119,5 +120,14 @@ describe('EmploymentLetterDialog', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(close).toHaveBeenCalledWith(true);
+  });
+});
+
+describe('formatLetterRate', () => {
+  it('prints a typed number as money and anything else as typed', () => {
+    expect(formatLetterRate('22000')).toBe('22,000.00');
+    expect(formatLetterRate(' 1,500.5 ')).toBe('1,500.50');
+    expect(formatLetterRate('to be agreed')).toBe('to be agreed');
+    expect(formatLetterRate('')).toBe('');
   });
 });

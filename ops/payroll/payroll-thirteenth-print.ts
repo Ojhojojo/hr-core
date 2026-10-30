@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf';
 import { ShopInfo, DialogComponent, printPdfBlob } from '@hr-host';
 import { formatPayslipMoney, letterheadLines } from './payroll-payslip';
 import { ThirteenthMonthRow } from './payroll.models';
+import { pdfText } from '../pdf-text';
 
 export interface ThirteenthPrintData {
   shop: ShopInfo | null;
@@ -39,7 +40,7 @@ export function buildThirteenthPdf(data: ThirteenthPrintData): Blob {
   const writeWrapped = (text: string, fontSize: number, style: 'normal' | 'bold' = 'normal') => {
     doc.setFont('times', style);
     doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(text, maxWidth) as string[];
+    const lines = doc.splitTextToSize(pdfText(text), maxWidth) as string[];
     ensureSpace(lines.length * lineGap + 2);
     doc.text(lines, margin, y);
     y += lines.length * lineGap;
@@ -67,10 +68,10 @@ export function buildThirteenthPdf(data: ThirteenthPrintData): Blob {
     ensureSpace(lineGap + 2);
     doc.setFont('times', bold ? 'bold' : 'normal');
     doc.setFontSize(10);
-    doc.text(cells[0], cols[0], y);
-    doc.text(cells[1], cols[1], y);
-    doc.text(cells[2], cols[2], y, { align: 'right' });
-    doc.text(cells[3], cols[3], y, { align: 'right' });
+    doc.text(pdfText(cells[0]), cols[0], y);
+    doc.text(pdfText(cells[1]), cols[1], y);
+    doc.text(pdfText(cells[2]), cols[2], y, { align: 'right' });
+    doc.text(pdfText(cells[3]), cols[3], y, { align: 'right' });
     y += lineGap;
   };
 
