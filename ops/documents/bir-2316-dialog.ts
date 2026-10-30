@@ -19,7 +19,7 @@ import {
   missingLabels,
   monthNames,
 } from './bir-2316';
-import { formatDayRange } from '../hr-dates';
+import { formatDay, formatDayRange } from '../hr-dates';
 
 @Component({
   selector: 'app-bir-2316-dialog',
@@ -105,6 +105,7 @@ import { formatDayRange } from '../hr-dates';
   `,
 })
 export class Bir2316Dialog {
+  protected readonly formatDay = formatDay;
   protected readonly formatDayRange = formatDayRange;
   private readonly data = inject<{ staffId?: string | null } | null>(MAT_DIALOG_DATA, {
     optional: true,
