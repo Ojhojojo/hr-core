@@ -507,97 +507,39 @@
                 </span>
               }
             </span>
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="role">
-          <th mat-header-cell *matHeaderCellDef>Role</th>
-          <td mat-cell *matCellDef="let row" data-label="Role">{{ formatRole(row.role) }}</td>
-        </ng-container>
-        <ng-container matColumnDef="shop">
-          <th mat-header-cell *matHeaderCellDef>Shop</th>
-          <td mat-cell *matCellDef="let row" data-label="Shop">{{ row.branchName ?? '—' }}</td>
-        </ng-container>
-        <ng-container matColumnDef="basis">
-          <th mat-header-cell *matHeaderCellDef>Basis</th>
-          <td mat-cell *matCellDef="let row" data-label="Basis">{{ formatBasis(row) }}</td>
-        </ng-container>
-        <ng-container matColumnDef="rate">
-          <th mat-header-cell *matHeaderCellDef class="num">Rate</th>
-          <td mat-cell *matCellDef="let row" data-label="Rate" class="num">
-            <span>{{ formatRate(row) }}</span>
+            <!-- #508: role, shop, basis and rate sit under the name so the register fits 1024 wide. -->
+            <span class="ops-cell-sub">
+              {{ formatRole(row.role) }}
+              @if (showShopColumn()) {
+                · {{ row.branchName ?? '—' }}
+              }
+              · {{ formatBasis(row) }} · {{ formatRate(row) }}
+            </span>
             @if (rateSlices(row).length > 0) {
-              <ul class="ops-payroll-slices" data-rate-slices>
+              <ul class="ops-payroll-slices ops-cell-sub" data-rate-slices>
                 @for (slice of rateSlices(row); track slice) {
                   <li>{{ slice }}</li>
                 }
               </ul>
             }
+            @if (row.notes) {
+              <span class="ops-cell-sub">{{ row.notes }}</span>
+            }
           </td>
         </ng-container>
-        <ng-container matColumnDef="regularHours">
-          <th mat-header-cell *matHeaderCellDef>Regular hours</th>
-          <td mat-cell *matCellDef="let row" data-label="Regular hours">
+        <ng-container matColumnDef="hours">
+          <th mat-header-cell *matHeaderCellDef>Hours</th>
+          <td mat-cell *matCellDef="let row" data-label="Hours">
             {{ formatHours(row.regularHours) }}
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="otHours">
-          <th mat-header-cell *matHeaderCellDef>OT hours</th>
-          <td mat-cell *matCellDef="let row" data-label="OT hours">
-            {{ formatHours(row.otHours) }}
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="otPay">
-          <th mat-header-cell *matHeaderCellDef class="num">OT pay</th>
-          <td mat-cell *matCellDef="let row" data-label="OT pay" class="num">
-            {{ formatMoney(row.otPay) }}
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="daysPaid">
-          <th mat-header-cell *matHeaderCellDef>Days paid</th>
-          <td mat-cell *matCellDef="let row" data-label="Days paid">{{ row.daysPaid }}</td>
-        </ng-container>
-        <ng-container matColumnDef="holidayHours">
-          <th mat-header-cell *matHeaderCellDef>Holiday pay</th>
-          <td mat-cell *matCellDef="let row" data-label="Holiday pay">
-            {{ formatOptionalHours(row.holidayHours) }}
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="restDayHours">
-          <th mat-header-cell *matHeaderCellDef>Rest day</th>
-          <td mat-cell *matCellDef="let row" data-label="Rest day">
-            {{ formatOptionalHours(row.restDayHours) }}
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="nightHours">
-          <th mat-header-cell *matHeaderCellDef>Night diff (NSD)</th>
-          <td mat-cell *matCellDef="let row" data-label="Night diff (NSD)">
-            {{ formatOptionalHours(row.nightHours) }}
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="premiumPay">
-          <th mat-header-cell *matHeaderCellDef class="num">Premium pay</th>
-          <td mat-cell *matCellDef="let row" data-label="Premium pay" class="num">
-            {{ formatOptionalMoney(row.premiumPay) }}
-            @if (row.premiumOverridden) {
-              <span class="ops-premium-edited">edited</span>
-            }
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="allowances">
-          <th mat-header-cell *matHeaderCellDef class="num">COLA / allowances</th>
-          <td mat-cell *matCellDef="let row" data-label="COLA / allowances" class="num">
-            {{ formatOptionalMoney(row.allowances) }}
-            @if (row.allowancesOverridden) {
-              <span class="ops-premium-edited">edited</span>
-            }
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="loans">
-          <th mat-header-cell *matHeaderCellDef class="num">Loans / CA</th>
-          <td mat-cell *matCellDef="let row" data-label="Loans / CA" class="num">
-            {{ formatOptionalMoney(row.loanDeductions) }}
-            @for (item of row.loanItems ?? []; track item.loanId) {
-              <span class="ops-loan-item">{{ loanItemLabel(item) }}</span>
+            <span class="ops-cell-sub"
+              >OT {{ formatHours(row.otHours) }} · {{ row.daysPaid }} days paid</span
+            >
+            @if (rowHasPremium(row)) {
+              <span class="ops-cell-sub">
+                Holiday {{ formatOptionalHours(row.holidayHours) }} · Rest day
+                {{ formatOptionalHours(row.restDayHours) }} · Night
+                {{ formatOptionalHours(row.nightHours) }}
+              </span>
             }
           </td>
         </ng-container>
@@ -605,16 +547,49 @@
           <th mat-header-cell *matHeaderCellDef class="num">Amount</th>
           <td mat-cell *matCellDef="let row" data-label="Amount" class="num">
             <strong>{{ formatMoney(row.amount) }}</strong>
+            @if (row.otPay) {
+              <span class="ops-cell-sub">OT {{ formatMoney(row.otPay) }}</span>
+            }
+            @if (row.premiumPay) {
+              <span class="ops-cell-sub"
+                >Premium {{ formatOptionalMoney(row.premiumPay) }}
+                @if (row.premiumOverridden) {
+                  (edited)
+                }
+              </span>
+            }
+            @if (row.allowances) {
+              <span class="ops-cell-sub"
+                >Allowances {{ formatOptionalMoney(row.allowances) }}
+                @if (row.allowancesOverridden) {
+                  (edited)
+                }
+              </span>
+            }
           </td>
-        </ng-container>
-        <ng-container matColumnDef="notes">
-          <th mat-header-cell *matHeaderCellDef>Notes</th>
-          <td mat-cell *matCellDef="let row" data-label="Notes">{{ row.notes ?? '—' }}</td>
         </ng-container>
         <ng-container matColumnDef="deductions">
           <th mat-header-cell *matHeaderCellDef class="num">Deductions</th>
           <td mat-cell *matCellDef="let row" data-label="Deductions" class="num">
             {{ formatMoney(rowDeductions(row.staffId)) }}
+            @if (row.loanDeductions) {
+              <span class="ops-cell-sub"
+                >Loans / CA {{ formatOptionalMoney(row.loanDeductions) }}</span
+              >
+              @for (item of row.loanItems ?? []; track item.loanId) {
+                <span class="ops-cell-sub ops-loan-item">{{ loanItemLabel(item) }}</span>
+              }
+            }
+            <button
+              matButton="text"
+              type="button"
+              name="toggleDeductions"
+              class="ops-payroll-edit-deductions"
+              [attr.aria-expanded]="openDeductions() === row.staffId"
+              (click)="toggleDeductions(row.staffId)"
+            >
+              {{ openDeductions() === row.staffId ? 'Close' : isLocked() ? 'View' : 'Edit' }}
+            </button>
           </td>
         </ng-container>
         <ng-container matColumnDef="net">
@@ -627,24 +602,6 @@
           <th mat-header-cell *matHeaderCellDef></th>
           <td mat-cell *matCellDef="let row" class="ops-td-actions" data-label="Actions">
             <div class="ops-payroll-actions">
-              <button
-                matButton="outlined"
-                type="button"
-                name="saveDeductions"
-                [disabled]="isLocked() || savingId() === row.staffId"
-                (click)="saveRow(row)"
-              >
-                {{ savingId() === row.staffId ? 'Saving…' : 'Save' }}
-              </button>
-              <button
-                matButton="outlined"
-                type="button"
-                name="suggestStatutory"
-                [disabled]="isLocked() || suggestingId() === row.staffId"
-                (click)="suggestStatutory(row)"
-              >
-                {{ suggestingId() === row.staffId ? 'Suggesting…' : 'Suggest' }}
-              </button>
               <button matButton="outlined" type="button" name="payslip" (click)="openPayslip(row)">
                 Payslip
               </button>
@@ -797,6 +754,26 @@
               @if (issuedLine(row)) {
                 <span class="ops-issued-line" data-issued>{{ issuedLine(row) }}</span>
               }
+              <span class="ops-payroll-deduction-actions">
+                <button
+                  matButton="outlined"
+                  type="button"
+                  name="saveDeductions"
+                  [disabled]="isLocked() || savingId() === row.staffId"
+                  (click)="saveRow(row)"
+                >
+                  {{ savingId() === row.staffId ? 'Saving…' : 'Save' }}
+                </button>
+                <button
+                  matButton="outlined"
+                  type="button"
+                  name="suggestStatutory"
+                  [disabled]="isLocked() || suggestingId() === row.staffId"
+                  (click)="suggestStatutory(row)"
+                >
+                  {{ suggestingId() === row.staffId ? 'Suggesting…' : 'Suggest' }}
+                </button>
+              </span>
             </div>
           </td>
         </ng-container>
@@ -807,6 +784,7 @@
           mat-row
           *matRowDef="let row; columns: detailColumns"
           class="ops-payroll-detail-row"
+          [class.ops-payroll-detail-closed]="openDeductions() !== row.staffId"
         ></tr>
       </table>
     </div>
@@ -878,44 +856,20 @@
   } @else if (thirteenthRows().length === 0) {
     <ops-empty-state title="No staff" message="Try another year." icon="inbox" />
   } @else {
-    <div class="ops-table-wrap">
+    <div class="ops-table-wrap ops-table-fit">
       <table mat-table [dataSource]="thirteenthRows()" class="ops-table">
         <ng-container matColumnDef="name">
           <th mat-header-cell *matHeaderCellDef>Staff</th>
           <td mat-cell *matCellDef="let row" data-label="Staff">
             <strong>{{ row.staffName }}</strong>
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="role">
-          <th mat-header-cell *matHeaderCellDef>Role</th>
-          <td mat-cell *matCellDef="let row" data-label="Role">{{ formatRole(row.role) }}</td>
-        </ng-container>
-        <ng-container matColumnDef="branch">
-          <th mat-header-cell *matHeaderCellDef>Shop</th>
-          <td mat-cell *matCellDef="let row" data-label="Shop">{{ row.branch ?? '—' }}</td>
-        </ng-container>
-        <ng-container matColumnDef="hireDate">
-          <th mat-header-cell *matHeaderCellDef>Hire date</th>
-          <td mat-cell *matCellDef="let row" data-label="Hire date">
-            {{ formatDay(row.hireDate) }}
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="basis">
-          <th mat-header-cell *matHeaderCellDef>Basis</th>
-          <td mat-cell *matCellDef="let row" data-label="Basis">
-            {{ formatPayBasis(row.payBasis) }}
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="rate">
-          <th mat-header-cell *matHeaderCellDef class="num">Rate</th>
-          <td mat-cell *matCellDef="let row" data-label="Rate" class="num">
-            {{ row.ratePhp == null ? '—' : formatMoney(row.ratePhp) }}
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="basicAuto">
-          <th mat-header-cell *matHeaderCellDef class="num">Basic auto</th>
-          <td mat-cell *matCellDef="let row" data-label="Basic auto" class="num">
-            {{ formatMoney(row.basicEarnedAuto) }}
+            <span class="ops-cell-sub">
+              {{ formatRole(row.role) }} · {{ row.branch ?? '—' }} · hired
+              {{ formatDay(row.hireDate) }}
+            </span>
+            <span class="ops-cell-sub">
+              {{ formatPayBasis(row.payBasis) }}
+              {{ row.ratePhp == null ? '' : '· ' + formatMoney(row.ratePhp) }}
+            </span>
           </td>
         </ng-container>
         <ng-container matColumnDef="override">
@@ -942,6 +896,7 @@
             @if (row.usedOverride) {
               <span> (override)</span>
             }
+            <span class="ops-cell-sub">Auto {{ formatMoney(row.basicEarnedAuto) }}</span>
           </td>
         </ng-container>
         <ng-container matColumnDef="thirteenth">
@@ -954,21 +909,23 @@
           <th mat-header-cell *matHeaderCellDef></th>
           <td mat-cell *matCellDef="let row" class="ops-td-actions" data-label="">
             <button
-              matButton="outlined"
+              matButton="text"
               type="button"
               [disabled]="!canSaveThirteenth(row.staffId)"
               (click)="saveThirteenth(row)"
             >
-              {{ thirteenthSavingId() === row.staffId ? 'Saving…' : 'Save override' }}
+              {{ thirteenthSavingId() === row.staffId ? 'Saving…' : 'Save' }}
             </button>
-            <button
-              matButton="outlined"
-              type="button"
-              [disabled]="!row.usedOverride || thirteenthSavingId() === row.staffId"
-              (click)="clearThirteenth(row)"
-            >
-              Clear
-            </button>
+            @if (row.usedOverride) {
+              <button
+                matButton="text"
+                type="button"
+                [disabled]="thirteenthSavingId() === row.staffId"
+                (click)="clearThirteenth(row)"
+              >
+                Clear
+              </button>
+            }
           </td>
         </ng-container>
         <tr mat-header-row *matHeaderRowDef="thirteenthColumns"></tr>
