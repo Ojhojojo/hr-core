@@ -909,21 +909,23 @@
           <th mat-header-cell *matHeaderCellDef></th>
           <td mat-cell *matCellDef="let row" class="ops-td-actions" data-label="">
             <button
-              matButton="outlined"
+              matButton="text"
               type="button"
               [disabled]="!canSaveThirteenth(row.staffId)"
               (click)="saveThirteenth(row)"
             >
-              {{ thirteenthSavingId() === row.staffId ? 'Saving…' : 'Save override' }}
+              {{ thirteenthSavingId() === row.staffId ? 'Saving…' : 'Save' }}
             </button>
-            <button
-              matButton="outlined"
-              type="button"
-              [disabled]="!row.usedOverride || thirteenthSavingId() === row.staffId"
-              (click)="clearThirteenth(row)"
-            >
-              Clear
-            </button>
+            @if (row.usedOverride) {
+              <button
+                matButton="text"
+                type="button"
+                [disabled]="thirteenthSavingId() === row.staffId"
+                (click)="clearThirteenth(row)"
+              >
+                Clear
+              </button>
+            }
           </td>
         </ng-container>
         <tr mat-header-row *matHeaderRowDef="thirteenthColumns"></tr>

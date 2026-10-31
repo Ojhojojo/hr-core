@@ -218,7 +218,8 @@ import { formatDay } from '../hr-dates';
     /* #508: the statutory boxes stay in the page (drafts and tests keep working) but only show
        for the person whose Deductions was opened. */
     .ops-payroll-detail-closed {
-      display: none;
+      /* Beats the global .ops-table-keep row rule below 900px. */
+      display: none !important;
     }
     .ops-payroll-edit-deductions {
       display: block;
