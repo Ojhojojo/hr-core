@@ -215,6 +215,31 @@ import { formatDay } from '../hr-dates';
       align-items: center;
       gap: var(--space-1);
     }
+    /* #508: the statutory boxes stay in the page (drafts and tests keep working) but only show
+       for the person whose Deductions was opened. */
+    .ops-payroll-detail-closed {
+      display: none;
+    }
+    .ops-payroll-edit-deductions {
+      display: block;
+      margin-left: auto;
+      min-height: 0;
+      padding: 0 var(--space-1);
+      font-size: 0.85rem;
+    }
+    .ops-payroll-deduction-actions {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-left: auto;
+    }
+    .ops-cell-sub {
+      display: block;
+      margin-top: 2px;
+      color: var(--ops-muted);
+      font-size: 0.85rem;
+      line-height: 1.3;
+    }
     .ops-payroll-detail-row > td {
       border-top: 0;
       padding-top: var(--space-1);
@@ -308,19 +333,8 @@ export class PayrollPage {
   protected readonly thirteenthDownloading = signal(false);
   protected readonly thirteenthSavingId = signal<string | null>(null);
   protected readonly thirteenthError = signal('');
-  protected readonly thirteenthColumns = [
-    'name',
-    'role',
-    'branch',
-    'hireDate',
-    'basis',
-    'rate',
-    'basicAuto',
-    'override',
-    'basic',
-    'thirteenth',
-    'actions',
-  ];
+  /** #508: five columns that fit 1024 wide; role, shop, hire date, basis, rate and auto basic are second lines. */
+  protected readonly thirteenthColumns = ['name', 'basic', 'override', 'thirteenth', 'actions'];
 
   protected readonly isOwner = computed(() => this.auth.me()?.staffRole === 'owner');
   protected readonly canEditPremiums = computed(() =>
@@ -415,24 +429,28 @@ export class PayrollPage {
     return set.size > 1;
   });
 
-  protected readonly mainColumns = computed(() => {
-    const columns = ['name', 'role'];
-    if (this.showShopColumn()) {
-      columns.push('shop');
-    }
-    columns.push('basis', 'rate', 'regularHours', 'otHours', 'otPay', 'daysPaid');
-    if (this.showPremiumColumns()) {
-      columns.push('holidayHours', 'restDayHours', 'nightHours', 'premiumPay');
-    }
-    if (this.showAllowanceColumn()) {
-      columns.push('allowances');
-    }
-    if (this.showLoanColumn()) {
-      columns.push('loans');
-    }
-    columns.push('amount', 'notes', 'deductions', 'net', 'actions');
-    return columns;
-  });
+  /**
+   * #508: six columns that fit 1024 wide. Role, shop, basis, rate and notes sit under the name;
+   * OT hours, days paid and premium hours under Hours; OT pay, premiums and allowances under Amount;
+   * loans under Deductions. The statutory boxes open per person from Deductions.
+   */
+  protected readonly mainColumns = computed(() => [
+    'name',
+    'hours',
+    'amount',
+    'deductions',
+    'net',
+    'actions',
+  ]);
+
+  protected readonly rowHasPremium = rowHasPremium;
+
+  /** #508: whose statutory deduction boxes are open (one at a time). */
+  protected readonly openDeductions = signal<string | null>(null);
+
+  protected toggleDeductions(staffId: string): void {
+    this.openDeductions.set(this.openDeductions() === staffId ? null : staffId);
+  }
 
   protected readonly detailColumns = ['deductionDetail'];
 
