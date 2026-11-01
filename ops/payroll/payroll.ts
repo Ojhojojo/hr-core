@@ -221,13 +221,6 @@ import { formatDay } from '../hr-dates';
       /* Beats the global .ops-table-keep row rule below 900px. */
       display: none !important;
     }
-    .ops-payroll-edit-deductions {
-      display: block;
-      margin-left: auto;
-      min-height: 0;
-      padding: 0 var(--space-1);
-      font-size: 0.85rem;
-    }
     .ops-payroll-deduction-actions {
       display: inline-flex;
       flex-wrap: wrap;
