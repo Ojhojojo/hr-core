@@ -12,6 +12,7 @@ import {
   manilaToday,
   BannerComponent,
   DialogComponent,
+  OpsDateModule,
 } from '@hr-host';
 import { PayrollApi } from './payroll.api';
 import { basisLabel, money, rateSliceLabels } from './payroll-lock';
@@ -41,6 +42,7 @@ export interface PayrollRateDialogData {
     MatSelect,
     MatOption,
     MatTableModule,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -183,10 +185,13 @@ export interface PayrollRateDialogData {
                   <mat-label>Effective from</mat-label>
                   <input
                     matInput
+                    [matDatepicker]="rateEffectivePicker"
                     name="rateEffectiveFrom"
-                    type="date"
+                    placeholder="MM/DD/YYYY"
                     [(ngModel)]="effectiveFrom"
                   />
+                  <mat-datepicker-toggle matIconSuffix [for]="rateEffectivePicker" />
+                  <mat-datepicker #rateEffectivePicker />
                 </mat-form-field>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
                   <mat-label>Reason</mat-label>

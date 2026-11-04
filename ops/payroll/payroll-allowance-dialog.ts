@@ -7,7 +7,7 @@ import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/for
 import { MatInput } from '@angular/material/input';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { MatSlideToggle } from '@angular/material/slide-toggle';
-import { BannerComponent, DialogComponent } from '@hr-host';
+import { BannerComponent, DialogComponent, OpsDateModule } from '@hr-host';
 import {
   allowanceNameSuggestions,
   allowancePerLabel,
@@ -55,6 +55,7 @@ export interface AllowanceOverrideDialogResult {
     MatSelect,
     MatOption,
     MatSlideToggle,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -107,11 +108,27 @@ export interface AllowanceOverrideDialogResult {
           <mat-slide-toggle name="taxable" [(ngModel)]="taxable">Taxable</mat-slide-toggle>
           <mat-form-field appearance="outline">
             <mat-label>Effective from</mat-label>
-            <input matInput name="effectiveFrom" type="date" [(ngModel)]="effectiveFrom" />
+            <input
+              matInput
+              [matDatepicker]="fromPicker"
+              name="effectiveFrom"
+              placeholder="MM/DD/YYYY"
+              [(ngModel)]="effectiveFrom"
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="fromPicker" />
+            <mat-datepicker #fromPicker />
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Effective to</mat-label>
-            <input matInput name="effectiveTo" type="date" [(ngModel)]="effectiveTo" />
+            <input
+              matInput
+              [matDatepicker]="toPicker"
+              name="effectiveTo"
+              placeholder="MM/DD/YYYY"
+              [(ngModel)]="effectiveTo"
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="toPicker" />
+            <mat-datepicker #toPicker />
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Note</mat-label>

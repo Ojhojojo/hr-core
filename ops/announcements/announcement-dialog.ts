@@ -5,7 +5,7 @@ import { MatCheckbox } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
-import { apiErrorMessage, manilaToday, BannerComponent, DialogComponent } from '@hr-host';
+import { apiErrorMessage, manilaToday, BannerComponent, DialogComponent, OpsDateModule } from '@hr-host';
 import { Announcement } from './announcement-visibility';
 import { AnnouncementsApi, AnnouncementWrite } from './announcements.api';
 
@@ -22,6 +22,7 @@ export interface AnnouncementDialogData {
     MatLabel,
     MatInput,
     MatCheckbox,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -49,11 +50,29 @@ export interface AnnouncementDialogData {
         <div class="announcement-date-row">
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Start date</mat-label>
-            <input matInput name="startDate" type="date" [(ngModel)]="startDate" required />
+            <input
+              matInput
+              [matDatepicker]="startPicker"
+              name="startDate"
+              placeholder="MM/DD/YYYY"
+              [(ngModel)]="startDate"
+              required
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="startPicker" />
+            <mat-datepicker #startPicker />
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>End date</mat-label>
-            <input matInput name="endDate" type="date" [(ngModel)]="endDate" required />
+            <input
+              matInput
+              [matDatepicker]="endPicker"
+              name="endDate"
+              placeholder="MM/DD/YYYY"
+              [(ngModel)]="endDate"
+              required
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="endPicker" />
+            <mat-datepicker #endPicker />
           </mat-form-field>
           <mat-checkbox name="active" [(ngModel)]="active">Active</mat-checkbox>
         </div>

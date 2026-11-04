@@ -5,7 +5,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatOption, MatSelect } from '@angular/material/select';
-import { BannerComponent, DialogComponent } from '@hr-host';
+import { BannerComponent, DialogComponent, OpsDateModule } from '@hr-host';
 import { premiumLabel } from './payroll-premiums.format';
 import { HolidayKind, ShopHoliday } from './payroll.models';
 
@@ -41,6 +41,7 @@ export interface PremiumDialogResult {
     MatInput,
     MatSelect,
     MatOption,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -53,7 +54,16 @@ export interface PremiumDialogResult {
         <div class="premium-dialog-fields">
           <mat-form-field appearance="outline">
             <mat-label>Date</mat-label>
-            <input matInput name="date" type="date" [(ngModel)]="date" required />
+            <input
+              matInput
+              [matDatepicker]="holidayDatePicker"
+              name="date"
+              placeholder="MM/DD/YYYY"
+              [(ngModel)]="date"
+              required
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="holidayDatePicker" />
+            <mat-datepicker #holidayDatePicker />
             <mat-error>Date is required.</mat-error>
           </mat-form-field>
           <mat-form-field appearance="outline">

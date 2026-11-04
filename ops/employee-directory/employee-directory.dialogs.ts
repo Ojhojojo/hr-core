@@ -13,6 +13,7 @@ import {
   TIN_FORMAT_HINT,
   BannerComponent,
   DialogComponent,
+  OpsDateModule,
 } from '@hr-host';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { WEEKDAY_LABELS } from '../payroll/payroll-premiums.format';
@@ -71,6 +72,7 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
     MatInput,
     MatSelect,
     MatOption,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -173,7 +175,15 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
                 </mat-form-field>
                 <mat-form-field appearance="outline">
                   <mat-label>Birth date</mat-label>
-                  <input matInput name="birthDate" type="date" [(ngModel)]="birthDate" />
+                  <input
+                    matInput
+                    [matDatepicker]="birthPicker"
+                    name="birthDate"
+                    placeholder="MM/DD/YYYY"
+                    [(ngModel)]="birthDate"
+                  />
+                  <mat-datepicker-toggle matIconSuffix [for]="birthPicker" />
+                  <mat-datepicker #birthPicker />
                 </mat-form-field>
               </div>
             </section>
@@ -272,11 +282,14 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
                 <mat-label>Hire date</mat-label>
                 <input
                   matInput
+                  [matDatepicker]="hirePicker"
                   name="hireDate"
-                  type="date"
+                  placeholder="MM/DD/YYYY"
                   [(ngModel)]="hireDate"
                   [required]="data.mode === 'add'"
                 />
+                <mat-datepicker-toggle matIconSuffix [for]="hirePicker" />
+                <mat-datepicker #hirePicker />
                 <mat-error>Hire date is required.</mat-error>
               </mat-form-field>
               <mat-form-field appearance="outline">
@@ -304,7 +317,15 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
               @if (data.isOwner) {
                 <mat-form-field appearance="outline">
                   <mat-label>Separation date</mat-label>
-                  <input matInput name="separationDate" type="date" [(ngModel)]="separationDate" />
+                  <input
+                    matInput
+                    [matDatepicker]="separationPicker"
+                    name="separationDate"
+                    placeholder="MM/DD/YYYY"
+                    [(ngModel)]="separationDate"
+                  />
+                  <mat-datepicker-toggle matIconSuffix [for]="separationPicker" />
+                  <mat-datepicker #separationPicker />
                   <mat-hint>When the worker left. Drives the final pay estimate.</mat-hint>
                 </mat-form-field>
                 <mat-form-field appearance="outline">

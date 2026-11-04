@@ -6,7 +6,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatOption, MatSelect } from '@angular/material/select';
-import { BannerComponent, DialogComponent } from '@hr-host';
+import { BannerComponent, DialogComponent, OpsDateModule } from '@hr-host';
 import { loanKindSuggestions } from './payroll-loans.format';
 import { StaffLoan } from './payroll.models';
 
@@ -51,6 +51,7 @@ export interface LoanOverrideDialogResult {
     MatHint,
     MatError,
     MatInput,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -107,7 +108,16 @@ export interface LoanOverrideDialogResult {
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Start period</mat-label>
-            <input matInput name="startPeriod" type="date" [(ngModel)]="startPeriod" required />
+            <input
+              matInput
+              [matDatepicker]="startPeriodPicker"
+              name="startPeriod"
+              placeholder="MM/DD/YYYY"
+              [(ngModel)]="startPeriod"
+              required
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="startPeriodPicker" />
+            <mat-datepicker #startPeriodPicker />
             <mat-hint
               >Instalments start in the first period that ends on or after this date.</mat-hint
             >
@@ -208,6 +218,7 @@ export class StaffLoanDialog {
     MatInput,
     MatSelect,
     MatOption,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],

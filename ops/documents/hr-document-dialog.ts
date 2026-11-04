@@ -12,6 +12,7 @@ import {
   manilaToday,
   downloadPdfBlob,
   printPdfBlob,
+  OpsDateModule,
 } from '@hr-host';
 import { EmployeeCard, EmployeeDirectoryApi } from '../employee-directory/employee-directory.api';
 import {
@@ -51,6 +52,7 @@ export interface HrDocumentDialogData {
     MatInput,
     MatSelect,
     MatOption,
+    OpsDateModule,
   ],
   encapsulation: ViewEncapsulation.None,
   templateUrl: './hr-document-dialog.html',

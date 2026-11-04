@@ -4,7 +4,7 @@ import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
-import { BannerComponent, DialogComponent, OpsToneDirective } from '@hr-host';
+import { BannerComponent, DialogComponent, OpsDateModule, OpsToneDirective } from '@hr-host';
 import { AttendanceStaffOption } from './attendance.models';
 
 export interface PunchForDialogData {
@@ -51,6 +51,7 @@ export interface ReviewPunchDialogResult {
     MatFormField,
     MatLabel,
     MatInput,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -77,27 +78,58 @@ export interface ReviewPunchDialogResult {
             }
           </select>
         </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Clock in (Manila)</mat-label>
-          <input
-            matInput
-            name="inAt"
-            type="datetime-local"
-            [value]="inAt()"
-            (input)="setIn($event)"
-            required
-          />
-        </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Clock out (Manila, optional)</mat-label>
-          <input
-            matInput
-            name="outAt"
-            type="datetime-local"
-            [value]="outAt()"
-            (input)="setOut($event)"
-          />
-        </mat-form-field>
+        <div class="punch-datetime-row">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Clock in date (Manila)</mat-label>
+            <input
+              matInput
+              [matDatepicker]="inDatePicker"
+              name="inDate"
+              placeholder="MM/DD/YYYY"
+              [value]="inDate()"
+              (dateChange)="inDate.set($event.value ?? '')"
+              required
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="inDatePicker" />
+            <mat-datepicker #inDatePicker />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Clock in time</mat-label>
+            <input
+              matInput
+              name="inTime"
+              type="time"
+              [value]="inTime()"
+              (input)="setInTime($event)"
+              required
+            />
+          </mat-form-field>
+        </div>
+        <div class="punch-datetime-row">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Clock out date (Manila, optional)</mat-label>
+            <input
+              matInput
+              [matDatepicker]="outDatePicker"
+              name="outDate"
+              placeholder="MM/DD/YYYY"
+              [value]="outDate()"
+              (dateChange)="outDate.set($event.value ?? '')"
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="outDatePicker" />
+            <mat-datepicker #outDatePicker />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Clock out time (Manila, optional)</mat-label>
+            <input
+              matInput
+              name="outTime"
+              type="time"
+              [value]="outTime()"
+              (input)="setOutTime($event)"
+            />
+          </mat-form-field>
+        </div>
       </form>
       <div dialogActions>
         <button matButton="text" type="button" (click)="dialogRef.close()">Cancel</button>
@@ -115,6 +147,11 @@ export interface ReviewPunchDialogResult {
       flex-direction: column;
       gap: var(--space-3);
     }
+    .punch-datetime-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--space-2);
+    }
     .punch-dialog-form mat-form-field {
       width: 100%;
     }
@@ -124,20 +161,22 @@ export class PunchForDialog {
   readonly dialogRef = inject(MatDialogRef<PunchForDialog, PunchForDialogResult>);
   readonly data = inject<PunchForDialogData>(MAT_DIALOG_DATA);
   protected readonly staffId = signal('');
-  protected readonly inAt = signal('');
-  protected readonly outAt = signal('');
+  protected readonly inDate = signal('');
+  protected readonly inTime = signal('');
+  protected readonly outDate = signal('');
+  protected readonly outTime = signal('');
   protected readonly error = signal('');
 
   protected setStaff(event: Event): void {
     this.staffId.set((event.target as HTMLSelectElement).value);
   }
 
-  protected setIn(event: Event): void {
-    this.inAt.set((event.target as HTMLInputElement).value);
+  protected setInTime(event: Event): void {
+    this.inTime.set((event.target as HTMLInputElement).value);
   }
 
-  protected setOut(event: Event): void {
-    this.outAt.set((event.target as HTMLInputElement).value);
+  protected setOutTime(event: Event): void {
+    this.outTime.set((event.target as HTMLInputElement).value);
   }
 
   protected save(): void {
@@ -146,17 +185,18 @@ export class PunchForDialog {
       return;
     }
 
-    if (!this.inAt()) {
-      this.error.set('Enter a clock-in time.');
+    if (!this.inDate() || !this.inTime()) {
+      this.error.set('Enter a clock-in date and time.');
       return;
     }
 
     const result: PunchForDialogResult = {
       staffId: this.staffId(),
-      inAtManila: this.inAt(),
+      inAtManila: `${this.inDate()}T${this.inTime()}`,
     };
-    if (this.outAt()) {
-      result.outAtManila = this.outAt();
+    if (this.outTime()) {
+      const outDate = this.outDate() || this.inDate();
+      result.outAtManila = `${outDate}T${this.outTime()}`;
     }
 
     this.dialogRef.close(result);
@@ -171,6 +211,7 @@ export class PunchForDialog {
     MatFormField,
     MatLabel,
     MatInput,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -180,17 +221,33 @@ export class PunchForDialog {
         <ops-banner tone="danger" role="alert" [message]="error()" />
       }
       <form id="close-punch-form" class="punch-dialog-form" (ngSubmit)="save()">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Clock out (Manila)</mat-label>
-          <input
-            matInput
-            name="outAt"
-            type="datetime-local"
-            [value]="outAt()"
-            (input)="setOut($event)"
-            required
-          />
-        </mat-form-field>
+        <div class="punch-datetime-row">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Clock out date (Manila)</mat-label>
+            <input
+              matInput
+              [matDatepicker]="closeOutPicker"
+              name="outDate"
+              placeholder="MM/DD/YYYY"
+              [value]="outDate()"
+              (dateChange)="outDate.set($event.value ?? '')"
+              required
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="closeOutPicker" />
+            <mat-datepicker #closeOutPicker />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Clock out time</mat-label>
+            <input
+              matInput
+              name="outTime"
+              type="time"
+              [value]="outTime()"
+              (input)="setOutTime($event)"
+              required
+            />
+          </mat-form-field>
+        </div>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Reason</mat-label>
           <input matInput name="reason" [value]="reason()" (input)="setReason($event)" required />
@@ -212,6 +269,11 @@ export class PunchForDialog {
       flex-direction: column;
       gap: var(--space-3);
     }
+    .punch-datetime-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--space-2);
+    }
     .punch-dialog-form mat-form-field {
       width: 100%;
     }
@@ -220,12 +282,13 @@ export class PunchForDialog {
 export class ClosePunchDialog {
   readonly dialogRef = inject(MatDialogRef<ClosePunchDialog, ClosePunchDialogResult>);
   readonly data = inject<ClosePunchDialogData>(MAT_DIALOG_DATA);
-  protected readonly outAt = signal('');
+  protected readonly outDate = signal('');
+  protected readonly outTime = signal('');
   protected readonly reason = signal('');
   protected readonly error = signal('');
 
-  protected setOut(event: Event): void {
-    this.outAt.set((event.target as HTMLInputElement).value);
+  protected setOutTime(event: Event): void {
+    this.outTime.set((event.target as HTMLInputElement).value);
   }
 
   protected setReason(event: Event): void {
@@ -234,8 +297,8 @@ export class ClosePunchDialog {
 
   protected save(): void {
     const reason = this.reason().trim();
-    if (!this.outAt()) {
-      this.error.set('Enter a clock-out time.');
+    if (!this.outDate() || !this.outTime()) {
+      this.error.set('Enter a clock-out date and time.');
       return;
     }
 
@@ -244,7 +307,7 @@ export class ClosePunchDialog {
       return;
     }
 
-    this.dialogRef.close({ outAtManila: this.outAt(), reason });
+    this.dialogRef.close({ outAtManila: `${this.outDate()}T${this.outTime()}`, reason });
   }
 }
 
@@ -383,6 +446,7 @@ export interface OvertimeDecisionDialogResult {
     MatFormField,
     MatLabel,
     MatInput,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -399,12 +463,15 @@ export interface OvertimeDecisionDialogResult {
           <mat-label>Date</mat-label>
           <input
             matInput
+            [matDatepicker]="otDatePicker"
             name="workDate"
-            type="date"
+            placeholder="MM/DD/YYYY"
             [value]="workDate()"
-            (input)="setDate($event)"
+            (dateChange)="workDate.set($event.value ?? '')"
             required
           />
+          <mat-datepicker-toggle matIconSuffix [for]="otDatePicker" />
+          <mat-datepicker #otDatePicker />
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Hours</mat-label>

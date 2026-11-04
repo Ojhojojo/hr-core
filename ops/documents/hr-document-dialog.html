@@ -35,11 +35,14 @@
       <mat-label>Issued on</mat-label>
       <input
         matInput
+        [matDatepicker]="issuedOnPicker"
         name="issuedOn"
-        type="date"
+        placeholder="MM/DD/YYYY"
         [(ngModel)]="draft.issuedOn"
         (ngModelChange)="touch()"
       />
+      <mat-datepicker-toggle matIconSuffix [for]="issuedOnPicker" />
+      <mat-datepicker #issuedOnPicker />
     </mat-form-field>
     <mat-form-field appearance="outline">
       <mat-label>TIN</mat-label>
@@ -64,11 +67,14 @@
           <mat-label>Incident date</mat-label>
           <input
             matInput
+            [matDatepicker]="nteIncidentPicker"
             name="incidentDate"
-            type="date"
+            placeholder="MM/DD/YYYY"
             [(ngModel)]="draft.incidentDate"
             (ngModelChange)="touch()"
           />
+          <mat-datepicker-toggle matIconSuffix [for]="nteIncidentPicker" />
+          <mat-datepicker #nteIncidentPicker />
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Incident place</mat-label>
@@ -109,11 +115,14 @@
           <mat-label>Hearing date</mat-label>
           <input
             matInput
+            [matDatepicker]="hearingDatePicker"
             name="hearingDate"
-            type="date"
+            placeholder="MM/DD/YYYY"
             [(ngModel)]="draft.hearingDate"
             (ngModelChange)="touch()"
           />
+          <mat-datepicker-toggle matIconSuffix [for]="hearingDatePicker" />
+          <mat-datepicker #hearingDatePicker />
         </mat-form-field>
         <mat-form-field appearance="outline" class="hr-doc-span">
           <mat-label>Hearing venue</mat-label>
@@ -151,11 +160,14 @@
           <mat-label>Effective date</mat-label>
           <input
             matInput
+            [matDatepicker]="nodEffectivePicker"
             name="effectiveDate"
-            type="date"
+            placeholder="MM/DD/YYYY"
             [(ngModel)]="draft.effectiveDate"
             (ngModelChange)="touch()"
           />
+          <mat-datepicker-toggle matIconSuffix [for]="nodEffectivePicker" />
+          <mat-datepicker #nodEffectivePicker />
         </mat-form-field>
         <mat-form-field appearance="outline" class="hr-doc-span">
           <mat-label>Decision summary</mat-label>
@@ -185,11 +197,14 @@
           <mat-label>Incident date</mat-label>
           <input
             matInput
+            [matDatepicker]="warningIncidentPicker"
             name="incidentDate"
-            type="date"
+            placeholder="MM/DD/YYYY"
             [(ngModel)]="draft.incidentDate"
             (ngModelChange)="touch()"
           />
+          <mat-datepicker-toggle matIconSuffix [for]="warningIncidentPicker" />
+          <mat-datepicker #warningIncidentPicker />
         </mat-form-field>
         <mat-form-field appearance="outline" class="hr-doc-span">
           <mat-label>Rule or policy violated</mat-label>
@@ -266,11 +281,14 @@
           <mat-label>Separation date</mat-label>
           <input
             matInput
+            [matDatepicker]="quitclaimSeparationPicker"
             name="separationDate"
-            type="date"
+            placeholder="MM/DD/YYYY"
             [(ngModel)]="draft.separationDate"
             (ngModelChange)="touch()"
           />
+          <mat-datepicker-toggle matIconSuffix [for]="quitclaimSeparationPicker" />
+          <mat-datepicker #quitclaimSeparationPicker />
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Final pay (PHP)</mat-label>

@@ -9,6 +9,7 @@ import {
   apiErrorMessage,
   BannerComponent,
   DialogComponent,
+  OpsDateModule,
   availabilityWarning,
   type StaffAvailabilityRow,
 } from '@hr-host';
@@ -31,6 +32,7 @@ import { formatDay } from '../hr-dates';
     MatFormField,
     MatLabel,
     MatInput,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -51,11 +53,29 @@ import { formatDay } from '../hr-dates';
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Start date</mat-label>
-          <input matInput name="startDate" type="date" [(ngModel)]="startDate" required />
+          <input
+            matInput
+            [matDatepicker]="startPicker"
+            name="startDate"
+            placeholder="MM/DD/YYYY"
+            [(ngModel)]="startDate"
+            required
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="startPicker" />
+          <mat-datepicker #startPicker />
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>End date</mat-label>
-          <input matInput name="endDate" type="date" [(ngModel)]="endDate" required />
+          <input
+            matInput
+            [matDatepicker]="endPicker"
+            name="endDate"
+            placeholder="MM/DD/YYYY"
+            [(ngModel)]="endDate"
+            required
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="endPicker" />
+          <mat-datepicker #endPicker />
         </mat-form-field>
         @if (startDate && startDate === endDate) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -159,6 +179,7 @@ export interface AddLeaveDialogData {
     MatFormField,
     MatLabel,
     MatInput,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -187,11 +208,29 @@ export interface AddLeaveDialogData {
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Start date</mat-label>
-          <input matInput name="addLeaveStartDate" type="date" [(ngModel)]="startDate" required />
+          <input
+            matInput
+            [matDatepicker]="addStartPicker"
+            name="addLeaveStartDate"
+            placeholder="MM/DD/YYYY"
+            [(ngModel)]="startDate"
+            required
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="addStartPicker" />
+          <mat-datepicker #addStartPicker />
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>End date</mat-label>
-          <input matInput name="addLeaveEndDate" type="date" [(ngModel)]="endDate" required />
+          <input
+            matInput
+            [matDatepicker]="addEndPicker"
+            name="addLeaveEndDate"
+            placeholder="MM/DD/YYYY"
+            [(ngModel)]="endDate"
+            required
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="addEndPicker" />
+          <mat-datepicker #addEndPicker />
         </mat-form-field>
         @if (startDate && startDate === endDate) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">

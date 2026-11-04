@@ -5,7 +5,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { jsPDF } from 'jspdf';
-import { ShopInfo, apiErrorMessage, manilaToday } from '@hr-host';
+import { ShopInfo, apiErrorMessage, manilaToday, OpsDateModule } from '@hr-host';
 import { EmployeeCard, EmployeeDirectoryApi, EmploymentDocType } from './employee-directory.api';
 import { pdfText } from '../pdf-text';
 
@@ -202,7 +202,15 @@ export function employmentLetterPdfFile(draft: EmploymentLetterDraft): File {
 
 @Component({
   selector: 'app-employment-letter-dialog',
-  imports: [FormsModule, MatDialogModule, MatButton, MatFormField, MatLabel, MatInput],
+  imports: [
+    FormsModule,
+    MatDialogModule,
+    MatButton,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    OpsDateModule,
+  ],
   encapsulation: ViewEncapsulation.None,
   template: `
     <h2 mat-dialog-title class="letter-chrome">{{ title() }}</h2>
@@ -221,7 +229,15 @@ export function employmentLetterPdfFile(draft: EmploymentLetterDraft): File {
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Start date</mat-label>
-          <input matInput name="letterStart" type="date" [(ngModel)]="draft.startDate" />
+          <input
+            matInput
+            [matDatepicker]="letterStartPicker"
+            name="letterStart"
+            placeholder="MM/DD/YYYY"
+            [(ngModel)]="draft.startDate"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="letterStartPicker" />
+          <mat-datepicker #letterStartPicker />
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Pay basis</mat-label>

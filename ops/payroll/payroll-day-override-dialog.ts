@@ -5,7 +5,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatOption, MatSelect } from '@angular/material/select';
-import { BannerComponent, DialogComponent } from '@hr-host';
+import { BannerComponent, DialogComponent, OpsDateModule } from '@hr-host';
 import { PayrollDayPayMode } from './payroll.models';
 
 export interface DayPayOverrideDialogData {
@@ -35,6 +35,7 @@ export interface DayPayOverrideDialogResult {
     MatInput,
     MatSelect,
     MatOption,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -47,7 +48,16 @@ export interface DayPayOverrideDialogResult {
         <div class="day-override-fields">
           <mat-form-field appearance="outline">
             <mat-label>Work date</mat-label>
-            <input matInput name="workDate" type="date" [(ngModel)]="workDate" required />
+            <input
+              matInput
+              [matDatepicker]="workDatePicker"
+              name="workDate"
+              placeholder="MM/DD/YYYY"
+              [(ngModel)]="workDate"
+              required
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="workDatePicker" />
+            <mat-datepicker #workDatePicker />
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Mode</mat-label>
