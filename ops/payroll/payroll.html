@@ -119,7 +119,45 @@
 
 <ops-card>
   <div class="ops-payroll-toolbar">
-    <ops-period-nav [from]="from()" [to]="to()" (rangeChange)="onPeriodChange($event)" />
+    @if (usesCutoffSchedule()) {
+      <div class="ops-cutoff-periods" data-cutoff-periods>
+        <button
+          matButton="outlined"
+          type="button"
+          name="cutoffPrevMonth"
+          (click)="shiftCutoffMonth(-1)"
+        >
+          Previous month
+        </button>
+        <span class="ops-cutoff-month" data-cutoff-month>{{ cutoffMonthLabel() }}</span>
+        <button
+          matButton="outlined"
+          type="button"
+          name="cutoffNextMonth"
+          (click)="shiftCutoffMonth(1)"
+        >
+          Next month
+        </button>
+        @for (period of cutoffPeriods(); track period.ordinal) {
+          <button
+            matButton="outlined"
+            type="button"
+            [name]="'cutoffPeriod' + period.ordinal"
+            [attr.data-from]="period.from"
+            [attr.data-to]="period.to"
+            [attr.aria-pressed]="from() === period.from && to() === period.to"
+            (click)="selectCutoffPeriod(period)"
+          >
+            {{ formatDayRange(period.from, period.to) }}
+          </button>
+        }
+        @if (cutoffPickerError()) {
+          <p class="ops-field-error" role="alert">{{ cutoffPickerError() }}</p>
+        }
+      </div>
+    } @else {
+      <ops-period-nav [from]="from()" [to]="to()" (rangeChange)="onPeriodChange($event)" />
+    }
     <div class="ops-payroll-toolbar-controls">
       <div class="ops-statutory-toggle-wrap">
         <span class="ops-statutory-label">Statutory:</span>
@@ -180,6 +218,18 @@
     </div>
   </div>
 </ops-card>
+
+<mat-expansion-panel class="ops-premium-panel" (opened)="cutoffs.load()">
+  <mat-expansion-panel-header>
+    <mat-panel-title>
+      Payroll cut-offs
+      <ops-info-tip
+        text="Free dates are typed by hand. A schedule offers this shop's cut-offs for the month."
+      />
+    </mat-panel-title>
+  </mat-expansion-panel-header>
+  <app-ops-payroll-cutoff-settings #cutoffs (saved)="load()" />
+</mat-expansion-panel>
 
 <mat-expansion-panel class="ops-premium-panel" (opened)="loadPremiums()">
   <mat-expansion-panel-header>
