@@ -1,7 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
 import { apiErrorMessage, BannerComponent, SkeletonComponent } from '@hr-host';
 import { MatButton } from '@angular/material/button';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { ErrorStateMatcher } from '@angular/material/core';
+import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { PayrollApi } from './payroll.api';
@@ -9,6 +10,14 @@ import { firstFieldError, problemFieldErrors } from './payroll-cutoff.format';
 import { DeductionScheduleRule } from './payroll.models';
 
 const STATUTORY = ['sss', 'philhealth', 'pagibig', 'wht'] as const;
+
+/** SSS, PhilHealth and Pag-IBIG match the register labels. wht uses its full name. */
+const DEDUCTION_LABELS: Record<string, string> = {
+  sss: 'SSS',
+  philhealth: 'PhilHealth',
+  pagibig: 'Pag-IBIG',
+  wht: 'Withholding tax',
+};
 
 interface RuleDraft {
   deductionKey: string;
@@ -22,6 +31,7 @@ interface RuleDraft {
     BannerComponent,
     SkeletonComponent,
     MatButton,
+    MatError,
     MatFormField,
     MatLabel,
     MatInput,
@@ -29,6 +39,28 @@ interface RuleDraft {
     MatOption,
   ],
   templateUrl: './deduction-schedule.html',
+  styles: `
+    .deduction-rows {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+    .deduction-row {
+      display: grid;
+      grid-template-columns: 11rem 14rem 10rem;
+      column-gap: var(--space-3);
+      align-items: start;
+    }
+    .deduction-label {
+      display: flex;
+      align-items: center;
+      min-height: 56px;
+      font-weight: 500;
+    }
+    .deduction-row mat-form-field {
+      width: 100%;
+    }
+  `,
 })
 export class DeductionSchedule {
   private readonly api = inject(PayrollApi);
@@ -44,6 +76,30 @@ export class DeductionSchedule {
 
   protected fieldError(key: string): string {
     return firstFieldError(this.fieldErrors(), key);
+  }
+
+  protected label(key: string): string {
+    const known = DEDUCTION_LABELS[key];
+    if (known) {
+      return known;
+    }
+    if (key.startsWith('loan:')) {
+      const name = key.slice('loan:'.length).trim();
+      return name.length > 0 ? name : 'Loan';
+    }
+    return key;
+  }
+
+  protected isLoanKey(key: string): boolean {
+    return key.startsWith('loan:');
+  }
+
+  protected loanKindName(key: string): string {
+    return key.startsWith('loan:') ? key.slice('loan:'.length) : key;
+  }
+
+  protected matcher(index: number, field: 'cutoffOrdinal' | 'mode'): ErrorStateMatcher {
+    return { isErrorState: () => this.fieldError(`rules[${index}].${field}`).length > 0 };
   }
 
   load(): void {
@@ -87,8 +143,9 @@ export class DeductionSchedule {
     );
   }
 
-  protected setKey(index: number, event: Event): void {
-    const deductionKey = (event.target as HTMLInputElement).value;
+  protected setLoanKind(index: number, event: Event): void {
+    const name = (event.target as HTMLInputElement).value.trim();
+    const deductionKey = name.length === 0 ? 'loan:' : `loan:${name}`;
     this.rules.update((rows) =>
       rows.map((row, i) => (i === index ? { ...row, deductionKey } : row)),
     );

@@ -109,17 +109,26 @@ describe('DeductionSchedule screen', () => {
         rules: [],
       });
     fixture.detectChanges();
-    expect(host.textContent).toContain('sss');
+    expect(host.textContent).toContain('SSS');
+    expect(host.textContent).toContain('PhilHealth');
+    expect(host.textContent).toContain('Pag-IBIG');
+    expect(host.textContent).toContain('Withholding tax');
     expect(host.textContent).toContain('Prorate');
 
-    (fixture.componentInstance as unknown as { save(): void }).save();
+    const cmp = fixture.componentInstance as unknown as {
+      save(): void;
+      setMode(index: number, mode: string): void;
+    };
+    cmp.setMode(0, 'cutoff');
+    fixture.detectChanges();
+    cmp.save();
     const put = http.expectOne((r) => r.method === 'PUT');
     put.flush(
       { errors: { 'rules[0].cutoffOrdinal': ['Cut-off 3 does not exist. This shop has 2.'] } },
       { status: 400, statusText: 'Bad Request' },
     );
     fixture.detectChanges();
-    expect(host.textContent).toContain('Cut-off 3 does not exist');
+    expect(host.querySelector('mat-error')?.textContent).toContain('Cut-off 3 does not exist');
     http.verify();
   });
 });
