@@ -36,17 +36,18 @@
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>When</mat-label>
             <mat-select
-              [attr.name]="'deductionMode' + $index"
-              [value]="rule.mode"
+              [name]="'deductionMode' + $index"
+              [ngModel]="rule.mode"
+              (ngModelChange)="setMode($index, $event)"
+              [ngModelOptions]="{ standalone: true }"
               [errorStateMatcher]="matcher($index, 'mode')"
-              (selectionChange)="setMode($index, $event.value)"
             >
               <mat-option value="prorate">Prorate</mat-option>
               <mat-option value="cutoff">Cut-off only</mat-option>
               <mat-option value="split">Split evenly</mat-option>
             </mat-select>
             @if (fieldError('rules[' + $index + '].mode'); as message) {
-              <mat-error>{{ message }}</mat-error>
+              <mat-error role="alert">{{ message }}</mat-error>
             }
           </mat-form-field>
           @if (rule.mode === 'cutoff') {
@@ -58,12 +59,13 @@
                 min="1"
                 step="1"
                 [name]="'deductionOrdinal' + $index"
-                [value]="rule.cutoffOrdinal ?? ''"
+                [ngModel]="rule.cutoffOrdinal"
+                (ngModelChange)="setOrdinal($index, $event)"
+                [ngModelOptions]="{ standalone: true }"
                 [errorStateMatcher]="matcher($index, 'cutoffOrdinal')"
-                (change)="setOrdinal($index, $event)"
               />
               @if (fieldError('rules[' + $index + '].cutoffOrdinal'); as message) {
-                <mat-error>{{ message }}</mat-error>
+                <mat-error role="alert">{{ message }}</mat-error>
               }
             </mat-form-field>
           }

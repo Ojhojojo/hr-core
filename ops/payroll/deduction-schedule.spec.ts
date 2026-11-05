@@ -128,7 +128,15 @@ describe('DeductionSchedule screen', () => {
       { status: 400, statusText: 'Bad Request' },
     );
     fixture.detectChanges();
-    expect(host.querySelector('mat-error')?.textContent).toContain('Cut-off 3 does not exist');
+    // The form field reads errorState after the input's ngDoCheck, so refresh once more.
+    fixture.detectChanges();
+    const error = host.querySelector('mat-error');
+    expect(error?.textContent).toContain('Cut-off 3 does not exist');
+    expect(error?.closest('mat-form-field')?.textContent).toContain('Cut-off');
+    expect(error?.getAttribute('role')).toBe('alert');
+    expect(
+      error?.closest('mat-form-field')?.querySelector('input')?.getAttribute('aria-invalid'),
+    ).toBe('true');
     http.verify();
   });
 });

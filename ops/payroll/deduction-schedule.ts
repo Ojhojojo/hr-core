@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { apiErrorMessage, BannerComponent, SkeletonComponent } from '@hr-host';
 import { MatButton } from '@angular/material/button';
 import { ErrorStateMatcher } from '@angular/material/core';
@@ -28,6 +29,7 @@ interface RuleDraft {
 @Component({
   selector: 'app-ops-deduction-schedule',
   imports: [
+    FormsModule,
     BannerComponent,
     SkeletonComponent,
     MatButton,
@@ -44,12 +46,18 @@ interface RuleDraft {
       display: flex;
       flex-direction: column;
       gap: var(--space-2);
+      container-type: inline-size;
+      min-width: 0;
+      max-width: 100%;
     }
     .deduction-row {
       display: grid;
-      grid-template-columns: 11rem 14rem 10rem;
+      grid-template-columns: minmax(7rem, 11rem) minmax(0, 1.4fr) minmax(0, 1fr);
       column-gap: var(--space-3);
+      row-gap: var(--space-2);
       align-items: start;
+      min-width: 0;
+      max-width: 100%;
     }
     .deduction-label {
       display: flex;
@@ -59,6 +67,24 @@ interface RuleDraft {
     }
     .deduction-row mat-form-field {
       width: 100%;
+      min-width: 0;
+      max-width: 100%;
+    }
+    @container (max-width: 36rem) {
+      .deduction-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .deduction-label {
+        min-height: 0;
+      }
+    }
+    @media (max-width: 36rem) {
+      .deduction-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .deduction-label {
+        min-height: 0;
+      }
     }
   `,
 })
@@ -98,6 +124,10 @@ export class DeductionSchedule {
     return key.startsWith('loan:') ? key.slice('loan:'.length) : key;
   }
 
+  /**
+   * MatInput only calls this from ngDoCheck when the field has an NgControl.
+   * The template binds ngModel so a 400 can put the field into the error state.
+   */
   protected matcher(index: number, field: 'cutoffOrdinal' | 'mode'): ErrorStateMatcher {
     return { isErrorState: () => this.fieldError(`rules[${index}].${field}`).length > 0 };
   }
@@ -134,8 +164,8 @@ export class DeductionSchedule {
     this.rules.update((rows) => rows.map((row, i) => (i === index ? { ...row, mode: next } : row)));
   }
 
-  protected setOrdinal(index: number, event: Event): void {
-    const raw = (event.target as HTMLInputElement).value.trim();
+  protected setOrdinal(index: number, value: number | string | null): void {
+    const raw = value == null ? '' : String(value).trim();
     const parsed = raw === '' ? null : Number(raw);
     const ordinal = parsed != null && Number.isFinite(parsed) ? parsed : null;
     this.rules.update((rows) =>
