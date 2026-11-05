@@ -1478,4 +1478,28 @@ describe('PayrollPage cut-off periods', () => {
     });
     http.verify();
   });
+
+  it('shows a button for each end month when the range crosses months', async () => {
+    const crossed = [
+      { ordinal: 1, from: '2026-11-26', to: '2026-12-10' },
+      { ordinal: 2, from: '2026-12-11', to: '2026-12-25' },
+      { ordinal: 1, from: '2026-12-26', to: '2027-01-10' },
+      { ordinal: 2, from: '2027-01-11', to: '2027-01-25' },
+    ];
+    const { host, http } = await mountPayroll(ownerMe, {
+      ...mockPayrollData,
+      from: '2026-12-26',
+      to: '2027-01-10',
+      cutoffMode: 'schedule',
+      cutoffPeriods: crossed,
+    });
+
+    const buttons = host.querySelectorAll('[data-cutoff-periods] button[data-from]');
+    expect(buttons.length).toBe(4);
+    crossed.forEach((period) => {
+      const button = host.querySelector(`[data-from="${period.from}"]`);
+      expect(button?.getAttribute('data-to')).toBe(period.to);
+    });
+    http.verify();
+  });
 });

@@ -1,3 +1,4 @@
+using System.Globalization;
 using HrCore.Features.SettingsLog;
 
 namespace HrCore.Features.Payroll;
@@ -21,7 +22,8 @@ public static class PayrollEndpoints
                 " Amount is gross (punches × stored rate). " +
                 "Saved manual deductions for that exact period are included; a missing row is zeros. " +
                 "cutoffMode is \"free\" when the shop has no cut-off schedule (from/to behave as before) " +
-                "and \"schedule\" when cutoffPeriods lists that end-month's cut-offs as yyyy-MM-dd. " +
+                "and \"schedule\" when cutoffPeriods lists the cut-offs, as yyyy-MM-dd, for every " +
+                "end month from the requested from through to (one month when they match). " +
                 "Secured to Owner and Admin.");
 
         api.MapGet("/export", GetExport)
@@ -331,7 +333,9 @@ public static class PayrollEndpoints
             .WithName("PayrollCutoffSchedule")
             .WithSummary("Payroll cut-off schedule for the current shop")
             .WithDescription(
-                "Owner and admin. Query: month (yyyy-MM, default the current Asia/Manila month). " +
+                "Owner and admin. Query: month, strictly yyyy-MM (zero-padded). " +
+                "Omitted month defaults to the current Asia/Manila month. " +
+                "2026-1, 2026-13, 26-01 and other shapes are 400 problem details on month. " +
                 "mode is free when the shop has no rows, which is every existing shop. " +
                 "mode schedule returns the saved cut-offs and the periods for that month " +
                 "(from and to as yyyy-MM-dd, end days clamped to the month). " +
@@ -499,7 +503,8 @@ public static class PayrollEndpoints
             {
                 var result = await payroll.GetRegisterAsync(
                     shops, from, to, includeInactive ?? false, IncludeUnscopedOwners(http), ct);
-                var schedule = await cutoffs.GetAsync(shops, currentId, result.To.Year, result.To.Month, ct);
+                var schedule = await cutoffs.DescribeRegisterAsync(
+                    shops, currentId, result.From, result.To, ct);
                 if (schedule is null)
                 {
                     return Results.Ok(result);
@@ -507,8 +512,8 @@ public static class PayrollEndpoints
 
                 return Results.Ok(result with
                 {
-                    CutoffMode = schedule.Mode,
-                    CutoffPeriods = schedule.Periods
+                    CutoffMode = schedule.Value.Mode,
+                    CutoffPeriods = schedule.Value.Periods
                 });
             },
             cancellationToken);
@@ -1325,7 +1330,24 @@ public static class PayrollEndpoints
             return true;
         }
 
-        return TryParseMonth(month, out year, out monthNumber);
+        // Strict yyyy-MM. The shared TryParseMonth still accepts 2026-1 for older callers.
+        var text = month.Trim();
+        if (text.Length != 7 || text[4] != '-')
+        {
+            year = 0;
+            monthNumber = 0;
+            return false;
+        }
+
+        if (!int.TryParse(text.AsSpan(0, 4), NumberStyles.None, CultureInfo.InvariantCulture, out year)
+            || !int.TryParse(text.AsSpan(5, 2), NumberStyles.None, CultureInfo.InvariantCulture, out monthNumber))
+        {
+            year = 0;
+            monthNumber = 0;
+            return false;
+        }
+
+        return year is >= 2000 and <= 2100 && monthNumber is >= 1 and <= 12;
     }
 
     private static Task<IResult> GetCutoffSchedule(

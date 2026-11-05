@@ -154,4 +154,60 @@ public sealed class PayrollCutoffCalendarTests
         Assert.Equal("free", PayrollCutoffCalendar.Describe([]));
         Assert.Equal("1:26-10;2:11-25", PayrollCutoffCalendar.Describe(SemiMonthly()));
     }
+
+    [Fact]
+    public void Boundary_days_of_26_10_and_11_25_fall_in_exactly_one_period()
+    {
+        var periods = PayrollCutoffCalendar.PeriodsCovering(
+            new DateOnly(2026, 10, 1),
+            new DateOnly(2026, 12, 31),
+            SemiMonthly());
+
+        Assert.Equal(1, Covering(periods, new DateOnly(2026, 11, 10)));
+        Assert.Equal(1, Covering(periods, new DateOnly(2026, 11, 11)));
+        Assert.Equal(1, Covering(periods, new DateOnly(2026, 11, 25)));
+        Assert.Equal(1, Covering(periods, new DateOnly(2026, 11, 26)));
+        Assert.Equal(1, Covering(periods, new DateOnly(2026, 10, 26)));
+    }
+
+    [Fact]
+    public void Clamped_short_months_tile_end_to_end()
+    {
+        var endOn31 = new[] { Rule(1, 1, 25), Rule(2, 26, 31) };
+        var endOn30 = new[] { Rule(1, 31, 10), Rule(2, 11, 30) };
+        Assert.True(PayrollCutoffCalendar.TryValidate(endOn31, out _));
+        Assert.True(PayrollCutoffCalendar.TryValidate(endOn30, out _));
+
+        AssertMonthTiled(2026, 2, endOn31);
+        AssertMonthTiled(2028, 2, endOn31);
+        AssertMonthTiled(2026, 4, endOn31);
+        AssertMonthTiled(2026, 2, endOn30);
+        AssertMonthTiled(2028, 2, endOn30);
+        AssertMonthTiled(2026, 4, endOn30);
+    }
+
+    private static int Covering(IReadOnlyList<PayrollCutoffPeriod> periods, DateOnly day) =>
+        periods.Count(period => day >= period.From && day <= period.To);
+
+    private static void AssertMonthTiled(int year, int month, IReadOnlyList<PayrollCutoffRule> rules)
+    {
+        var periods = PayrollCutoffCalendar.PeriodsForMonth(year, month, rules);
+        var last = DateTime.DaysInMonth(year, month);
+        var hits = new int[last + 1];
+        foreach (var period in periods)
+        {
+            for (var day = period.From; day <= period.To; day = day.AddDays(1))
+            {
+                if (day.Year == year && day.Month == month)
+                {
+                    hits[day.Day]++;
+                }
+            }
+        }
+
+        for (var day = 1; day <= last; day++)
+        {
+            Assert.Equal(1, hits[day]);
+        }
+    }
 }

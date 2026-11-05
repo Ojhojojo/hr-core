@@ -28,6 +28,39 @@ public sealed class PayrollCutoffService(IHrDb db)
         return ToDto(branchId, rows.Select(ToRule).ToList(), year, month);
     }
 
+    /// <summary>
+    /// Register payload. <paramref name="from"/> and <paramref name="to"/> in the same month
+    /// return that month's periods. A range that crosses months returns each end month, deduplicated,
+    /// earliest first. No rows means free dates and an empty list.
+    /// </summary>
+    public async Task<(string Mode, IReadOnlyList<PayrollCutoffPeriodDto> Periods)?> DescribeRegisterAsync(
+        IReadOnlyList<Branch> shops,
+        Guid branchId,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken)
+    {
+        if (shops.All(shop => shop.Id != branchId))
+        {
+            return null;
+        }
+
+        var rows = await db.BranchPayrollCutoffs().AsNoTracking()
+            .Where(row => row.BranchId == branchId)
+            .OrderBy(row => row.Ordinal)
+            .ToListAsync(cancellationToken);
+        var rules = rows.Select(ToRule).ToList();
+        if (rules.Count == 0)
+        {
+            return (PayrollCutoffMode.Free, []);
+        }
+
+        var periods = PayrollCutoffCalendar.PeriodsCovering(from, to, rules)
+            .Select(period => new PayrollCutoffPeriodDto(period.Ordinal, period.From, period.To))
+            .ToList();
+        return (PayrollCutoffMode.Schedule, periods);
+    }
+
     public async Task<(PayrollCutoffScheduleDto? Saved, Dictionary<string, string[]>? Errors)> SaveAsync(
         IReadOnlyList<Branch> shops,
         Guid branchId,

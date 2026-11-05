@@ -138,11 +138,11 @@
         >
           Next month
         </button>
-        @for (period of cutoffPeriods(); track period.ordinal) {
+        @for (period of cutoffPeriods(); track period.from + period.to) {
           <button
             matButton="outlined"
             type="button"
-            [name]="'cutoffPeriod' + period.ordinal"
+            [name]="'cutoffPeriod' + period.from"
             [attr.data-from]="period.from"
             [attr.data-to]="period.to"
             [attr.aria-pressed]="from() === period.from && to() === period.to"

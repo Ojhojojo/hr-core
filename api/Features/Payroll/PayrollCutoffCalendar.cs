@@ -158,6 +158,45 @@ public static class PayrollCutoffCalendar
         return list;
     }
 
+    /// <summary>
+    /// Periods for every end month from <paramref name="from"/> through <paramref name="to"/>,
+    /// one copy of each (ordinal, from, to), earliest start first. A single month matches
+    /// <see cref="PeriodsForMonth"/>.
+    /// </summary>
+    public static IReadOnlyList<PayrollCutoffPeriod> PeriodsCovering(
+        DateOnly from,
+        DateOnly to,
+        IReadOnlyList<PayrollCutoffRule> cutoffs)
+    {
+        if (from > to)
+        {
+            (from, to) = (to, from);
+        }
+
+        var seen = new HashSet<(int Ordinal, DateOnly From, DateOnly To)>();
+        var list = new List<PayrollCutoffPeriod>();
+        var cursor = new DateOnly(from.Year, from.Month, 1);
+        var last = new DateOnly(to.Year, to.Month, 1);
+        while (cursor <= last)
+        {
+            foreach (var period in PeriodsForMonth(cursor.Year, cursor.Month, cutoffs))
+            {
+                if (seen.Add((period.Ordinal, period.From, period.To)))
+                {
+                    list.Add(period);
+                }
+            }
+
+            cursor = cursor.AddMonths(1);
+        }
+
+        return list
+            .OrderBy(period => period.From)
+            .ThenBy(period => period.To)
+            .ThenBy(period => period.Ordinal)
+            .ToList();
+    }
+
     public static DateOnly Clamp(int year, int month, int day)
     {
         var last = DateTime.DaysInMonth(year, month);

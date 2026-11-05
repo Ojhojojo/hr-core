@@ -124,7 +124,7 @@ export interface PayrollRegisterResponse {
   unpaidBonuses?: UnpaidBonus[];
   /** `free` when the shop has no cut-off schedule. `schedule` when `cutoffPeriods` is set. */
   cutoffMode?: 'free' | 'schedule' | null;
-  /** Concrete cut-offs for the month of `to`. Empty or omitted in free mode. Dates are yyyy-MM-dd. */
+  /** Cut-offs for every end month from `from` through `to`. Empty or omitted in free mode. Dates are yyyy-MM-dd. */
   cutoffPeriods?: PayrollCutoffPeriod[] | null;
 }
 

@@ -304,6 +304,63 @@ public sealed class PayrollCutoffEndpointTests(CutoffApp app) : IClassFixture<Cu
     }
 
     [Fact]
+    public async Task Month_must_be_strict_yyyy_MM_and_defaults_when_missing()
+    {
+        await app.ResetAsync();
+        foreach (var bad in new[] { "2026-1", "2026-13", "26-01", "nope" })
+        {
+            var problem = await ReadProblem(
+                await app.SendAsync(
+                    CutoffApp.OwnerId,
+                    HttpMethod.Get,
+                    "/api/ops/payroll/cutoff-schedule?month=" + Uri.EscapeDataString(bad)),
+                StatusCodes.Status400BadRequest);
+            Assert.Contains("Month must be yyyy-MM.", Field(problem, "month"));
+        }
+
+        var open = await ReadOk(await app.SendAsync(
+            CutoffApp.OwnerId, HttpMethod.Get, "/api/ops/payroll/cutoff-schedule"));
+        var today = ManilaTime.Today();
+        Assert.Equal($"{today.Year:0000}-{today.Month:00}", open.GetProperty("month").GetString());
+        Assert.Equal("free", open.GetProperty("mode").GetString());
+    }
+
+    [Fact]
+    public async Task Register_returns_each_end_month_when_the_range_crosses_months()
+    {
+        await app.ResetAsync();
+        Assert.Equal(HttpStatusCode.OK, (await app.SendAsync(
+            CutoffApp.OwnerId,
+            HttpMethod.Put,
+            "/api/ops/payroll/cutoff-schedule?month=2026-11",
+            Schedule())).StatusCode);
+
+        var crossed = await ReadOk(await app.SendAsync(
+            CutoffApp.OwnerId,
+            HttpMethod.Get,
+            "/api/ops/payroll?from=2026-12-26&to=2027-01-10"));
+        var periods = crossed.GetProperty("cutoffPeriods");
+        Assert.Equal(4, periods.GetArrayLength());
+        AssertPeriod(periods[0], 1, "2026-11-26", "2026-12-10");
+        AssertPeriod(periods[1], 2, "2026-12-11", "2026-12-25");
+        AssertPeriod(periods[2], 1, "2026-12-26", "2027-01-10");
+        AssertPeriod(periods[3], 2, "2027-01-11", "2027-01-25");
+
+        var sameMonth = await ReadOk(await app.SendAsync(
+            CutoffApp.OwnerId,
+            HttpMethod.Get,
+            "/api/ops/payroll?from=2026-11-11&to=2026-11-25"));
+        Assert.Equal(2, sameMonth.GetProperty("cutoffPeriods").GetArrayLength());
+    }
+
+    private static void AssertPeriod(JsonElement period, int ordinal, string from, string to)
+    {
+        Assert.Equal(ordinal, period.GetProperty("ordinal").GetInt32());
+        Assert.Equal(from, period.GetProperty("from").GetString());
+        Assert.Equal(to, period.GetProperty("to").GetString());
+    }
+
+    [Fact]
     public async Task Worker_gets_403_problem_details()
     {
         await app.ResetAsync();
