@@ -10,6 +10,13 @@ public sealed partial class PayrollService
     {
         public required Dictionary<Guid, IReadOnlyList<PayrollLoanSchedule.LoanInput>> ByStaff { get; init; }
         public required Dictionary<Guid, Dictionary<Guid, decimal>> OverridesByStaff { get; init; }
+        public Dictionary<Guid, LoanSchedulePlan> PlansByBranch { get; init; } = [];
+    }
+
+    private sealed class LoanSchedulePlan
+    {
+        public required Dictionary<string, (string Mode, int? Ordinal)> Rules { get; init; }
+        public int? MatchedOrdinal { get; init; }
     }
 
     private readonly record struct LoanPricing(
@@ -70,7 +77,55 @@ public sealed partial class PayrollService
             map[loanId] = row.Amount;
         }
 
-        return new LoanContext { ByStaff = byStaff, OverridesByStaff = overridesByStaff };
+        var plans = await LoadLoanSchedulePlansAsync(start, end, cancellationToken);
+        return new LoanContext
+        {
+            ByStaff = byStaff,
+            OverridesByStaff = overridesByStaff,
+            PlansByBranch = plans
+        };
+    }
+
+    private async Task<Dictionary<Guid, LoanSchedulePlan>> LoadLoanSchedulePlansAsync(
+        DateOnly start,
+        DateOnly end,
+        CancellationToken cancellationToken)
+    {
+        var rules = await db.BranchDeductionSchedules().AsNoTracking()
+            .Where(row => row.DeductionKey.StartsWith("loan:"))
+            .ToListAsync(cancellationToken);
+        if (rules.Count == 0)
+        {
+            return [];
+        }
+
+        var branchIds = rules.Select(row => row.BranchId).Distinct().ToList();
+        var cutoffs = await db.BranchPayrollCutoffs().AsNoTracking()
+            .Where(row => branchIds.Contains(row.BranchId))
+            .OrderBy(row => row.Ordinal)
+            .ToListAsync(cancellationToken);
+        var plans = new Dictionary<Guid, LoanSchedulePlan>();
+        foreach (var group in rules.GroupBy(row => row.BranchId))
+        {
+            var cutoffRules = cutoffs
+                .Where(row => row.BranchId == group.Key)
+                .Select(row => new PayrollCutoffRule(row.Ordinal, row.StartDay, row.EndDay))
+                .ToList();
+            var periods = cutoffRules.Count == 0
+                ? []
+                : PayrollCutoffCalendar.PeriodsCovering(start, end, cutoffRules);
+            var match = periods.FirstOrDefault(period => period.From == start && period.To == end);
+            plans[group.Key] = new LoanSchedulePlan
+            {
+                Rules = group.ToDictionary(
+                    row => row.DeductionKey,
+                    row => (row.Mode, row.CutoffOrdinal),
+                    StringComparer.Ordinal),
+                MatchedOrdinal = match?.Ordinal
+            };
+        }
+
+        return plans;
     }
 
     private static LoanPricing PriceStaffLoans(
@@ -78,9 +133,11 @@ public sealed partial class PayrollService
         decimal netBeforeLoans,
         DateOnly start,
         DateOnly end,
-        LoanContext context)
+        LoanContext context,
+        Guid? branchId = null)
     {
         var mine = context.ByStaff.GetValueOrDefault(staffId) ?? [];
+        mine = ApplyLoanSchedule(mine, branchId, context);
         var overrides = context.OverridesByStaff.GetValueOrDefault(staffId)
             ?? new Dictionary<Guid, decimal>();
         var suggested = PayrollLoanSchedule.Suggest(mine, start, end, netBeforeLoans, overrides);
@@ -100,6 +157,45 @@ public sealed partial class PayrollService
                 item.Capped))
             .ToList();
         return new LoanPricing(suggested.Total, items, suggested.Warnings);
+    }
+
+    /// <summary>
+    /// Same list when the branch has no loan rule. A cut-off or split rule drops the instalment
+    /// for a period that is not the one the dates match. The match is not stored.
+    /// </summary>
+    private static IReadOnlyList<PayrollLoanSchedule.LoanInput> ApplyLoanSchedule(
+        IReadOnlyList<PayrollLoanSchedule.LoanInput> loans,
+        Guid? branchId,
+        LoanContext context)
+    {
+        if (branchId is not Guid home
+            || !context.PlansByBranch.TryGetValue(home, out var plan)
+            || plan.Rules.Count == 0)
+        {
+            return loans;
+        }
+
+        var kept = new List<PayrollLoanSchedule.LoanInput>(loans.Count);
+        foreach (var loan in loans)
+        {
+            var key = PayrollStatutoryAllocation.LoanKey(loan.Kind);
+            if (!plan.Rules.TryGetValue(key, out var rule))
+            {
+                kept.Add(loan);
+                continue;
+            }
+
+            var amount = PayrollStatutoryAllocation.LoanInstalment(
+                rule.Mode, rule.Ordinal, plan.MatchedOrdinal, loan.PerPeriodAmount);
+            if (amount <= 0m)
+            {
+                continue;
+            }
+
+            kept.Add(amount == loan.PerPeriodAmount ? loan : loan with { PerPeriodAmount = amount });
+        }
+
+        return kept;
     }
 
     private static IReadOnlyList<string>? MergeWarnings(

@@ -32,6 +32,8 @@ public sealed class TestHrDb(DbContextOptions<TestHrDb> options) : DbContext(opt
     public DbSet<SettingsChangeLog> SettingsChangeLogs => Set<SettingsChangeLog>();
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<IncentiveBonus> IncentiveBonuses => Set<IncentiveBonus>();
+    public DbSet<BranchDeductionSchedule> BranchDeductionSchedules => Set<BranchDeductionSchedule>();
+    public DbSet<PayrollCatchUp> PayrollCatchUps => Set<PayrollCatchUp>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

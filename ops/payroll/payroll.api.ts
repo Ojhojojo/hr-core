@@ -24,6 +24,10 @@ import {
   UpdatePayrollPremiumSettings,
   PayrollCutoffSchedule,
   UpdatePayrollCutoffSchedule,
+  DeductionSchedule,
+  UpdateDeductionSchedule,
+  PayrollCatchUp,
+  SavePayrollCatchUp,
   ShopHoliday,
   ShopHolidayList,
   UpsertShopHoliday,
@@ -255,6 +259,21 @@ export class PayrollApi {
     return this.http.get<PayrollCutoffSchedule>(`${this.base}/api/ops/payroll/cutoff-schedule`, {
       params,
     });
+  }
+
+  getDeductionSchedule(): Observable<DeductionSchedule> {
+    return this.http.get<DeductionSchedule>(`${this.base}/api/ops/payroll/deduction-schedule`);
+  }
+
+  saveDeductionSchedule(body: UpdateDeductionSchedule): Observable<DeductionSchedule> {
+    return this.http.put<DeductionSchedule>(
+      `${this.base}/api/ops/payroll/deduction-schedule`,
+      body,
+    );
+  }
+
+  saveCatchUp(body: SavePayrollCatchUp): Observable<PayrollCatchUp> {
+    return this.http.put<PayrollCatchUp>(`${this.base}/api/ops/payroll/catch-ups`, body);
   }
 
   saveCutoffSchedule(

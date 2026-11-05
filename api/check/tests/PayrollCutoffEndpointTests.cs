@@ -64,6 +64,8 @@ public sealed class CutoffApp : IAsyncLifetime
         await using var scope = app.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<TestHrDb>();
         db.BranchPayrollCutoffs().RemoveRange(db.BranchPayrollCutoffs());
+        db.BranchDeductionSchedules().RemoveRange(db.BranchDeductionSchedules());
+        db.PayrollCatchUps().RemoveRange(db.PayrollCatchUps());
         db.SettingsChangeLogs.RemoveRange(db.SettingsChangeLogs);
         db.PayrollRuns.RemoveRange(db.PayrollRuns);
         await db.SaveChangesAsync();

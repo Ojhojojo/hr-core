@@ -103,6 +103,34 @@ public static class HrModel
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<BranchDeductionSchedule>(e =>
+        {
+            e.ToTable("BranchDeductionSchedules");
+            e.Property(x => x.DeductionKey).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Mode).HasMaxLength(20).IsRequired();
+            e.HasIndex(x => new { x.BranchId, x.DeductionKey }).IsUnique();
+            e.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PayrollCatchUp>(e =>
+        {
+            e.ToTable("PayrollCatchUps", t =>
+            {
+                t.HasCheckConstraint("CK_PayrollCatchUps_Amount", "\"Amount\" > 0");
+                t.HasCheckConstraint("CK_PayrollCatchUps_Note", "\"Note\" <> ''");
+                t.HasCheckConstraint(
+                    "CK_PayrollCatchUps_Period",
+                    "\"PeriodTo\" >= \"PeriodFrom\"");
+            });
+            e.Property(x => x.DeductionKey).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Amount).HasPrecision(14, 2);
+            e.Property(x => x.Note).HasMaxLength(500).IsRequired();
+            e.HasIndex(x => new { x.StaffId, x.PeriodFrom, x.PeriodTo, x.DeductionKey }).IsUnique();
+            e.HasOne(x => x.Staff).WithMany().HasForeignKey(x => x.StaffId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<Profile>(e =>
         {
             e.HasIndex(x => x.AuthUserId).IsUnique();
@@ -599,6 +627,6 @@ public static class HrModel
         typeof(ShopHoliday), typeof(PayrollAmountOverride), typeof(PayrollDayPayOverride), typeof(StaffAllowance),
         typeof(StaffLoan), typeof(StaffLoanPayment), typeof(PayrollRunLineItem), typeof(StaffPayRate),
         typeof(HrChangeLog), typeof(SettingsChangeLog), typeof(Announcement), typeof(IncentiveBonus),
-        typeof(BranchPayrollCutoff)
+        typeof(BranchPayrollCutoff), typeof(BranchDeductionSchedule), typeof(PayrollCatchUp)
     ];
 }

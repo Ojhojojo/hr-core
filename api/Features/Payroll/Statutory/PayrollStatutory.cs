@@ -71,6 +71,36 @@ public sealed partial class PayrollService
             new PayrollStatutoryProration.MonthShares(sss, philHealth, pagIbig, wht),
             baseAmount,
             periodBase);
+        var scheduled = row.BranchId is Guid homeBranch
+            ? await ApplyDeductionScheduleAsync(
+                homeBranch,
+                periodFrom.Value,
+                periodTo.Value,
+                sss,
+                philHealth,
+                pagIbig,
+                wht,
+                periodBase,
+                prorated,
+                cancellationToken)
+            : null;
+        if (scheduled is not null)
+        {
+            return Suggest(
+                row,
+                monthStart,
+                baseAmount,
+                scheduled.Value.Sss,
+                scheduled.Value.PhilHealth,
+                scheduled.Value.PagIbig,
+                scheduled.Value.Taxable,
+                scheduled.Value.Wht,
+                scheduled.Value.Notes,
+                periodFrom,
+                periodTo,
+                prorated.Fraction);
+        }
+
         var notes = new List<string>();
         foreach (var note in StatutoryPack.VerificationNotes)
         {
@@ -153,5 +183,85 @@ public sealed partial class PayrollService
         }
 
         return row.Amount - nonTaxable;
+    }
+
+    /// <summary>
+    /// Null when every deduction still prorates, so the caller keeps the proration result unchanged.
+    /// Adjusted amounts are returned only. Nothing here stores a cut-off number.
+    /// </summary>
+    private async Task<(decimal Sss, decimal PhilHealth, decimal PagIbig, decimal Taxable, decimal Wht, IReadOnlyList<string> Notes)?>
+        ApplyDeductionScheduleAsync(
+            Guid branchId,
+            DateOnly from,
+            DateOnly to,
+            decimal monthlySss,
+            decimal monthlyPhilHealth,
+            decimal monthlyPagIbig,
+            decimal monthlyWht,
+            decimal periodBase,
+            PayrollStatutoryProration.Result prorated,
+            CancellationToken cancellationToken)
+    {
+        var schedule = new PayrollDeductionScheduleService(db);
+        var (rules, matched, periodCount) = await schedule.ForPeriodAsync(branchId, from, to, cancellationToken);
+        if (rules.Count == 0 || rules.All(rule => rule.Mode == PayrollStatutoryAllocation.Prorate))
+        {
+            return null;
+        }
+
+        decimal Share(string key, decimal monthly, decimal proratedShare)
+        {
+            var rule = rules.FirstOrDefault(row => row.DeductionKey == key);
+            return PayrollStatutoryAllocation.Amount(
+                rule?.Mode,
+                monthly,
+                proratedShare,
+                rule?.CutoffOrdinal,
+                matched,
+                periodCount);
+        }
+
+        var sssOut = Share("sss", monthlySss, prorated.Sss);
+        var philOut = Share("philhealth", monthlyPhilHealth, prorated.PhilHealth);
+        var pagOut = Share("pagibig", monthlyPagIbig, prorated.PagIbig);
+        var taxable = periodBase - sssOut - philOut - pagOut;
+        if (taxable < 0m)
+        {
+            taxable = 0m;
+        }
+
+        var whtRule = rules.FirstOrDefault(row => row.DeductionKey == "wht");
+        decimal whtOut;
+        if (whtRule is null || whtRule.Mode == PayrollStatutoryAllocation.Prorate)
+        {
+            var uncapped = PayrollStatutoryAllocation.Round(monthlyWht * prorated.Fraction);
+            whtOut = uncapped > taxable ? PayrollStatutoryAllocation.Round(taxable) : uncapped;
+        }
+        else
+        {
+            whtOut = PayrollStatutoryAllocation.Amount(
+                whtRule.Mode, monthlyWht, prorated.Wht, whtRule.CutoffOrdinal, matched, periodCount);
+        }
+
+        var notes = new List<string>();
+        foreach (var note in StatutoryPack.VerificationNotes)
+        {
+            if (note.Contains("Divide them for shorter pay periods", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            notes.Add(note);
+        }
+
+        notes.Add(PayrollStatutoryProration.Note(from, to, prorated.Fraction));
+        foreach (var rule in rules.Where(rule => rule.Mode != PayrollStatutoryAllocation.Prorate))
+        {
+            notes.Add(rule.Mode == PayrollStatutoryAllocation.Cutoff
+                ? $"{rule.DeductionKey} is taken on cut-off {rule.CutoffOrdinal} only."
+                : $"{rule.DeductionKey} is split across the month's cut-offs.");
+        }
+
+        return (sssOut, philOut, pagOut, taxable, whtOut, notes);
     }
 }
