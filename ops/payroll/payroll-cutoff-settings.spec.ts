@@ -176,8 +176,14 @@ describe('PayrollCutoffSettings', () => {
     http.expectOne((r) => r.url.includes('/api/ops/payroll/cutoff-schedule')).flush(scheduled);
     fixture.detectChanges();
 
-    expect(host.querySelector('[data-from="2026-10-26"]')?.textContent).toContain('Oct 26');
-    expect(host.querySelector('[data-to="2026-11-25"]')?.textContent).toContain('Nov 25');
+    const first = host.querySelector('[data-from="2026-10-26"]');
+    expect(first?.getAttribute('data-to')).toBe('2026-11-10');
+    expect(first?.textContent).toContain('Oct 26 – Nov 10, 2026');
+
+    // Same month: formatDayRange prints "Nov 11 – 25, 2026".
+    const second = host.querySelector('[data-to="2026-11-25"]');
+    expect(second?.getAttribute('data-from')).toBe('2026-11-11');
+    expect(second?.textContent).toContain('Nov 11 – 25, 2026');
     http.verify();
   });
 });
