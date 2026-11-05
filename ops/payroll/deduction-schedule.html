@@ -35,7 +35,7 @@
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>When</mat-label>
           <mat-select
-            [name]="'deductionMode' + $index"
+            [attr.name]="'deductionMode' + $index"
             [value]="rule.mode"
             (selectionChange)="setMode($index, $event.value)"
           >
