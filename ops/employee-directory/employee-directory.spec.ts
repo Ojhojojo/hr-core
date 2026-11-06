@@ -305,6 +305,58 @@ describe('Employee directory', () => {
     reload.flush({ headcount: 1, items: [{ ...activePerson, role: 'admin' }], configHealth: [] });
   });
 
+  it('owner add sends the default technician role', async () => {
+    const { http, fixture, host } = await mount('owner');
+    const add = Array.from(host.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Add person'),
+    ) as HTMLButtonElement;
+    add.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    // Demo owner: no live-shop list, same as the untouched edit spec.
+    http.expectNone((req) => req.url.includes('/api/settings/branches'));
+
+    const dialog = TestBed.inject(MatDialog).openDialogs[0].componentInstance as {
+      displayName: string;
+      email: string;
+      hireDate: string;
+    };
+    dialog.displayName = 'Nia New';
+    dialog.email = 'nia.new@rakkiicars.ph';
+    dialog.hireDate = '2026-04-01';
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const form = document.body.querySelector('form#directory-person') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    const post = http.expectOne(
+      (req) =>
+        req.method === 'POST' &&
+        req.url.includes('/api/employee-directory') &&
+        !req.url.includes('/documents'),
+    );
+    expect(post.request.body.role).toBe('technician');
+    expect(post.request.body.displayName).toBe('Nia New');
+    expect(post.request.body.email).toBe('nia.new@rakkiicars.ph');
+    post.flush({
+      ...activePerson,
+      id: 'p-new',
+      displayName: 'Nia New',
+      email: 'nia.new@rakkiicars.ph',
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const reload = http.expectOne(
+      (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
+    );
+    reload.flush({
+      headcount: 2,
+      items: [activePerson, { ...activePerson, id: 'p-new', displayName: 'Nia New' }],
+      configHealth: [],
+    });
+  });
+
   it('owner row has no edit button for admin, but has edit button for owner', async () => {
     const ownerPerson: EmployeeCard = {
       ...activePerson,
