@@ -123,6 +123,21 @@ export function directoryRoleLabel(
   return role;
 }
 
+/**
+ * Role property for a person PATCH. Absent when the selection is still the stored role,
+ * so a value the host enum no longer accepts can be saved without being sent again.
+ * A changed role is sent and the API still validates it.
+ */
+export function directoryEditRole(
+  storedRole: string,
+  selectedRole: string,
+): { role?: DirectoryRole } {
+  if (selectedRole === storedRole) {
+    return {};
+  }
+  return { role: selectedRole as DirectoryRole };
+}
+
 /** Accessible name for a role option: the label, then the hint when there is one. */
 export function directoryRoleAriaLabel(
   option: Pick<DirectoryRoleOption, 'label' | 'hint'>,

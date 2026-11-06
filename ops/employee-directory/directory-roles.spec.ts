@@ -7,6 +7,7 @@ import {
   DIRECTORY_ROLE_LABELS,
   HR_DIRECTORY_ROLES,
   type DirectoryRoleOption,
+  directoryEditRole,
   directoryRoleAriaLabel,
   directoryRoleChoices,
   directoryRoleLabel,
@@ -117,6 +118,21 @@ describe('directory role picker', () => {
     expect(directoryRoleLabel('technician', null)).toBe('Technician');
     expect(directoryRoleLabel('technician', qurioRoles)).toBe('Technician');
     expect(directoryRoleLabel('apprentice', null)).toBe('apprentice');
+  });
+
+  it('omits role on an unchanged edit, including a stored role the host list dropped', () => {
+    expect(directoryEditRole('technician', 'technician')).toEqual({});
+    expect(directoryEditRole('sales', 'sales')).toEqual({});
+    expect(directoryEditRole('engineer', 'engineer')).toEqual({});
+    expect({
+      displayName: 'Ana',
+      ...directoryEditRole('technician', 'technician'),
+    }).not.toHaveProperty('role');
+  });
+
+  it('includes role on an edit that changes it', () => {
+    expect(directoryEditRole('technician', 'engineer')).toEqual({ role: 'engineer' });
+    expect(directoryEditRole('engineer', 'admin')).toEqual({ role: 'admin' });
   });
 
   it('closed role field is the label alone, including a legacy role', () => {

@@ -4,11 +4,13 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthMe, AuthService } from '@hr-host';
 import { EmployeeCard } from './employee-directory.api';
 import { EmployeeDirectoryPage } from './employee-directory';
+import { HR_DIRECTORY_ROLES, type DirectoryRoleOption } from './directory-roles';
 
 const activePerson: EmployeeCard = {
   id: 'p-active',
@@ -61,6 +63,7 @@ async function mount(
   people: EmployeeCard[] = [activePerson, inactivePerson],
   healthIssues: any[] = [],
   beforeFlush?: (host: HTMLElement) => void,
+  extraProviders: { provide: unknown; useValue: unknown }[] = [],
 ) {
   const routerSpy = {
     navigate: vi.fn(),
@@ -75,6 +78,7 @@ async function mount(
       provideHttpClientTesting(),
       { provide: AuthService, useValue: { me: signal(me(role)) } },
       { provide: Router, useValue: routerSpy },
+      ...extraProviders,
     ],
   }).compileComponents();
 
@@ -222,7 +226,7 @@ describe('Employee directory', () => {
     const patch = http.expectOne(
       (req) => req.method === 'PATCH' && req.url.includes('/api/employee-directory/p-active'),
     );
-    expect(patch.request.body.role).toBe('technician');
+    expect(patch.request.body.role).toBeUndefined();
     expect(patch.request.body.clearPayBasis).toBeUndefined();
     expect(patch.request.body.clearRate).toBeUndefined();
     expect(patch.request.body.payBasis).toBeUndefined();
@@ -236,6 +240,69 @@ describe('Employee directory', () => {
       (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
     );
     reload.flush({ headcount: 1, items: [activePerson], configHealth: [] });
+  });
+
+  const hostRoles: DirectoryRoleOption[] = [
+    { value: 'owner', label: 'Owner', hint: 'Full access, including staff and settings.' },
+    { value: 'admin', label: 'Admin', hint: 'Runs the shop day to day.' },
+    { value: 'engineer', label: 'Engineer', hint: 'Clocks in on site.' },
+  ];
+
+  async function openOwnerEdit(
+    host: HTMLElement,
+    fixture: { detectChanges: () => void; whenStable: () => Promise<unknown> },
+  ): Promise<void> {
+    (host.querySelector('button[name="rowMenu"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    (document.body.querySelector('button[name="edit"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  it('owner edit of a stored role outside the host list omits role', async () => {
+    const { http, fixture, host } = await mount('owner', [activePerson], [], undefined, [
+      { provide: HR_DIRECTORY_ROLES, useValue: hostRoles },
+    ]);
+    await openOwnerEdit(host, fixture);
+
+    const form = document.body.querySelector('form#directory-person') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    const patch = http.expectOne(
+      (req) => req.method === 'PATCH' && req.url.includes('/api/employee-directory/p-active'),
+    );
+    expect(patch.request.body.role).toBeUndefined();
+    expect(patch.request.body.displayName).toBe('Ana Active');
+    patch.flush(activePerson);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const reload = http.expectOne(
+      (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
+    );
+    reload.flush({ headcount: 1, items: [activePerson], configHealth: [] });
+  });
+
+  it('owner edit sends role when it changed', async () => {
+    const { http, fixture, host } = await mount('owner');
+    await openOwnerEdit(host, fixture);
+    const dialog = TestBed.inject(MatDialog).openDialogs[0].componentInstance as { role: string };
+    dialog.role = 'admin';
+
+    const form = document.body.querySelector('form#directory-person') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    const patch = http.expectOne(
+      (req) => req.method === 'PATCH' && req.url.includes('/api/employee-directory/p-active'),
+    );
+    expect(patch.request.body.role).toBe('admin');
+    patch.flush({ ...activePerson, role: 'admin' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const reload = http.expectOne(
+      (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
+    );
+    reload.flush({ headcount: 1, items: [{ ...activePerson, role: 'admin' }], configHealth: [] });
   });
 
   it('owner row has no edit button for admin, but has edit button for owner', async () => {

@@ -25,6 +25,7 @@ import {
   PayBasis,
 } from './employee-directory.api';
 import {
+  directoryEditRole,
   directoryRoleAriaLabel,
   directoryRoleChoices,
   directoryRoleLabel as closedDirectoryRoleLabel,
@@ -866,7 +867,7 @@ export class DirectoryPersonDialog {
         clearBirthDate: !this.birthDate,
         ...(this.data.isOwner
           ? {
-              role: asDirectoryRole(this.role),
+              ...directoryEditRole(person.role, this.role),
               separationDate: this.separationDate || null,
               separationReason: this.separationReason.trim(),
               ...(accessDirty
