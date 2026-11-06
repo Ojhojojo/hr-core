@@ -231,6 +231,13 @@
   <app-ops-payroll-cutoff-settings #cutoffs (saved)="load()" />
 </mat-expansion-panel>
 
+<mat-expansion-panel class="ops-premium-panel" (opened)="deductions.load()">
+  <mat-expansion-panel-header>
+    <mat-panel-title>Deduction schedule</mat-panel-title>
+  </mat-expansion-panel-header>
+  <app-ops-deduction-schedule #deductions />
+</mat-expansion-panel>
+
 <mat-expansion-panel class="ops-premium-panel" (opened)="loadPremiums()">
   <mat-expansion-panel-header>
     <mat-panel-title>

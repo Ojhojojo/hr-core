@@ -514,6 +514,45 @@ export interface UpdatePayrollCutoffSchedule {
   cutoffs: PayrollCutoff[];
 }
 
+export type DeductionScheduleMode = 'prorate' | 'cutoff' | 'split';
+
+/** A rule for the current cut-off list. `cutoffOrdinal` is the position, not a stored period id. */
+export interface DeductionScheduleRule {
+  deductionKey: string;
+  mode: DeductionScheduleMode;
+  cutoffOrdinal?: number | null;
+}
+
+export interface DeductionSchedule {
+  branchId: string;
+  cutoffCount: number;
+  rules: DeductionScheduleRule[];
+}
+
+export interface UpdateDeductionSchedule {
+  rules: DeductionScheduleRule[];
+}
+
+/** Catch-up for one period. The period is `periodFrom`/`periodTo`, not a cut-off number. */
+export interface PayrollCatchUp {
+  id: string;
+  staffId: string;
+  periodFrom: string;
+  periodTo: string;
+  deductionKey: string;
+  amount: number;
+  note: string;
+}
+
+export interface SavePayrollCatchUp {
+  staffId: string;
+  periodFrom: string;
+  periodTo: string;
+  deductionKey: string;
+  amount: number;
+  note?: string | null;
+}
+
 export interface UpdatePayrollPremiumSettings {
   regularHolidayPercent: number;
   specialDayPercent: number;

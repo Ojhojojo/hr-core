@@ -77,6 +77,7 @@ import { RouterLink } from '@angular/router';
 import { formatDay, formatDayRange } from '../hr-dates';
 import { alignCutoffPeriod, formatCutoffMonth, shiftMonth } from './payroll-cutoff.format';
 import { PayrollCutoffSettings } from './payroll-cutoff-settings';
+import { DeductionSchedule } from './deduction-schedule';
 
 @Component({
   selector: 'app-ops-payroll',
@@ -109,6 +110,7 @@ import { PayrollCutoffSettings } from './payroll-cutoff-settings';
     PeriodNavComponent,
     StatusBadgeComponent,
     PayrollCutoffSettings,
+    DeductionSchedule,
   ],
   templateUrl: './payroll.html',
   styles: `

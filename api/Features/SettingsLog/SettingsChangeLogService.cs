@@ -21,12 +21,13 @@ public static class SettingsArea
     public const string InsuranceRates = "insurance_rates";
     public const string Demo = "demo";
     public const string PayrollCutoff = "payroll_cutoff";
+    public const string PayrollDeduction = "payroll_deduction";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         ShopDesk, ShopPayment, BankAccount, Company, Branch, Service, MessageTemplate,
         PartGrade, PartCategory, WorkCategory, ExpenseCategory, ChecklistTemplate, InsuranceRates, Demo,
-        PayrollCutoff
+        PayrollCutoff, PayrollDeduction
     };
 }
 

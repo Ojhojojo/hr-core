@@ -155,7 +155,7 @@ public sealed partial class PayrollService(IHrDb db)
             var wht = capped.Shares.Wht;
             var other = capped.Shares.Other;
             var statutory = capped.Shares.Total;
-            var loan = PriceStaffLoans(staff.Id, amount - statutory, start, end, loanContext);
+            var loan = PriceStaffLoans(staff.Id, amount - statutory, start, end, loanContext, staff.BranchId);
             var deductionSum = statutory + (loan.LoanDeductions ?? 0m);
             var net = amount - deductionSum;
             if (net < 0m)

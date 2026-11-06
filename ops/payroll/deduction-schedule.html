@@ -1,0 +1,88 @@
+<div class="ops-cutoff-settings" data-deduction-schedule>
+  @if (loading()) {
+    <ops-skeleton data-deduction-loading [rows]="3" label="Loading deduction schedule" />
+  } @else if (loadError()) {
+    <ops-banner tone="danger" role="alert" [message]="loadError()" />
+    <button matButton="outlined" type="button" name="retryDeductionSchedule" (click)="load()">
+      Retry
+    </button>
+  } @else if (ready()) {
+    @if (notice()) {
+      <ops-banner tone="ok" [message]="notice()" />
+    }
+    @if (saveError()) {
+      <ops-banner tone="danger" role="alert" [message]="saveError()" />
+    }
+    <p>
+      Prorate is today's behaviour. Cut-off numbers follow the current list and are not saved on a
+      payslip.
+    </p>
+    <div class="deduction-rows">
+      @for (rule of rules(); track $index) {
+        <div class="deduction-row">
+          @if (isLoanKey(rule.deductionKey)) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Loan kind</mat-label>
+              <input
+                matInput
+                [name]="'deductionKey' + $index"
+                [value]="loanKindName(rule.deductionKey)"
+                (change)="setLoanKind($index, $event)"
+              />
+            </mat-form-field>
+          } @else {
+            <span class="deduction-label">{{ label(rule.deductionKey) }}</span>
+          }
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>When</mat-label>
+            <mat-select
+              [name]="'deductionMode' + $index"
+              [ngModel]="rule.mode"
+              (ngModelChange)="setMode($index, $event)"
+              [ngModelOptions]="{ standalone: true }"
+              [errorStateMatcher]="matcher($index, 'mode')"
+            >
+              <mat-option value="prorate">Prorate</mat-option>
+              <mat-option value="cutoff">Cut-off only</mat-option>
+              <mat-option value="split">Split evenly</mat-option>
+            </mat-select>
+            @if (fieldError('rules[' + $index + '].mode'); as message) {
+              <mat-error role="alert">{{ message }}</mat-error>
+            }
+          </mat-form-field>
+          @if (rule.mode === 'cutoff') {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Cut-off</mat-label>
+              <input
+                matInput
+                type="number"
+                min="1"
+                step="1"
+                [name]="'deductionOrdinal' + $index"
+                [ngModel]="rule.cutoffOrdinal"
+                (ngModelChange)="setOrdinal($index, $event)"
+                [ngModelOptions]="{ standalone: true }"
+                [errorStateMatcher]="matcher($index, 'cutoffOrdinal')"
+              />
+              @if (fieldError('rules[' + $index + '].cutoffOrdinal'); as message) {
+                <mat-error role="alert">{{ message }}</mat-error>
+              }
+            </mat-form-field>
+          }
+        </div>
+      }
+    </div>
+    <button matButton="outlined" type="button" name="addLoanDeduction" (click)="addLoan()">
+      Add loan kind
+    </button>
+    <button
+      matButton="filled"
+      type="button"
+      name="saveDeductionSchedule"
+      [disabled]="saving()"
+      (click)="save()"
+    >
+      {{ saving() ? 'Saving…' : 'Save deduction schedule' }}
+    </button>
+  }
+</div>

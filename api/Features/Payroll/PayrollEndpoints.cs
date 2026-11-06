@@ -352,6 +352,7 @@ public static class PayrollEndpoints
                 "with field errors. Saving does not change a locked run. Logged on the settings trail. " +
                 "403 problem details for any other staff role.");
 
+        app.MapDeductionScheduleApi();
         return app;
     }
 
