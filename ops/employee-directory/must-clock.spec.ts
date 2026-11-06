@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { mustClockAfterBasisChange, mustClockAfterRoleChange, mustClockDefault } from './must-clock';
+import {
+  mustClockAfterBasisChange,
+  mustClockAfterRoleChange,
+  mustClockDefault,
+} from './must-clock';
 
 const shopRule = (role: string) => role === 'technician' || role === 'admin';
 

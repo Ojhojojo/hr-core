@@ -27,7 +27,7 @@ import {
 import {
   directoryRoleAriaLabel,
   directoryRoleChoices,
-  directoryRoleLabel,
+  directoryRoleLabel as closedDirectoryRoleLabel,
   HR_DIRECTORY_ROLES,
   initialDirectoryRole,
 } from './directory-roles';
@@ -81,40 +81,6 @@ export interface DirectoryPersonDialogData {
     .dir-role-field.mat-mdc-form-field .mat-mdc-form-field-error {
       white-space: normal;
       overflow-wrap: anywhere;
-    }
-
-    .dir-role-panel.mat-mdc-select-panel {
-      max-width: min(100vw - 32px, 28rem);
-    }
-
-    .dir-role-panel .mat-mdc-option {
-      height: auto;
-      min-height: 3rem;
-    }
-
-    .dir-role-panel .mat-mdc-option .mdc-list-item__primary-text {
-      white-space: normal;
-      overflow: visible;
-      text-overflow: unset;
-      width: 100%;
-    }
-
-    .dir-role-panel .dir-role-option {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 2px;
-      white-space: normal;
-      max-width: 100%;
-      line-height: 1.3;
-      padding-block: 4px;
-    }
-
-    .dir-role-panel .dir-role-hint {
-      font-size: 0.75rem;
-      white-space: normal;
-      overflow-wrap: anywhere;
-      color: var(--ops-muted, #5b6178);
     }
   `,
 })
@@ -259,12 +225,10 @@ class DirectoryRoleFieldStyles {}
               @if (data.mode === 'add' || data.isOwner) {
                 <mat-form-field appearance="outline" class="dir-role-field">
                   <mat-label>Role</mat-label>
-                  <mat-select
-                    name="role"
-                    panelClass="dir-role-panel"
-                    [(ngModel)]="role"
-                    (ngModelChange)="onRoleChange($event)"
-                  >
+                  <mat-select name="role" [(ngModel)]="role" (ngModelChange)="onRoleChange($event)">
+                    <mat-select-trigger>{{
+                      directoryRoleLabel(role, hostRoles)
+                    }}</mat-select-trigger>
                     @for (option of roleOptions; track option.value) {
                       <mat-option
                         [value]="option.value"
@@ -272,12 +236,7 @@ class DirectoryRoleFieldStyles {}
                         [attr.data-role]="option.value"
                         [attr.data-legacy]="option.legacy ? 'true' : null"
                       >
-                        <span class="dir-role-option">
-                          <span class="dir-role-label">{{ option.label }}</span>
-                          @if (option.hint) {
-                            <span class="dir-role-hint">{{ option.hint }}</span>
-                          }
-                        </span>
+                        {{ option.label }}
                       </mat-option>
                     }
                   </mat-select>
@@ -608,7 +567,8 @@ class DirectoryRoleFieldStyles {}
 export class DirectoryPersonDialog {
   protected readonly tinFormatHint = TIN_FORMAT_HINT;
   protected readonly data = inject<DirectoryPersonDialogData>(MAT_DIALOG_DATA);
-  private readonly hostRoles = inject(HR_DIRECTORY_ROLES, { optional: true });
+  protected readonly hostRoles = inject(HR_DIRECTORY_ROLES, { optional: true });
+  protected readonly directoryRoleLabel = closedDirectoryRoleLabel;
   private readonly ref = inject(MatDialogRef<DirectoryPersonDialog, boolean>);
   private readonly api = inject(EmployeeDirectoryApi);
 
@@ -730,7 +690,7 @@ export class DirectoryPersonDialog {
   protected roleLabel(role: string): string {
     return (
       this.roleOptions.find((option) => option.value === role)?.label ??
-      directoryRoleLabel(role, this.hostRoles)
+      this.directoryRoleLabel(role, this.hostRoles)
     );
   }
 

@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_DIRECTORY_ROLES,
@@ -114,5 +117,25 @@ describe('directory role picker', () => {
     expect(directoryRoleLabel('technician', null)).toBe('Technician');
     expect(directoryRoleLabel('technician', qurioRoles)).toBe('Technician');
     expect(directoryRoleLabel('apprentice', null)).toBe('apprentice');
+  });
+
+  it('closed role field is the label alone, including a legacy role', () => {
+    for (const option of DEFAULT_DIRECTORY_ROLES) {
+      expect(directoryRoleLabel(option.value)).toBe(option.label);
+      expect(directoryRoleLabel(option.value).includes(option.hint)).toBe(false);
+    }
+    expect(directoryRoleLabel('technician', qurioRoles)).toBe('Technician');
+    expect(directoryRoleLabel('apprentice', qurioRoles)).toBe('apprentice');
+
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), 'employee-directory.dialogs.ts'),
+      'utf8',
+    );
+    const select = source.slice(source.indexOf('name="role"'), source.indexOf('</mat-select>'));
+    expect(select).toContain('<mat-select-trigger>');
+    expect(select).toContain('directoryRoleLabel(role, hostRoles)');
+    expect(select).toContain('{{ option.label }}');
+    expect(select).not.toContain('option.hint');
+    expect(source).toContain('<mat-hint>{{ roleHint(role) }}</mat-hint>');
   });
 });

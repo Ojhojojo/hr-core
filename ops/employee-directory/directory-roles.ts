@@ -124,7 +124,9 @@ export function directoryRoleLabel(
 }
 
 /** Accessible name for a role option: the label, then the hint when there is one. */
-export function directoryRoleAriaLabel(option: Pick<DirectoryRoleOption, 'label' | 'hint'>): string {
+export function directoryRoleAriaLabel(
+  option: Pick<DirectoryRoleOption, 'label' | 'hint'>,
+): string {
   const hint = option.hint?.trim();
   return hint ? `${option.label}. ${hint}` : option.label;
 }
