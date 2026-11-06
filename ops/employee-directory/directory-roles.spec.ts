@@ -137,5 +137,38 @@ describe('directory role picker', () => {
     expect(select).toContain('{{ option.label }}');
     expect(select).not.toContain('option.hint');
     expect(source).toContain('<mat-hint>{{ roleHint(role) }}</mat-hint>');
+    expect(dialogImportsDeclare(source)).toEqual({
+      missing: [],
+    });
   });
 });
+
+/** Elements this PR added, and the standalone class each one needs in the dialog imports. */
+const ROLE_FIELD_ELEMENTS: Record<string, string> = {
+  'mat-select-trigger': 'MatSelectTrigger',
+  'app-directory-role-field-styles': 'DirectoryRoleFieldStyles',
+};
+
+function dialogImportsDeclare(source: string): { missing: string[] } {
+  const selectImport = source.match(
+    /import\s*\{([^}]*)\}\s*from\s*'@angular\/material\/select'/,
+  )?.[1];
+  const dialog = source.slice(
+    source.indexOf("selector: 'app-directory-person-dialog'"),
+    source.indexOf('export class DirectoryPersonDialog'),
+  );
+  const importsAt = dialog.indexOf('imports: [');
+  const imports = dialog.slice(importsAt, dialog.indexOf('],', importsAt));
+  const missing: string[] = [];
+  for (const [element, symbol] of Object.entries(ROLE_FIELD_ELEMENTS)) {
+    if (!dialog.includes(`<${element}`)) {
+      continue;
+    }
+    const imported =
+      symbol === 'DirectoryRoleFieldStyles' || Boolean(selectImport?.includes(symbol));
+    if (!imported || !imports.includes(symbol)) {
+      missing.push(symbol);
+    }
+  }
+  return { missing };
+}

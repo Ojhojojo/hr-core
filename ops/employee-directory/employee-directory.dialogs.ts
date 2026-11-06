@@ -15,7 +15,7 @@ import {
   DialogComponent,
   OpsDateModule,
 } from '@hr-host';
-import { MatOption, MatSelect } from '@angular/material/select';
+import { MatOption, MatSelect, MatSelectTrigger } from '@angular/material/select';
 import { WEEKDAY_LABELS } from '../payroll/payroll-premiums.format';
 import {
   DirectoryRole,
@@ -100,6 +100,7 @@ class DirectoryRoleFieldStyles {}
     MatInput,
     MatSelect,
     MatOption,
+    MatSelectTrigger,
     OpsDateModule,
     DialogComponent,
     BannerComponent,
