@@ -33,14 +33,9 @@ import {
   EmployeeDirectoryApi,
   HEALTH_LABELS,
 } from './employee-directory.api';
-import {
-  DIRECTORY_ROLE_LABELS,
-  DirectoryPersonDialog,
-  DirectoryShopOption,
-} from './employee-directory.dialogs';
+import { DirectoryPersonDialog, DirectoryShopOption } from './employee-directory.dialogs';
+import { directoryRoleLabel, HR_DIRECTORY_ROLES } from './directory-roles';
 import { formatDay } from '../hr-dates';
-
-const ROLE_LABELS = DIRECTORY_ROLE_LABELS;
 
 const STATUS_LABELS: Record<DirectoryStatus, string> = {
   active: 'Active',
@@ -119,6 +114,7 @@ export class EmployeeDirectoryPage {
   private readonly confirm = inject(OpsConfirmService);
   private readonly toast = inject(OpsToastService);
   private readonly route = inject(ActivatedRoute, { optional: true });
+  private readonly hostRoles = inject(HR_DIRECTORY_ROLES, { optional: true });
   private readonly base = environment.apiBaseUrl;
 
   protected readonly loading = signal(true);
@@ -227,7 +223,7 @@ export class EmployeeDirectoryPage {
   }
 
   protected roleLabel(role: DirectoryRole): string {
-    return ROLE_LABELS[role] ?? role;
+    return directoryRoleLabel(role, this.hostRoles);
   }
 
   protected statusKey(person: EmployeeCard): DirectoryStatus {

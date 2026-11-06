@@ -75,11 +75,11 @@ import {
 } from './employee-directory.api';
 import { deactivationNotices } from './open-work';
 import {
-  DIRECTORY_ROLE_LABELS,
   DirectoryPersonDialog,
   DirectoryShopOption,
   EmployeeDocumentUploadDialog,
 } from './employee-directory.dialogs';
+import { directoryRoleLabel, HR_DIRECTORY_ROLES } from './directory-roles';
 import { EmploymentLetterDialog, EmploymentLetterKind } from './employment-letter';
 import {
   HrChangeLogRow,
@@ -245,6 +245,7 @@ export class EmployeeDetailPage implements OnInit {
   private readonly shopApi = inject(ShopApiService);
   private readonly http = inject(HttpClient);
   private readonly availabilityApi = inject(StaffAvailabilityApi);
+  private readonly hostRoles = inject(HR_DIRECTORY_ROLES, { optional: true });
   private readonly base = environment.apiBaseUrl;
 
   protected readonly id = signal('');
@@ -1006,7 +1007,7 @@ export class EmployeeDetailPage implements OnInit {
   }
 
   protected roleLabel(role: DirectoryRole): string {
-    return DIRECTORY_ROLE_LABELS[role] ?? role;
+    return directoryRoleLabel(role, this.hostRoles);
   }
 
   protected docLabel(type: EmploymentDocType): string {

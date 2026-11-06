@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ViewEncapsulation } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatCheckbox } from '@angular/material/checkbox';
@@ -24,8 +24,29 @@ import {
   EmploymentDocType,
   PayBasis,
 } from './employee-directory.api';
-import { mustClockAfterBasisChange, mustClockDefault } from './must-clock';
+import {
+  directoryRoleAriaLabel,
+  directoryRoleChoices,
+  directoryRoleLabel,
+  HR_DIRECTORY_ROLES,
+  initialDirectoryRole,
+} from './directory-roles';
+import {
+  mustClockAfterBasisChange,
+  mustClockAfterRoleChange,
+  mustClockDefault,
+} from './must-clock';
 import { personFieldError } from './person-validation';
+
+export {
+  DIRECTORY_ROLE_LABELS,
+  DEFAULT_DIRECTORY_ROLES,
+  HR_DIRECTORY_ROLES,
+  directoryRoleChoices,
+  directoryRoleLabel,
+  type DirectoryRoleOption,
+  type DirectoryRoleValue,
+} from './directory-roles';
 
 export interface DirectoryShopOption {
   id: string;
@@ -44,19 +65,60 @@ export interface DirectoryPersonDialogData {
   presetShopId?: string | null;
 }
 
-export const DIRECTORY_ROLE_LABELS: Record<DirectoryRole, string> = {
-  owner: 'Owner',
-  admin: 'Admin',
-  technician: 'Technician',
-  sales: 'Sales',
-};
+@Component({
+  selector: 'app-directory-role-field-styles',
+  encapsulation: ViewEncapsulation.None,
+  host: { hidden: '', 'aria-hidden': 'true' },
+  template: '',
+  styles: `
+    .dir-role-field.mat-mdc-form-field {
+      min-width: 0;
+      max-width: 100%;
+    }
 
-const ROLE_HINTS: Record<DirectoryRole, string> = {
-  owner: 'Full access, including staff and settings.',
-  admin: 'Runs the shop day to day.',
-  technician: 'Works jobs on the floor.',
-  sales: 'Front desk: customers and estimates.',
-};
+    .dir-role-field.mat-mdc-form-field .mat-mdc-form-field-hint-wrapper,
+    .dir-role-field.mat-mdc-form-field .mat-mdc-form-field-hint,
+    .dir-role-field.mat-mdc-form-field .mat-mdc-form-field-error {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .dir-role-panel.mat-mdc-select-panel {
+      max-width: min(100vw - 32px, 28rem);
+    }
+
+    .dir-role-panel .mat-mdc-option {
+      height: auto;
+      min-height: 3rem;
+    }
+
+    .dir-role-panel .mat-mdc-option .mdc-list-item__primary-text {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+      width: 100%;
+    }
+
+    .dir-role-panel .dir-role-option {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      white-space: normal;
+      max-width: 100%;
+      line-height: 1.3;
+      padding-block: 4px;
+    }
+
+    .dir-role-panel .dir-role-hint {
+      font-size: 0.75rem;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      color: var(--ops-muted, #5b6178);
+    }
+  `,
+})
+class DirectoryRoleFieldStyles {}
 
 @Component({
   selector: 'app-directory-person-dialog',
@@ -75,8 +137,10 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
     OpsDateModule,
     DialogComponent,
     BannerComponent,
+    DirectoryRoleFieldStyles,
   ],
   template: `
+    <app-directory-role-field-styles />
     <ops-dialog
       [title]="
         data.mode === 'add' ? 'Add person' : 'Edit ' + (data.person?.displayName ?? 'person')
@@ -193,13 +257,29 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
             <h3 class="dir-form-title">Role &amp; access</h3>
             <div class="dir-form-grid">
               @if (data.mode === 'add' || data.isOwner) {
-                <mat-form-field appearance="outline">
+                <mat-form-field appearance="outline" class="dir-role-field">
                   <mat-label>Role</mat-label>
-                  <mat-select name="role" [(ngModel)]="role" (ngModelChange)="onRoleChange($event)">
-                    <mat-option value="admin">Admin</mat-option>
-                    <mat-option value="technician">Technician</mat-option>
-                    <mat-option value="sales">Sales</mat-option>
-                    <mat-option value="owner">Owner</mat-option>
+                  <mat-select
+                    name="role"
+                    panelClass="dir-role-panel"
+                    [(ngModel)]="role"
+                    (ngModelChange)="onRoleChange($event)"
+                  >
+                    @for (option of roleOptions; track option.value) {
+                      <mat-option
+                        [value]="option.value"
+                        [attr.aria-label]="roleAriaLabel(option)"
+                        [attr.data-role]="option.value"
+                        [attr.data-legacy]="option.legacy ? 'true' : null"
+                      >
+                        <span class="dir-role-option">
+                          <span class="dir-role-label">{{ option.label }}</span>
+                          @if (option.hint) {
+                            <span class="dir-role-hint">{{ option.hint }}</span>
+                          }
+                        </span>
+                      </mat-option>
+                    }
                   </mat-select>
                   <mat-hint>{{ roleHint(role) }}</mat-hint>
                 </mat-form-field>
@@ -459,6 +539,8 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
       display: grid;
       gap: var(--space-4);
       padding-top: var(--space-2);
+      min-width: 0;
+      max-width: 100%;
     }
 
     .dir-form-section {
@@ -526,6 +608,7 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
 export class DirectoryPersonDialog {
   protected readonly tinFormatHint = TIN_FORMAT_HINT;
   protected readonly data = inject<DirectoryPersonDialogData>(MAT_DIALOG_DATA);
+  private readonly hostRoles = inject(HR_DIRECTORY_ROLES, { optional: true });
   private readonly ref = inject(MatDialogRef<DirectoryPersonDialog, boolean>);
   private readonly api = inject(EmployeeDirectoryApi);
 
@@ -533,7 +616,15 @@ export class DirectoryPersonDialog {
   protected readonly error = signal('');
   protected displayName = this.data.person?.displayName ?? '';
   protected email = '';
-  protected role: DirectoryRole = this.data.person?.role ?? this.data.presetRole ?? 'technician';
+  protected readonly roleOptions = directoryRoleChoices(
+    this.hostRoles,
+    this.data.person?.role ?? this.data.presetRole,
+  );
+  protected role = initialDirectoryRole({
+    personRole: this.data.person?.role,
+    presetRole: this.data.presetRole,
+    hostRoles: this.hostRoles,
+  });
   protected hireDate = this.data.person?.hireDate ?? '';
   protected separationDate = this.data.person?.separationDate ?? '';
   protected separationReason = this.data.person?.separationReason ?? '';
@@ -636,25 +727,33 @@ export class DirectoryPersonDialog {
     );
   }
 
-  protected roleLabel(role: DirectoryRole): string {
-    return DIRECTORY_ROLE_LABELS[role] ?? role;
+  protected roleLabel(role: string): string {
+    return (
+      this.roleOptions.find((option) => option.value === role)?.label ??
+      directoryRoleLabel(role, this.hostRoles)
+    );
   }
 
-  protected roleHint(role: DirectoryRole): string {
-    return ROLE_HINTS[role] ?? '';
+  protected roleHint(role: string): string {
+    return this.roleOptions.find((option) => option.value === role)?.hint ?? '';
   }
 
-  protected onRoleChange(role: DirectoryRole): void {
+  protected roleAriaLabel(option: { label: string; hint: string }): string {
+    return directoryRoleAriaLabel(option);
+  }
+
+  protected onRoleChange(role: string): void {
     this.role = role;
     if (role === 'owner') {
-      this.mustClock = false;
       this.branchId = '';
-    } else if (!this.data.person && !this.mustClockTouched) {
-      this.mustClock = mustClockAfterBasisChange(
-        mustClockDefault(role, clocksByDefault),
-        this.payBasis,
-      );
     }
+    this.mustClock = mustClockAfterRoleChange(role, {
+      isNewPerson: !this.data.person,
+      mustClockTouched: this.mustClockTouched,
+      current: this.mustClock,
+      payBasis: this.payBasis,
+      clocksByDefault,
+    });
   }
 
   protected onMustClockChange(value: boolean): void {
@@ -711,7 +810,7 @@ export class DirectoryPersonDialog {
         .create({
           email,
           displayName,
-          role: this.role,
+          role: asDirectoryRole(this.role),
           hireDate: this.hireDate,
           mobile: this.mobile.trim() || null,
           emergencyContactName: this.emergencyName.trim() || null,
@@ -806,7 +905,7 @@ export class DirectoryPersonDialog {
         clearBirthDate: !this.birthDate,
         ...(this.data.isOwner
           ? {
-              role: this.role,
+              role: asDirectoryRole(this.role),
               separationDate: this.separationDate || null,
               separationReason: this.separationReason.trim(),
               ...(accessDirty
@@ -846,6 +945,12 @@ export class DirectoryPersonDialog {
         },
       });
   }
+}
+
+function asDirectoryRole(role: string): DirectoryRole {
+  // DirectoryRole stays the four-name union. The request body is still this string,
+  // which the host StaffRole enum accepts or rejects.
+  return role as DirectoryRole;
 }
 
 function sameDays(left: readonly number[], right: readonly number[]): boolean {

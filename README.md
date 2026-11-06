@@ -51,6 +51,14 @@ with a lint rule. `hr-host.ts` exports:
 - `canPickHomeShop(me)`: whether the signed-in owner may choose a person's home shop
 - `clocksByDefault(role)`: whether a new person of that role starts with Uses time clock on (`mustClock`). Use the same rule as the API's `HrRoles.ClocksByDefault`
 
+The People dialog reads the optional `HR_DIRECTORY_ROLES` injection token (`ops/employee-directory/directory-roles.ts`). Each entry is `{ value, label, hint }`. Omit the provider and Add person and Edit person stay Admin, Technician, Sales, and Owner, in that order, with the same labels and hints. A stored role that is not in the supplied list stays on the picker so the select is not blank. Provide it the same way as `HR_PAYROLL_SCHEDULES`:
+
+```ts
+{ provide: HR_DIRECTORY_ROLES, useValue: [ /* value, label, hint */ ] }
+```
+
+Accepted role values on the API are the host `StaffRole` enum, not a list inside hr-core. `HrRoles` is still the host's partial class. A role string that is not in that enum is rejected with 400 and nothing is saved. Creating a person stays `StaffRoleFilter.OwnerOnly`.
+
 It also passes in app-only pieces shown inside HR screens. In Rakkii these are the job
 handover dialog and the KPI scorecards tab, and another app can supply stubs. The app
 mounts `hrRoutes` from `hr.routes.ts` under its HR area. See Rakkii's
