@@ -33,6 +33,7 @@ public static class HrCoreSetup
         services.AddScoped<AttendanceService>();
         services.AddScoped<OvertimeService>();
         services.AddScoped<PayrollService>();
+        services.AddScoped<PayrollCutoffService>();
         services.AddScoped<PayrollRateService>();
         services.AddScoped<PayrollRunService>();
         services.AddScoped<Bir2316Service>();

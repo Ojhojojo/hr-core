@@ -1,0 +1,142 @@
+<div class="ops-cutoff-settings" data-cutoff-settings>
+  @if (loading()) {
+    <ops-skeleton data-cutoff-loading [rows]="3" label="Loading payroll cut-offs" />
+  } @else if (loadError()) {
+    <ops-banner tone="danger" role="alert" [message]="loadError()" />
+    <button matButton="outlined" type="button" name="retryCutoffSchedule" (click)="retry()">
+      Retry
+    </button>
+  } @else if (ready()) {
+    @if (notice()) {
+      <ops-banner tone="ok" [message]="notice()" />
+    }
+    @if (saveError()) {
+      <ops-banner tone="danger" role="alert" [message]="saveError()" />
+    }
+
+    <div class="ops-cutoff-actions">
+      <button
+        matButton="outlined"
+        type="button"
+        name="cutoffPreviewPrev"
+        (click)="shiftPreview(-1)"
+      >
+        Previous month
+      </button>
+      <span data-cutoff-preview-month>{{ formatCutoffMonth(month()) }}</span>
+      <button matButton="outlined" type="button" name="cutoffPreviewNext" (click)="shiftPreview(1)">
+        Next month
+      </button>
+    </div>
+
+    <mat-button-toggle-group
+      name="cutoffMode"
+      [value]="mode()"
+      (change)="setMode($event.value)"
+      aria-label="Payroll cut-off mode"
+    >
+      <mat-button-toggle value="free">Free dates</mat-button-toggle>
+      <mat-button-toggle value="schedule">Cut-off schedule</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    @if (mode() === 'free') {
+      <p class="ops-premium-hint">
+        From and to dates are typed by hand. Saving this clears a schedule for this shop.
+      </p>
+    } @else {
+      @if (fieldError('cutoffs'); as message) {
+        <p class="ops-field-error" role="alert" data-field="cutoffs">{{ message }}</p>
+      }
+      @for (row of cutoffRows(); track $index) {
+        <div class="ops-cutoff-row">
+          <span>Cut-off {{ $index + 1 }}</span>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Start day</mat-label>
+            <input
+              matInput
+              type="number"
+              min="1"
+              max="31"
+              step="1"
+              [name]="'cutoffStart' + $index"
+              [value]="row.startDay ?? ''"
+              (change)="setDay($index, 'startDay', $event)"
+            />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>End day</mat-label>
+            <input
+              matInput
+              type="number"
+              min="1"
+              max="31"
+              step="1"
+              [name]="'cutoffEnd' + $index"
+              [value]="row.endDay ?? ''"
+              (change)="setDay($index, 'endDay', $event)"
+            />
+          </mat-form-field>
+          <button
+            matButton="outlined"
+            type="button"
+            [name]="'removeCutoff' + $index"
+            (click)="removeRow($index)"
+          >
+            Remove
+          </button>
+          @if (fieldError('cutoffs[' + $index + '].startDay'); as message) {
+            <p
+              class="ops-field-error"
+              role="alert"
+              [attr.data-field]="'cutoffs[' + $index + '].startDay'"
+            >
+              {{ message }}
+            </p>
+          }
+          @if (fieldError('cutoffs[' + $index + '].endDay'); as message) {
+            <p
+              class="ops-field-error"
+              role="alert"
+              [attr.data-field]="'cutoffs[' + $index + '].endDay'"
+            >
+              {{ message }}
+            </p>
+          }
+          @if (fieldError('cutoffs[' + $index + '].ordinal'); as message) {
+            <p class="ops-field-error" role="alert">{{ message }}</p>
+          }
+        </div>
+      }
+      <div class="ops-cutoff-actions">
+        <button
+          matButton="outlined"
+          type="button"
+          name="addCutoff"
+          [disabled]="cutoffRows().length >= 8"
+          (click)="addRow()"
+        >
+          Add cut-off
+        </button>
+      </div>
+      @if (periods().length > 0) {
+        <ul class="ops-cutoff-preview" data-cutoff-preview>
+          @for (period of periods(); track period.ordinal) {
+            <li [attr.data-from]="period.from" [attr.data-to]="period.to">
+              Cut-off {{ period.ordinal }}: {{ formatDayRange(period.from, period.to) }}
+            </li>
+          }
+        </ul>
+      }
+    }
+
+    <button
+      matButton="filled"
+      type="button"
+      name="saveCutoffSchedule"
+      [disabled]="saving()"
+      (click)="save()"
+    >
+      {{ saving() ? 'Saving…' : 'Save cut-offs' }}
+    </button>
+  }
+</div>

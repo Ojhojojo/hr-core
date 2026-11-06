@@ -47,6 +47,7 @@ import {
   ShopHoliday,
   StatutorySuggestion,
   ThirteenthMonthRow,
+  PayrollCutoffPeriod,
   UpdatePayrollPremiumSettings,
   UnpaidBonus,
 } from './payroll.models';
@@ -73,7 +74,9 @@ import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltip } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
-import { formatDay } from '../hr-dates';
+import { formatDay, formatDayRange } from '../hr-dates';
+import { alignCutoffPeriod, formatCutoffMonth, shiftMonth } from './payroll-cutoff.format';
+import { PayrollCutoffSettings } from './payroll-cutoff-settings';
 
 @Component({
   selector: 'app-ops-payroll',
@@ -105,6 +108,7 @@ import { formatDay } from '../hr-dates';
     SkeletonComponent,
     PeriodNavComponent,
     StatusBadgeComponent,
+    PayrollCutoffSettings,
   ],
   templateUrl: './payroll.html',
   styles: `
@@ -154,6 +158,21 @@ import { formatDay } from '../hr-dates';
     }
     .ops-premium-panel {
       margin: var(--space-2) 0 var(--space-4);
+    }
+    .ops-cutoff-periods {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .ops-cutoff-month {
+      font-weight: 600;
+    }
+    .ops-field-error {
+      flex-basis: 100%;
+      margin: 0;
+      color: #9f1239;
+      font-size: 0.8rem;
     }
     .ops-premium-grid {
       display: grid;
@@ -278,6 +297,7 @@ import { formatDay } from '../hr-dates';
 })
 export class PayrollPage {
   protected readonly formatDay = formatDay;
+  protected readonly formatDayRange = formatDayRange;
   private readonly api = inject(PayrollApi);
   private readonly dialog = inject(MatDialog);
   private readonly breakpoints = inject(OpsBreakpoints);
@@ -288,6 +308,16 @@ export class PayrollPage {
 
   protected readonly from = signal('');
   protected readonly to = signal('');
+  protected readonly cutoffMode = signal<'free' | 'schedule'>('free');
+  protected readonly cutoffPeriods = signal<PayrollCutoffPeriod[]>([]);
+  protected readonly cutoffPickerError = signal('');
+  private cutoffAligns = 0;
+  protected readonly usesCutoffSchedule = computed(
+    () => this.cutoffMode() === 'schedule' && this.cutoffPeriods().length > 0,
+  );
+  protected readonly cutoffMonthLabel = computed(() =>
+    formatCutoffMonth((this.to() || manilaToday()).slice(0, 7)),
+  );
   protected readonly includeInactive = signal(false);
   protected readonly statutorySchedule = signal<'semi_monthly' | 'full_month'>('semi_monthly');
   protected readonly rows = signal<PayrollStaffRow[]>([]);
@@ -488,6 +518,24 @@ export class PayrollPage {
       })
       .subscribe({
         next: (body) => {
+          const periods = body.cutoffPeriods ?? [];
+          const mode = body.cutoffMode === 'schedule' ? 'schedule' : 'free';
+          const from = body.from || this.from();
+          const to = body.to || this.to();
+          this.cutoffMode.set(mode);
+          this.cutoffPeriods.set(periods);
+          if (mode === 'schedule' && periods.length > 0 && this.cutoffAligns < 1) {
+            const aligned = alignCutoffPeriod(from, to, periods, manilaToday());
+            if (aligned) {
+              this.cutoffAligns += 1;
+              this.from.set(aligned.from);
+              this.to.set(aligned.to);
+              this.statutorySchedule.set(this.isSingleMonth() ? 'full_month' : 'semi_monthly');
+              this.load();
+              return;
+            }
+          }
+          this.cutoffAligns = 0;
           if (body.from) {
             this.from.set(body.from);
           }
@@ -517,6 +565,42 @@ export class PayrollPage {
     this.to.set(range.to);
     this.statutorySchedule.set(this.isSingleMonth() ? 'full_month' : 'semi_monthly');
     this.load();
+  }
+
+  /** Opens one offered cut-off. The register request uses that period's yyyy-MM-dd dates. */
+  selectCutoffPeriod(period: PayrollCutoffPeriod): void {
+    this.cutoffPickerError.set('');
+    this.from.set(period.from);
+    this.to.set(period.to);
+    this.statutorySchedule.set(this.isSingleMonth() ? 'full_month' : 'semi_monthly');
+    this.load();
+  }
+
+  /** Loads the previous or next month's cut-offs, then opens one of those periods. */
+  shiftCutoffMonth(delta: number): void {
+    const month = shiftMonth((this.to() || manilaToday()).slice(0, 7), delta);
+    this.cutoffPickerError.set('');
+    this.api.getCutoffSchedule(month).subscribe({
+      next: (body) => {
+        const today = manilaToday();
+        const chosen =
+          body.periods.find((period) => today >= period.from && today <= period.to) ??
+          body.periods[0];
+        this.cutoffMode.set(body.mode === 'schedule' ? 'schedule' : 'free');
+        this.cutoffPeriods.set(body.periods ?? []);
+        if (!chosen) {
+          this.cutoffPickerError.set('That month has no cut-off periods.');
+          return;
+        }
+        this.from.set(chosen.from);
+        this.to.set(chosen.to);
+        this.statutorySchedule.set(this.isSingleMonth() ? 'full_month' : 'semi_monthly');
+        this.load();
+      },
+      error: (err: unknown) => {
+        this.cutoffPickerError.set(apiErrorMessage(err) || 'Could not load that month.');
+      },
+    });
   }
 
   onIncludeInactiveToggle(checked: boolean): void {

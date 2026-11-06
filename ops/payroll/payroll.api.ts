@@ -22,6 +22,8 @@ import {
   ThirteenthMonthRow,
   PayrollPremiumSettings,
   UpdatePayrollPremiumSettings,
+  PayrollCutoffSchedule,
+  UpdatePayrollCutoffSchedule,
   ShopHoliday,
   ShopHolidayList,
   UpsertShopHoliday,
@@ -242,6 +244,32 @@ export class PayrollApi {
 
   saveSettings(body: UpdatePayrollPremiumSettings): Observable<PayrollPremiumSettings> {
     return this.http.put<PayrollPremiumSettings>(`${this.base}/api/ops/payroll/settings`, body);
+  }
+
+  /** Cut-off schedule for the header shop. `month` is yyyy-MM; omitted uses the current month. */
+  getCutoffSchedule(month?: string): Observable<PayrollCutoffSchedule> {
+    let params = new HttpParams();
+    if (month) {
+      params = params.set('month', month);
+    }
+    return this.http.get<PayrollCutoffSchedule>(`${this.base}/api/ops/payroll/cutoff-schedule`, {
+      params,
+    });
+  }
+
+  saveCutoffSchedule(
+    body: UpdatePayrollCutoffSchedule,
+    month?: string,
+  ): Observable<PayrollCutoffSchedule> {
+    let params = new HttpParams();
+    if (month) {
+      params = params.set('month', month);
+    }
+    return this.http.put<PayrollCutoffSchedule>(
+      `${this.base}/api/ops/payroll/cutoff-schedule`,
+      body,
+      { params },
+    );
   }
 
   listHolidays(year: number): Observable<ShopHolidayList> {

@@ -122,6 +122,10 @@ export interface PayrollRegisterResponse {
   pendingOvertimeClaimsCount?: number;
   /** Sales bonuses still scheduled whose pay period has ended and no locked run has paid. */
   unpaidBonuses?: UnpaidBonus[];
+  /** `free` when the shop has no cut-off schedule. `schedule` when `cutoffPeriods` is set. */
+  cutoffMode?: 'free' | 'schedule' | null;
+  /** Cut-offs for every end month from `from` through `to`. Empty or omitted in free mode. Dates are yyyy-MM-dd. */
+  cutoffPeriods?: PayrollCutoffPeriod[] | null;
 }
 
 /** One sales bonus that is past its pay period and still not paid. */
@@ -479,6 +483,35 @@ export interface PayrollPremiumSettings {
   adminsCanApproveOt: boolean;
   otPremiumPercent: number;
   otMonthlyDayDivisor: number;
+}
+
+export type PayrollCutoffMode = 'free' | 'schedule';
+
+export interface PayrollCutoff {
+  ordinal: number;
+  startDay: number;
+  endDay: number;
+}
+
+/** One generated period. `from` and `to` are yyyy-MM-dd. */
+export interface PayrollCutoffPeriod {
+  ordinal: number;
+  from: string;
+  to: string;
+}
+
+export interface PayrollCutoffSchedule {
+  branchId: string;
+  mode: PayrollCutoffMode;
+  cutoffs: PayrollCutoff[];
+  /** yyyy-MM the periods were generated for. */
+  month: string;
+  periods: PayrollCutoffPeriod[];
+}
+
+export interface UpdatePayrollCutoffSchedule {
+  mode: PayrollCutoffMode;
+  cutoffs: PayrollCutoff[];
 }
 
 export interface UpdatePayrollPremiumSettings {

@@ -1419,3 +1419,87 @@ describe('PayrollPage lock controls', () => {
     });
   });
 });
+
+describe('PayrollPage cut-off periods', () => {
+  afterEach(() => {
+    TestBed.resetTestingModule();
+  });
+
+  const periods = [
+    { ordinal: 1, from: '2026-10-26', to: '2026-11-10' },
+    { ordinal: 2, from: '2026-11-11', to: '2026-11-25' },
+  ];
+
+  it('keeps the free date picker when the shop has no schedule', async () => {
+    const { host, http } = await mountPayroll();
+    expect(host.querySelector('[data-cutoff-periods]')).toBeNull();
+    expect(host.querySelector('ops-period-nav')).toBeTruthy();
+    http.verify();
+  });
+
+  it('offers the shop cut-offs for the month', async () => {
+    const { host, http } = await mountPayroll(ownerMe, {
+      ...mockPayrollData,
+      from: '2026-11-11',
+      to: '2026-11-25',
+      cutoffMode: 'schedule',
+      cutoffPeriods: periods,
+    });
+
+    expect(host.querySelector('ops-period-nav')).toBeNull();
+    const first = host.querySelector('[data-from="2026-10-26"]') as HTMLButtonElement;
+    const second = host.querySelector('[data-from="2026-11-11"]') as HTMLButtonElement;
+    expect(first.textContent).toContain('Oct 26');
+    expect(second.textContent).toContain('Nov 11');
+    expect(second.getAttribute('aria-pressed')).toBe('true');
+    http.verify();
+  });
+
+  it('reloads the register for the cut-off that was picked', async () => {
+    const { host, http, fixture } = await mountPayroll(ownerMe, {
+      ...mockPayrollData,
+      from: '2026-11-11',
+      to: '2026-11-25',
+      cutoffMode: 'schedule',
+      cutoffPeriods: periods,
+    });
+
+    (host.querySelector('[data-from="2026-10-26"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const req = http.expectOne((r) => r.url.endsWith('/api/ops/payroll'));
+    expect(req.request.params.get('from')).toBe('2026-10-26');
+    expect(req.request.params.get('to')).toBe('2026-11-10');
+    req.flush({
+      ...mockPayrollData,
+      from: '2026-10-26',
+      to: '2026-11-10',
+      cutoffMode: 'schedule',
+      cutoffPeriods: periods,
+    });
+    http.verify();
+  });
+
+  it('shows a button for each end month when the range crosses months', async () => {
+    const crossed = [
+      { ordinal: 1, from: '2026-11-26', to: '2026-12-10' },
+      { ordinal: 2, from: '2026-12-11', to: '2026-12-25' },
+      { ordinal: 1, from: '2026-12-26', to: '2027-01-10' },
+      { ordinal: 2, from: '2027-01-11', to: '2027-01-25' },
+    ];
+    const { host, http } = await mountPayroll(ownerMe, {
+      ...mockPayrollData,
+      from: '2026-12-26',
+      to: '2027-01-10',
+      cutoffMode: 'schedule',
+      cutoffPeriods: crossed,
+    });
+
+    const buttons = host.querySelectorAll('[data-cutoff-periods] button[data-from]');
+    expect(buttons.length).toBe(4);
+    crossed.forEach((period) => {
+      const button = host.querySelector(`[data-from="${period.from}"]`);
+      expect(button?.getAttribute('data-to')).toBe(period.to);
+    });
+    http.verify();
+  });
+});

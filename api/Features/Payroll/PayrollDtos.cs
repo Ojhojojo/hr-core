@@ -132,7 +132,9 @@ public sealed record PayrollRegisterResponse(
     DateTime? LockedAtUtc = null,
     string? LockedByName = null,
     int PendingOvertimeClaimsCount = 0,
-    IReadOnlyList<UnpaidBonusDto>? UnpaidBonuses = null);
+    IReadOnlyList<UnpaidBonusDto>? UnpaidBonuses = null,
+    string CutoffMode = PayrollCutoffMode.Free,
+    IReadOnlyList<PayrollCutoffPeriodDto>? CutoffPeriods = null);
 
 /// <summary>A sales bonus still Scheduled whose pay period has ended. No locked run has paid it.</summary>
 public sealed record UnpaidBonusDto(

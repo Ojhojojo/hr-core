@@ -1,3 +1,4 @@
+using System.Globalization;
 using HrCore.Features.SettingsLog;
 
 namespace HrCore.Features.Payroll;
@@ -20,6 +21,9 @@ public static class PayrollEndpoints
                 OpsReportScope.QueryDoc +
                 " Amount is gross (punches × stored rate). " +
                 "Saved manual deductions for that exact period are included; a missing row is zeros. " +
+                "cutoffMode is \"free\" when the shop has no cut-off schedule (from/to behave as before) " +
+                "and \"schedule\" when cutoffPeriods lists the cut-offs, as yyyy-MM-dd, for every " +
+                "end month from the requested from through to (one month when they match). " +
                 "Secured to Owner and Admin.");
 
         api.MapGet("/export", GetExport)
@@ -319,6 +323,35 @@ public static class PayrollEndpoints
                 "frozen line items. Not recalculated. 403 when the line belongs to another staff " +
                 "member; 404 when the line is missing or its run is not locked.");
 
+        // Own group so a non owner/admin gets problem details from the handler. The main payroll
+        // group already answers that case with a different JSON body, and that body stays as it is.
+        var cutoffs = app.MapGroup("/api/ops/payroll/cutoff-schedule")
+            .WithTags("Payroll")
+            .AddEndpointFilter<StaffAuthorizationFilter>();
+
+        cutoffs.MapGet("/", GetCutoffSchedule)
+            .WithName("PayrollCutoffSchedule")
+            .WithSummary("Payroll cut-off schedule for the current shop")
+            .WithDescription(
+                "Owner and admin. Query: month, strictly yyyy-MM (zero-padded). " +
+                "Omitted month defaults to the current Asia/Manila month. " +
+                "2026-1, 2026-13, 26-01 and other shapes are 400 problem details on month. " +
+                "mode is free when the shop has no rows, which is every existing shop. " +
+                "mode schedule returns the saved cut-offs and the periods for that month " +
+                "(from and to as yyyy-MM-dd, end days clamped to the month). " +
+                "403 problem details for any other staff role.");
+
+        cutoffs.MapPut("/", SaveCutoffSchedule)
+            .WithName("PayrollCutoffScheduleSave")
+            .WithSummary("Save the payroll cut-off schedule")
+            .WithDescription(
+                "Owner and admin. Body: mode free|schedule, and cutoffs (ordinal, startDay, endDay) " +
+                "when mode is schedule. Free clears the rows and leaves typed from/to dates. " +
+                "A schedule must cover nominal days 1 through 31 exactly once; a start day after the " +
+                "end day begins in the previous month. Overlaps and gaps are 400 problem details " +
+                "with field errors. Saving does not change a locked run. Logged on the settings trail. " +
+                "403 problem details for any other staff role.");
+
         return app;
     }
 
@@ -461,15 +494,27 @@ public static class PayrollEndpoints
         HttpContext http,
         BranchResolver branches,
         PayrollService payroll,
+        PayrollCutoffService cutoffs,
         CancellationToken cancellationToken) =>
         OpsReportScope.MapAsync(
             http,
             branches,
-            async (shops, _, ct) =>
+            async (shops, currentId, ct) =>
             {
                 var result = await payroll.GetRegisterAsync(
                     shops, from, to, includeInactive ?? false, IncludeUnscopedOwners(http), ct);
-                return Results.Ok(result);
+                var schedule = await cutoffs.DescribeRegisterAsync(
+                    shops, currentId, result.From, result.To, ct);
+                if (schedule is null)
+                {
+                    return Results.Ok(result);
+                }
+
+                return Results.Ok(result with
+                {
+                    CutoffMode = schedule.Value.Mode,
+                    CutoffPeriods = schedule.Value.Periods
+                });
             },
             cancellationToken);
 
@@ -1260,4 +1305,123 @@ public static class PayrollEndpoints
     private static bool IncludeUnscopedOwners(HttpContext http) =>
         http.GetStaff().IsHqOwner()
         && OpsReportScope.Parse(http.Request.Query) == OpsReportScopeKind.All;
+
+    private static IResult? DenyUnlessOwnerOrAdmin(HttpContext http)
+    {
+        var staff = http.GetStaff();
+        if (staff is { Role: StaffRole.Owner or StaffRole.Admin })
+        {
+            return null;
+        }
+
+        return Results.Problem(
+            title: "Forbidden",
+            detail: "This screen is not available for your role.",
+            statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    private static bool TryResolveCutoffMonth(string? month, out int year, out int monthNumber)
+    {
+        if (string.IsNullOrWhiteSpace(month))
+        {
+            var today = ManilaTime.Today();
+            year = today.Year;
+            monthNumber = today.Month;
+            return true;
+        }
+
+        // Strict yyyy-MM. The shared TryParseMonth still accepts 2026-1 for older callers.
+        var text = month.Trim();
+        if (text.Length != 7 || text[4] != '-')
+        {
+            year = 0;
+            monthNumber = 0;
+            return false;
+        }
+
+        if (!int.TryParse(text.AsSpan(0, 4), NumberStyles.None, CultureInfo.InvariantCulture, out year)
+            || !int.TryParse(text.AsSpan(5, 2), NumberStyles.None, CultureInfo.InvariantCulture, out monthNumber))
+        {
+            year = 0;
+            monthNumber = 0;
+            return false;
+        }
+
+        return year is >= 2000 and <= 2100 && monthNumber is >= 1 and <= 12;
+    }
+
+    private static Task<IResult> GetCutoffSchedule(
+        string? month,
+        HttpContext http,
+        BranchResolver branches,
+        PayrollCutoffService cutoffs,
+        CancellationToken cancellationToken)
+    {
+        var denied = DenyUnlessOwnerOrAdmin(http);
+        if (denied is not null)
+        {
+            return Task.FromResult(denied);
+        }
+
+        if (!TryResolveCutoffMonth(month, out var year, out var monthNumber))
+        {
+            return Task.FromResult<IResult>(Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["month"] = ["Month must be yyyy-MM."]
+            }));
+        }
+
+        return OpsReportScope.MapAsync(
+            http,
+            branches,
+            async (shops, currentId, ct) =>
+            {
+                var schedule = await cutoffs.GetAsync(shops, currentId, year, monthNumber, ct);
+                return schedule is null
+                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    : Results.Ok(schedule);
+            },
+            cancellationToken);
+    }
+
+    private static Task<IResult> SaveCutoffSchedule(
+        UpdatePayrollCutoffScheduleRequest body,
+        string? month,
+        HttpContext http,
+        BranchResolver branches,
+        PayrollCutoffService cutoffs,
+        CancellationToken cancellationToken)
+    {
+        var denied = DenyUnlessOwnerOrAdmin(http);
+        if (denied is not null)
+        {
+            return Task.FromResult(denied);
+        }
+
+        if (!TryResolveCutoffMonth(month, out var year, out var monthNumber))
+        {
+            return Task.FromResult<IResult>(Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                ["month"] = ["Month must be yyyy-MM."]
+            }));
+        }
+
+        return OpsReportScope.MapAsync(
+            http,
+            branches,
+            async (shops, currentId, ct) =>
+            {
+                var (saved, errors) = await cutoffs.SaveAsync(
+                    shops, currentId, body, year, monthNumber, http.ActorStaffId(), ct);
+                if (errors is not null)
+                {
+                    return Results.ValidationProblem(errors);
+                }
+
+                return saved is null
+                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    : Results.Ok(saved);
+            },
+            cancellationToken);
+    }
 }

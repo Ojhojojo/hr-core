@@ -84,6 +84,25 @@ public static class HrModel
                 .HasDefaultValue(Branch.DefaultWeekStartDay);
         });
 
+        modelBuilder.Entity<BranchPayrollCutoff>(e =>
+        {
+            e.ToTable("BranchPayrollCutoffs", t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_BranchPayrollCutoffs_Ordinal",
+                    "\"Ordinal\" >= 1");
+                t.HasCheckConstraint(
+                    "CK_BranchPayrollCutoffs_StartDay",
+                    "\"StartDay\" >= 1 AND \"StartDay\" <= 31");
+                t.HasCheckConstraint(
+                    "CK_BranchPayrollCutoffs_EndDay",
+                    "\"EndDay\" >= 1 AND \"EndDay\" <= 31");
+            });
+            e.HasIndex(x => new { x.BranchId, x.Ordinal }).IsUnique();
+            e.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<Profile>(e =>
         {
             e.HasIndex(x => x.AuthUserId).IsUnique();
@@ -579,6 +598,7 @@ public static class HrModel
         typeof(PayrollDeduction), typeof(PayrollThirteenthOverride), typeof(PayrollRun), typeof(PayrollRunLine),
         typeof(ShopHoliday), typeof(PayrollAmountOverride), typeof(PayrollDayPayOverride), typeof(StaffAllowance),
         typeof(StaffLoan), typeof(StaffLoanPayment), typeof(PayrollRunLineItem), typeof(StaffPayRate),
-        typeof(HrChangeLog), typeof(SettingsChangeLog), typeof(Announcement), typeof(IncentiveBonus)
+        typeof(HrChangeLog), typeof(SettingsChangeLog), typeof(Announcement), typeof(IncentiveBonus),
+        typeof(BranchPayrollCutoff)
     ];
 }
