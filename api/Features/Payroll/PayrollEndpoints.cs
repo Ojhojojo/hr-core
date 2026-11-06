@@ -5,8 +5,11 @@ namespace HrCore.Features.Payroll;
 
 public static class PayrollEndpoints
 {
-    public static IEndpointRouteBuilder MapPayrollApi(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapPayrollApi(
+        this IEndpointRouteBuilder app,
+        HrCoreFeatures? features = null)
     {
+        features ??= new HrCoreFeatures();
         var api = app.MapGroup("/api/ops/payroll")
             .WithTags("Payroll")
             .AddEndpointFilter<StaffAuthorizationFilter>()
@@ -323,6 +326,20 @@ public static class PayrollEndpoints
                 "frozen line items. Not recalculated. 403 when the line belongs to another staff " +
                 "member; 404 when the line is missing or its run is not locked.");
 
+        if (features.PayrollSchedules)
+        {
+            MapPayrollScheduleApi(app);
+        }
+
+        return app;
+    }
+
+    /// <summary>
+    /// Cut-off, deduction schedule, and catch-up routes. Mapped only when
+    /// <see cref="HrCoreFeatures.PayrollSchedules"/> is on; otherwise these URLs stay 404.
+    /// </summary>
+    private static void MapPayrollScheduleApi(IEndpointRouteBuilder app)
+    {
         // Own group so a non owner/admin gets problem details from the handler. The main payroll
         // group already answers that case with a different JSON body, and that body stays as it is.
         var cutoffs = app.MapGroup("/api/ops/payroll/cutoff-schedule")
@@ -353,7 +370,6 @@ public static class PayrollEndpoints
                 "403 problem details for any other staff role.");
 
         app.MapDeductionScheduleApi();
-        return app;
     }
 
     private static Task<IResult> GetThirteenthMonth(

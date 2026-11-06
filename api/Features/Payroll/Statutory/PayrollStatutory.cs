@@ -202,7 +202,7 @@ public sealed partial class PayrollService
             PayrollStatutoryProration.Result prorated,
             CancellationToken cancellationToken)
     {
-        var schedule = new PayrollDeductionScheduleService(db);
+        var schedule = new PayrollDeductionScheduleService(db, features);
         var (rules, matched, periodCount) = await schedule.ForPeriodAsync(branchId, from, to, cancellationToken);
         if (rules.Count == 0 || rules.All(rule => rule.Mode == PayrollStatutoryAllocation.Prorate))
         {

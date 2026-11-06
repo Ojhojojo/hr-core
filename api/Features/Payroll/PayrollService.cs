@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HrCore.Features.Payroll;
 
-public sealed partial class PayrollService(IHrDb db)
+public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
 {
     public async Task<PayrollRegisterResponse> GetRegisterAsync(
         IReadOnlyList<Branch> shops,

@@ -91,6 +91,11 @@ public sealed partial class PayrollService
         DateOnly end,
         CancellationToken cancellationToken)
     {
+        if (!features.PayrollSchedules)
+        {
+            return [];
+        }
+
         var rules = await db.BranchDeductionSchedules().AsNoTracking()
             .Where(row => row.DeductionKey.StartsWith("loan:"))
             .ToListAsync(cancellationToken);

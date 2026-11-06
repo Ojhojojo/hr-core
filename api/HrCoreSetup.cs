@@ -21,9 +21,20 @@ public static class HrCoreSetup
     /// <see cref="IStaffInvite"/>, <see cref="IFileStore"/>, <see cref="IHrFileStore"/> and
     /// <see cref="DemoBranchOptions"/>; <see cref="IStaffWorkHooks"/> is optional.
     /// </summary>
-    public static IServiceCollection AddHrCore<TDb>(this IServiceCollection services)
+    public static IServiceCollection AddHrCore<TDb>(
+        this IServiceCollection services,
+        HrCoreFeatures? features = null)
         where TDb : DbContext, IHrDb
     {
+        if (features is null)
+        {
+            services.TryAddSingleton(new HrCoreFeatures());
+        }
+        else
+        {
+            services.Replace(ServiceDescriptor.Singleton(features));
+        }
+
         services.AddScoped<IHrDb>(sp => sp.GetRequiredService<TDb>());
         services.AddScoped<StaffAuthorizationFilter>();
         services.AddScoped<BranchResolver>();
@@ -45,12 +56,13 @@ public static class HrCoreSetup
     /// <summary>Maps the HR API routes (/api/staff, /api/employee-directory, /api/leave, ...).</summary>
     public static IEndpointRouteBuilder MapHrCore(this IEndpointRouteBuilder app)
     {
+        var features = app.ServiceProvider.GetService<HrCoreFeatures>() ?? new HrCoreFeatures();
         app.MapStaffApi();
         app.MapEmployeeDirectoryApi();
         app.MapEmploymentDocumentApi();
         app.MapLeaveApi();
         app.MapAttendanceApi();
-        app.MapPayrollApi();
+        app.MapPayrollApi(features);
         app.MapAnnouncementApi();
         app.MapHrChangeLogApi();
         return app;

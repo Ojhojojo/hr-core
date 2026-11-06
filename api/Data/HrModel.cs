@@ -6,6 +6,8 @@ namespace HrCore.Data;
 /// Table setup for the platform and shared HR. The host app's DbContext calls <see cref="Configure"/>
 /// from OnModelCreating, after its own conventions, and then configures its own entities (it may add
 /// more settings to Branch, Organization and Staff for the fields it owns).
+/// The optional <see cref="HrCoreFeatures"/> argument defaults to every flag off.
+/// <see cref="HrCoreFeatures.PayrollSchedules"/> adds the cut-off, deduction schedule, and catch-up tables.
 /// </summary>
 public static class HrModel
 {
@@ -17,8 +19,9 @@ public static class HrModel
         nameof(StaffPayRate.RatePhp)
     };
 
-    public static void Configure(ModelBuilder modelBuilder)
+    public static void Configure(ModelBuilder modelBuilder, HrCoreFeatures? features = null)
     {
+        features ??= new HrCoreFeatures();
         ApplyConventions(modelBuilder);
 
         modelBuilder.Entity<Organization>(e =>
@@ -84,52 +87,10 @@ public static class HrModel
                 .HasDefaultValue(Branch.DefaultWeekStartDay);
         });
 
-        modelBuilder.Entity<BranchPayrollCutoff>(e =>
+        if (features.PayrollSchedules)
         {
-            e.ToTable("BranchPayrollCutoffs", t =>
-            {
-                t.HasCheckConstraint(
-                    "CK_BranchPayrollCutoffs_Ordinal",
-                    "\"Ordinal\" >= 1");
-                t.HasCheckConstraint(
-                    "CK_BranchPayrollCutoffs_StartDay",
-                    "\"StartDay\" >= 1 AND \"StartDay\" <= 31");
-                t.HasCheckConstraint(
-                    "CK_BranchPayrollCutoffs_EndDay",
-                    "\"EndDay\" >= 1 AND \"EndDay\" <= 31");
-            });
-            e.HasIndex(x => new { x.BranchId, x.Ordinal }).IsUnique();
-            e.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<BranchDeductionSchedule>(e =>
-        {
-            e.ToTable("BranchDeductionSchedules");
-            e.Property(x => x.DeductionKey).HasMaxLength(80).IsRequired();
-            e.Property(x => x.Mode).HasMaxLength(20).IsRequired();
-            e.HasIndex(x => new { x.BranchId, x.DeductionKey }).IsUnique();
-            e.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<PayrollCatchUp>(e =>
-        {
-            e.ToTable("PayrollCatchUps", t =>
-            {
-                t.HasCheckConstraint("CK_PayrollCatchUps_Amount", "\"Amount\" > 0");
-                t.HasCheckConstraint("CK_PayrollCatchUps_Note", "\"Note\" <> ''");
-                t.HasCheckConstraint(
-                    "CK_PayrollCatchUps_Period",
-                    "\"PeriodTo\" >= \"PeriodFrom\"");
-            });
-            e.Property(x => x.DeductionKey).HasMaxLength(80).IsRequired();
-            e.Property(x => x.Amount).HasPrecision(14, 2);
-            e.Property(x => x.Note).HasMaxLength(500).IsRequired();
-            e.HasIndex(x => new { x.StaffId, x.PeriodFrom, x.PeriodTo, x.DeductionKey }).IsUnique();
-            e.HasOne(x => x.Staff).WithMany().HasForeignKey(x => x.StaffId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
+            ConfigurePayrollSchedules(modelBuilder);
+        }
 
         modelBuilder.Entity<Profile>(e =>
         {
@@ -594,6 +555,61 @@ public static class HrModel
     }
 
     /// <summary>
+    /// Cut-off, deduction schedule, and catch-up tables. Called only when
+    /// <see cref="HrCoreFeatures.PayrollSchedules"/> is on, so a host that leaves the flag off
+    /// does not discover these entities and does not differ from its compiled model.
+    /// </summary>
+    private static void ConfigurePayrollSchedules(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<BranchPayrollCutoff>(e =>
+        {
+            e.ToTable("BranchPayrollCutoffs", t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_BranchPayrollCutoffs_Ordinal",
+                    "\"Ordinal\" >= 1");
+                t.HasCheckConstraint(
+                    "CK_BranchPayrollCutoffs_StartDay",
+                    "\"StartDay\" >= 1 AND \"StartDay\" <= 31");
+                t.HasCheckConstraint(
+                    "CK_BranchPayrollCutoffs_EndDay",
+                    "\"EndDay\" >= 1 AND \"EndDay\" <= 31");
+            });
+            e.HasIndex(x => new { x.BranchId, x.Ordinal }).IsUnique();
+            e.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BranchDeductionSchedule>(e =>
+        {
+            e.ToTable("BranchDeductionSchedules");
+            e.Property(x => x.DeductionKey).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Mode).HasMaxLength(20).IsRequired();
+            e.HasIndex(x => new { x.BranchId, x.DeductionKey }).IsUnique();
+            e.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PayrollCatchUp>(e =>
+        {
+            e.ToTable("PayrollCatchUps", t =>
+            {
+                t.HasCheckConstraint("CK_PayrollCatchUps_Amount", "\"Amount\" > 0");
+                t.HasCheckConstraint("CK_PayrollCatchUps_Note", "\"Note\" <> ''");
+                t.HasCheckConstraint(
+                    "CK_PayrollCatchUps_Period",
+                    "\"PeriodTo\" >= \"PeriodFrom\"");
+            });
+            e.Property(x => x.DeductionKey).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Amount).HasPrecision(14, 2);
+            e.Property(x => x.Note).HasMaxLength(500).IsRequired();
+            e.HasIndex(x => new { x.StaffId, x.PeriodFrom, x.PeriodTo, x.DeductionKey }).IsUnique();
+            e.HasOne(x => x.Staff).WithMany().HasForeignKey(x => x.StaffId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    /// <summary>
     /// Enums are stored as strings (max 40). Money-named decimals on HR tables are numeric(12,2).
     /// Only touches the entity types this package owns, and only enums from HrCore.Domain:
     /// enums an app adds on its own part of a shared entity keep the app's own mapping.
@@ -626,7 +642,6 @@ public static class HrModel
         typeof(PayrollDeduction), typeof(PayrollThirteenthOverride), typeof(PayrollRun), typeof(PayrollRunLine),
         typeof(ShopHoliday), typeof(PayrollAmountOverride), typeof(PayrollDayPayOverride), typeof(StaffAllowance),
         typeof(StaffLoan), typeof(StaffLoanPayment), typeof(PayrollRunLineItem), typeof(StaffPayRate),
-        typeof(HrChangeLog), typeof(SettingsChangeLog), typeof(Announcement), typeof(IncentiveBonus),
-        typeof(BranchPayrollCutoff), typeof(BranchDeductionSchedule), typeof(PayrollCatchUp)
+        typeof(HrChangeLog), typeof(SettingsChangeLog), typeof(Announcement), typeof(IncentiveBonus)
     ];
 }

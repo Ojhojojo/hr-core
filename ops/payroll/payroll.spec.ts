@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { of } from 'rxjs';
 import { AuthMe, AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
 import { PayrollPage } from './payroll';
+import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { PayrollApi } from './payroll.api';
 import { buildPayslipView, payslipAllowanceLines, payslipLoanLines } from './payroll-payslip';
 import {
@@ -192,6 +193,7 @@ function confirmStub() {
 async function mountPayroll(
   me: AuthMe = ownerMe,
   register: PayrollRegisterResponse = mockPayrollData,
+  payrollSchedules = false,
 ) {
   const confirm = confirmStub();
   await TestBed.configureTestingModule({
@@ -204,6 +206,7 @@ async function mountPayroll(
       provideHttpClientTesting(),
       { provide: AuthService, useValue: authStub(me) },
       { provide: OpsConfirmService, useValue: confirm.service },
+      ...(payrollSchedules ? [{ provide: HR_PAYROLL_SCHEDULES, useValue: true }] : []),
     ],
   }).compileComponents();
 
@@ -1500,6 +1503,32 @@ describe('PayrollPage cut-off periods', () => {
       const button = host.querySelector(`[data-from="${period.from}"]`);
       expect(button?.getAttribute('data-to')).toBe(period.to);
     });
+    http.verify();
+  });
+});
+
+describe('Payroll schedules flag', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('hides the cut-off and deduction panels and does not call them when the flag is off', async () => {
+    const { host, http } = await mountPayroll();
+    expect(host.querySelector('app-ops-payroll-cutoff-settings')).toBeNull();
+    expect(host.querySelector('app-ops-deduction-schedule')).toBeNull();
+    expect(host.textContent).not.toContain('Payroll cut-offs');
+    expect(host.textContent).not.toContain('Deduction schedule');
+    expect(
+      http.match((r) => /cutoff-schedule|deduction-schedule|catch-ups/.test(r.url)).length,
+    ).toBe(0);
+    http.verify();
+  });
+
+  it('shows the panels when the host turns the flag on, without calling them yet', async () => {
+    const { host, http } = await mountPayroll(ownerMe, mockPayrollData, true);
+    expect(host.querySelector('app-ops-payroll-cutoff-settings')).toBeTruthy();
+    expect(host.querySelector('app-ops-deduction-schedule')).toBeTruthy();
+    expect(
+      http.match((r) => /cutoff-schedule|deduction-schedule|catch-ups/.test(r.url)).length,
+    ).toBe(0);
     http.verify();
   });
 });

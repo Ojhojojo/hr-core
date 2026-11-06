@@ -37,9 +37,10 @@ public sealed class CutoffApp : IAsyncLifetime
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
         var databaseName = Guid.NewGuid().ToString();
         var databaseRoot = new Microsoft.EntityFrameworkCore.Storage.InMemoryDatabaseRoot();
+        var features = new HrCoreFeatures { PayrollSchedules = true };
         builder.Services.AddDbContext<TestHrDb>(options =>
-            options.UseInMemoryDatabase(databaseName, databaseRoot));
-        builder.Services.AddHrCore<TestHrDb>();
+            options.UseInMemoryDatabase(databaseName, databaseRoot).UseHrCoreFeatures(features));
+        builder.Services.AddHrCore<TestHrDb>(features);
         builder.Services.AddSingleton(new DemoBranchOptions { Enabled = false });
         builder.Services.AddSingleton<IStaffInvite, NoStaffInvite>();
         builder.Services.AddSingleton<IFileStore, NoFileStore>();

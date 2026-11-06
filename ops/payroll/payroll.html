@@ -219,24 +219,26 @@
   </div>
 </ops-card>
 
-<mat-expansion-panel class="ops-premium-panel" (opened)="cutoffs.load()">
-  <mat-expansion-panel-header>
-    <mat-panel-title>
-      Payroll cut-offs
-      <ops-info-tip
-        text="Free dates are typed by hand. A schedule offers this shop's cut-offs for the month."
-      />
-    </mat-panel-title>
-  </mat-expansion-panel-header>
-  <app-ops-payroll-cutoff-settings #cutoffs (saved)="load()" />
-</mat-expansion-panel>
+@if (payrollSchedules) {
+  <mat-expansion-panel class="ops-premium-panel" (opened)="cutoffs.load()">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        Payroll cut-offs
+        <ops-info-tip
+          text="Free dates are typed by hand. A schedule offers this shop's cut-offs for the month."
+        />
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    <app-ops-payroll-cutoff-settings #cutoffs (saved)="load()" />
+  </mat-expansion-panel>
 
-<mat-expansion-panel class="ops-premium-panel" (opened)="deductions.load()">
-  <mat-expansion-panel-header>
-    <mat-panel-title>Deduction schedule</mat-panel-title>
-  </mat-expansion-panel-header>
-  <app-ops-deduction-schedule #deductions />
-</mat-expansion-panel>
+  <mat-expansion-panel class="ops-premium-panel" (opened)="deductions.load()">
+    <mat-expansion-panel-header>
+      <mat-panel-title>Deduction schedule</mat-panel-title>
+    </mat-expansion-panel-header>
+    <app-ops-deduction-schedule #deductions />
+  </mat-expansion-panel>
+}
 
 <mat-expansion-panel class="ops-premium-panel" (opened)="loadPremiums()">
   <mat-expansion-panel-header>
