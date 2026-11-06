@@ -7,7 +7,7 @@ namespace HrCore.Features.Payroll;
 /// Reads and replaces one branch's cut-off schedule. Saving never touches payroll runs:
 /// a locked run keeps the dates and amounts it was frozen with.
 /// </summary>
-public sealed class PayrollCutoffService(IHrDb db)
+public sealed class PayrollCutoffService(IHrDb db, HrCoreFeatures features)
 {
     public async Task<PayrollCutoffScheduleDto?> GetAsync(
         IReadOnlyList<Branch> shops,
@@ -16,7 +16,7 @@ public sealed class PayrollCutoffService(IHrDb db)
         int month,
         CancellationToken cancellationToken)
     {
-        if (shops.All(shop => shop.Id != branchId))
+        if (!features.PayrollSchedules || shops.All(shop => shop.Id != branchId))
         {
             return null;
         }
@@ -40,7 +40,7 @@ public sealed class PayrollCutoffService(IHrDb db)
         DateOnly to,
         CancellationToken cancellationToken)
     {
-        if (shops.All(shop => shop.Id != branchId))
+        if (!features.PayrollSchedules || shops.All(shop => shop.Id != branchId))
         {
             return null;
         }
@@ -70,7 +70,7 @@ public sealed class PayrollCutoffService(IHrDb db)
         Guid? actorStaffId,
         CancellationToken cancellationToken)
     {
-        if (shops.All(shop => shop.Id != branchId))
+        if (!features.PayrollSchedules || shops.All(shop => shop.Id != branchId))
         {
             return (null, null);
         }

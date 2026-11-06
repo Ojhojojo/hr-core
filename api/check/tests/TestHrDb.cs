@@ -1,12 +1,21 @@
 using HrCore.Data;
 using HrCore.Domain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HrCore.Tests;
 
-/// <summary>Stand-in host context. It calls <see cref="HrModel.Configure"/> the way Rakkii and Qurio do.</summary>
+/// <summary>
+/// Stand-in host context. It calls <see cref="HrModel.Configure"/> the way Rakkii and Qurio do.
+/// Payroll schedule tables are included only when the options carry
+/// <see cref="HrCoreFeatures.PayrollSchedules"/>. There is no <c>DbSet</c> for those types,
+/// so a flag-off context does not discover them.
+/// </summary>
 public sealed class TestHrDb(DbContextOptions<TestHrDb> options) : DbContext(options), IHrDb
 {
+    private readonly HrCoreFeatures features =
+        options.FindExtension<HrCoreFeaturesExtension>()?.Features ?? new HrCoreFeatures();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Profile> Profiles => Set<Profile>();
@@ -32,11 +41,58 @@ public sealed class TestHrDb(DbContextOptions<TestHrDb> options) : DbContext(opt
     public DbSet<SettingsChangeLog> SettingsChangeLogs => Set<SettingsChangeLog>();
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<IncentiveBonus> IncentiveBonuses => Set<IncentiveBonus>();
-    public DbSet<BranchDeductionSchedule> BranchDeductionSchedules => Set<BranchDeductionSchedule>();
-    public DbSet<PayrollCatchUp> PayrollCatchUps => Set<PayrollCatchUp>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        HrModel.Configure(modelBuilder);
+        HrModel.Configure(modelBuilder, features);
+    }
+}
+
+/// <summary>Passes <see cref="HrCoreFeatures"/> into <see cref="TestHrDb"/> without a <c>DbSet</c>.</summary>
+public sealed class HrCoreFeaturesExtension : IDbContextOptionsExtension
+{
+    public HrCoreFeaturesExtension(HrCoreFeatures features) => Features = features;
+
+    public HrCoreFeatures Features { get; }
+
+    private DbContextOptionsExtensionInfo? info;
+
+    public DbContextOptionsExtensionInfo Info => info ??= new ExtensionInfo(this);
+
+    public void ApplyServices(IServiceCollection services)
+    {
+    }
+
+    public void Validate(IDbContextOptions options)
+    {
+    }
+
+    private sealed class ExtensionInfo(HrCoreFeaturesExtension extension) : DbContextOptionsExtensionInfo(extension)
+    {
+        public override bool IsDatabaseProvider => false;
+
+        public override string LogFragment =>
+            extension.Features.PayrollSchedules ? "PayrollSchedules " : "";
+
+        public override int GetServiceProviderHashCode() =>
+            extension.Features.PayrollSchedules ? 1 : 0;
+
+        public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) =>
+            other is ExtensionInfo otherInfo
+            && otherInfo.GetServiceProviderHashCode() == GetServiceProviderHashCode();
+
+        public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) =>
+            debugInfo["HrCore:PayrollSchedules"] = extension.Features.PayrollSchedules.ToString();
+    }
+}
+
+public static class HrCoreFeaturesTestExtensions
+{
+    public static DbContextOptionsBuilder UseHrCoreFeatures(
+        this DbContextOptionsBuilder builder,
+        HrCoreFeatures features)
+    {
+        ((IDbContextOptionsBuilderInfrastructure)builder).AddOrUpdateExtension(new HrCoreFeaturesExtension(features));
+        return builder;
     }
 }

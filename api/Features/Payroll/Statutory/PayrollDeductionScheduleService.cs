@@ -44,14 +44,14 @@ public sealed class SavePayrollCatchUpRequest
 /// <summary>
 /// Per-branch rules for which cut-off takes each deduction, plus catch-up rows stored by period dates.
 /// </summary>
-public sealed class PayrollDeductionScheduleService(IHrDb db)
+public sealed class PayrollDeductionScheduleService(IHrDb db, HrCoreFeatures features)
 {
     public async Task<DeductionScheduleDto?> GetAsync(
         IReadOnlyList<Branch> shops,
         Guid branchId,
         CancellationToken cancellationToken)
     {
-        if (shops.All(shop => shop.Id != branchId))
+        if (!features.PayrollSchedules || shops.All(shop => shop.Id != branchId))
         {
             return null;
         }
@@ -73,7 +73,7 @@ public sealed class PayrollDeductionScheduleService(IHrDb db)
         Guid? actorStaffId,
         CancellationToken cancellationToken)
     {
-        if (shops.All(shop => shop.Id != branchId))
+        if (!features.PayrollSchedules || shops.All(shop => shop.Id != branchId))
         {
             return (null, null);
         }
@@ -175,6 +175,11 @@ public sealed class PayrollDeductionScheduleService(IHrDb db)
         bool includeUnscopedOwners,
         CancellationToken cancellationToken)
     {
+        if (!features.PayrollSchedules)
+        {
+            return (null, null, StatusCodes.Status404NotFound);
+        }
+
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
         var key = (request.DeductionKey ?? "").Trim();
         if (key.Length is 0 or > 80)
@@ -266,6 +271,11 @@ public sealed class PayrollDeductionScheduleService(IHrDb db)
         DateOnly to,
         CancellationToken cancellationToken)
     {
+        if (!features.PayrollSchedules)
+        {
+            return ([], null, 0);
+        }
+
         var rules = await db.BranchDeductionSchedules().AsNoTracking()
             .Where(row => row.BranchId == branchId)
             .ToListAsync(cancellationToken);

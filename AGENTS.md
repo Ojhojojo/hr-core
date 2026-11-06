@@ -8,6 +8,7 @@ This matches Bienh's standing rule.
 
 - New optional inputs, new exports, opt-in flags, and additive migrations only.
 - No renames, removals, or changed defaults.
+- New hr-core tables ship behind an opt-in host flag, off by default, so rakkii stays drop-in. The host turns the flag on in `HrModel.Configure` and `AddHrCore` together, and passes the same value. With the flag off, the tables are not in the EF model, their routes are not mapped, and payroll does not query them. `PayrollSchedules` is that flag for cut-offs, deduction schedules, and catch-ups. The ops screen reads the optional `HR_PAYROLL_SCHEDULES` injection token, which defaults to false, so the panels and their calls stay hidden until the host provides `true`.
 - Company-specific values, including payroll cut-off dates and deduction schedules, are settings or config data, never hard-coded.
 - If a breaking change seems necessary, stop and report the tradeoff instead of making it.
 

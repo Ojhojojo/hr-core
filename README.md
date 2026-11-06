@@ -24,11 +24,14 @@ leaves any of these out.
 | `HrRoles` answers: who is desk staff, who clocks in by default, who sees only themselves in the staff list, and the role for unknown people | `apps/api/Features/HrAdapters/ShopHrAppContract.cs` |
 | `StaffAccessFlags`: app-specific staff permissions, read from and written to the staff JSON | same file |
 | A DbContext that implements `IHrDb` and calls `HrModel.Configure(modelBuilder)` | `apps/api/Shared/Data/AppDbContext.cs` |
+| Optionally `HrCoreFeatures`. `PayrollSchedules` defaults to off. Pass the same instance to `HrModel.Configure(modelBuilder, features)` and `AddHrCore<AppDbContext>(features)`. Do not add `DbSet` properties for those entities until the flag is on | Qurio turns `PayrollSchedules` on. Rakkii leaves it off |
 | `IStaffInvite` (how new staff get a sign-in) | `apps/api/Shared/Infrastructure/SupabaseStaffInvite.cs` |
 | Optionally `IStaffWorkHooks`, for open work a person holds (Rakkii: jobs) | `apps/api/Features/Jobs/StaffWork/JobStaffWork.cs` |
 | Its own fields on `Organization`, `Branch` and `Staff`, as partial class parts | `apps/api/Shared/Domain/*.Shop.cs` |
 
 Then in `Program.cs`, call `services.AddHrCore<AppDbContext>()` and `app.MapHrCore()`.
+
+`PayrollSchedules` (on `HrCoreFeatures`) covers `BranchPayrollCutoff`, `BranchDeductionSchedule`, and `PayrollCatchUp`. It is off by default. Off, those entities are not in the EF model, `/api/ops/payroll/cutoff-schedule`, `/api/ops/payroll/deduction-schedule`, and `/api/ops/payroll/catch-ups` are not mapped, and the register and loan pricing do not query them. On, cut-offs and deduction schedules behave as they do for a host that opted in. The payroll screen hides those panels unless the host provides the `HR_PAYROLL_SCHEDULES` injection token with `true` (`ops/payroll/payroll-schedules.ts`). Rakkii leaves both off. Qurio sets both on.
 
 `api/check/HrCore.Check.csproj` builds the package with a minimal stand-in host
 (`api/check/Host/MinimalHost.cs`). CI runs it on every PR, so nothing app-specific can

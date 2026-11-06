@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using HrCore.Data;
 using HrCore.Domain;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -114,7 +115,7 @@ public sealed class PayrollDeductionScheduleEndpointTests(CutoffApp app) : IClas
 
         await app.ReadAsync(async db =>
         {
-            var row = await db.PayrollCatchUps.SingleAsync();
+            var row = await db.PayrollCatchUps().SingleAsync();
             Assert.Equal(new DateOnly(2026, 11, 11), row.PeriodFrom);
             Assert.Equal(new DateOnly(2026, 11, 25), row.PeriodTo);
             Assert.Equal("Missed the earlier period", row.Note);

@@ -78,6 +78,7 @@ import { formatDay, formatDayRange } from '../hr-dates';
 import { alignCutoffPeriod, formatCutoffMonth, shiftMonth } from './payroll-cutoff.format';
 import { PayrollCutoffSettings } from './payroll-cutoff-settings';
 import { DeductionSchedule } from './deduction-schedule';
+import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 
 @Component({
   selector: 'app-ops-payroll',
@@ -307,6 +308,8 @@ export class PayrollPage {
   private readonly auth = inject(AuthService);
   private readonly confirm = inject(OpsConfirmService);
   private readonly toast = inject(OpsToastService);
+  /** Host flag. Absent means off, so rakkii's payroll screen stays as it was. */
+  protected readonly payrollSchedules = inject(HR_PAYROLL_SCHEDULES, { optional: true }) ?? false;
 
   protected readonly from = signal('');
   protected readonly to = signal('');
