@@ -8,6 +8,7 @@ import { MatInput } from '@angular/material/input';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { BannerComponent, DialogComponent, OpsDateModule } from '@hr-host';
+import { toIsoDate } from '../hr-dates';
 import {
   allowanceNameSuggestions,
   allowancePerLabel,
@@ -201,8 +202,8 @@ export class StaffAllowanceDialog {
       this.error.set('Amount must be zero or more.');
       return;
     }
-    const from = this.effectiveFrom.trim();
-    const to = this.effectiveTo.trim();
+    const from = calendarDay(this.effectiveFrom) ?? '';
+    const to = calendarDay(this.effectiveTo) ?? '';
     if (from && to && to < from) {
       this.error.set('Effective to must be on or after effective from.');
       return;
@@ -307,4 +308,12 @@ export class AllowanceOverrideDialog {
     }
     this.ref.close({ amount, reason });
   }
+}
+
+/** A datepicker writes a `Date`. A string keeps the trim this dialog already used. */
+function calendarDay(value: Date | string | null | undefined): string | null {
+  if (typeof value === 'string') {
+    return toIsoDate(value.trim());
+  }
+  return toIsoDate(value);
 }

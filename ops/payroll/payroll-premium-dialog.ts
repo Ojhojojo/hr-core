@@ -6,6 +6,7 @@ import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/for
 import { MatInput } from '@angular/material/input';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { BannerComponent, DialogComponent, OpsDateModule } from '@hr-host';
+import { toIsoDate } from '../hr-dates';
 import { premiumLabel } from './payroll-premiums.format';
 import { HolidayKind, ShopHoliday } from './payroll.models';
 
@@ -113,15 +114,16 @@ export class HolidayDialog {
 
   protected save(): void {
     const name = this.name.trim();
-    if (!this.date || !name) {
+    const date = toIsoDate(this.date);
+    if (!date || !name) {
       this.error.set('Date and name are required.');
       return;
     }
-    if (!this.date.startsWith(`${this.data.year}-`)) {
+    if (!date.startsWith(`${this.data.year}-`)) {
       this.error.set(`Date must be in ${this.data.year}.`);
       return;
     }
-    this.ref.close({ date: this.date, name, kind: this.kind });
+    this.ref.close({ date, name, kind: this.kind });
   }
 }
 

@@ -54,6 +54,29 @@ function dayParts(value: string | null | undefined): DayParts | null {
   return { year: match[1], month: SHORT_MONTHS[month - 1], day };
 }
 
+/**
+ * `yyyy-MM-dd` for a DateOnly field.
+ * A `Date` is the local calendar day from `getFullYear`, `getMonth`, and `getDate`.
+ * `toISOString` is not used: a Manila midnight is the previous day in UTC.
+ * A string is returned unchanged, so an existing `yyyy-MM-dd` stays the same request value.
+ * `null`, `undefined`, and `''` are null.
+ */
+export function toIsoDate(value: Date | string | null | undefined): string | null {
+  if (value == null || value === '') {
+    return null;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return null;
+  }
+  const year = String(value.getFullYear()).padStart(4, '0');
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /** "Oct 3, 2026" for a `yyyy-MM-dd` day or a timestamp (Manila). Em dash when empty or unreadable. */
 export function formatDay(value: string | null | undefined): string {
   const parts = dayParts(value);

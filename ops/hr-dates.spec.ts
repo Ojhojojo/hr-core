@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { formatDay, formatDayPrefix, formatDayRange } from './hr-dates';
+import { formatDay, formatDayPrefix, formatDayRange, toIsoDate } from './hr-dates';
+
+describe('toIsoDate', () => {
+  it('uses the local calendar day and leaves an iso day unchanged', () => {
+    expect(toIsoDate(new Date(2026, 0, 5))).toBe('2026-01-05');
+    expect(toIsoDate(new Date(2026, 0, 5, 23, 30))).toBe('2026-01-05');
+    expect(toIsoDate('2026-01-05')).toBe('2026-01-05');
+    expect(toIsoDate(null)).toBeNull();
+    expect(toIsoDate(undefined)).toBeNull();
+    expect(toIsoDate('')).toBeNull();
+  });
+});
 
 describe('hr dates', () => {
   it('formats a day and falls back to an em dash', () => {

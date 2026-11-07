@@ -14,6 +14,7 @@ import {
   DialogComponent,
   OpsDateModule,
 } from '@hr-host';
+import { toIsoDate } from '../hr-dates';
 import { PayrollApi } from './payroll.api';
 import { basisLabel, money, rateSliceLabels } from './payroll-lock';
 import {
@@ -360,7 +361,8 @@ export class PayrollRateDialog {
       this.error.set('Rate must be zero or more.');
       return;
     }
-    if (!this.effectiveFrom) {
+    const effectiveFrom = toIsoDate(this.effectiveFrom);
+    if (!effectiveFrom) {
       this.error.set('Effective from is required.');
       return;
     }
@@ -369,7 +371,7 @@ export class PayrollRateDialog {
     this.error.set('');
     this.api
       .setRate(this.data.staffId, {
-        effectiveFrom: this.effectiveFrom,
+        effectiveFrom,
         basis: this.basis,
         ratePhp: rate,
         otAfterHoursPerDay: this.numberOrNull(this.otAfter),

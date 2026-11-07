@@ -12,6 +12,7 @@ import {
   DialogComponent,
   OpsDateModule,
 } from '@hr-host';
+import { toIsoDate } from '../hr-dates';
 import { Announcement } from './announcement-visibility';
 import { AnnouncementsApi, AnnouncementWrite } from './announcements.api';
 
@@ -135,8 +136,8 @@ export class AnnouncementDialog {
     const payload: AnnouncementWrite = {
       title: this.title.trim(),
       body: this.body.trim(),
-      startDate: this.startDate,
-      endDate: this.endDate,
+      startDate: toIsoDate(this.startDate) ?? '',
+      endDate: toIsoDate(this.endDate) ?? '',
       active: this.active,
     };
 

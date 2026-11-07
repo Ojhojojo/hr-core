@@ -6,6 +6,7 @@ import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/for
 import { MatInput } from '@angular/material/input';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { BannerComponent, DialogComponent, OpsDateModule } from '@hr-host';
+import { toIsoDate } from '../hr-dates';
 import { PayrollDayPayMode } from './payroll.models';
 
 export interface DayPayOverrideDialogData {
@@ -131,17 +132,18 @@ export class DayPayOverrideDialog {
       this.error.set('A reason is required.');
       return;
     }
-    if (!this.workDate) {
+    const workDate = toIsoDate(this.workDate);
+    if (!workDate) {
       this.error.set('Work date is required.');
       return;
     }
     if (this.mode === null) {
-      this.ref.close({ workDate: this.workDate, mode: null, customAmount: null, reason });
+      this.ref.close({ workDate, mode: null, customAmount: null, reason });
       return;
     }
     if (this.mode !== 'custom') {
       this.ref.close({
-        workDate: this.workDate,
+        workDate,
         mode: this.mode,
         customAmount: null,
         reason,
@@ -159,7 +161,7 @@ export class DayPayOverrideDialog {
       return;
     }
     this.ref.close({
-      workDate: this.workDate,
+      workDate,
       mode: 'custom',
       customAmount: amount,
       reason,
