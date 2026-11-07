@@ -22,7 +22,7 @@ import {
   LeaveType,
   StaffLeaveBalances,
 } from './leave.api';
-import { formatDay } from '../hr-dates';
+import { formatDay, toIsoDate } from '../hr-dates';
 
 @Component({
   selector: 'app-request-leave-dialog',
@@ -130,7 +130,9 @@ export class RequestLeaveDialog {
   protected readonly error = signal('');
 
   protected submit(): void {
-    if (!this.startDate || !this.endDate) {
+    const startDate = toIsoDate(this.startDate);
+    const endDate = toIsoDate(this.endDate);
+    if (!startDate || !endDate) {
       this.error.set('Start and end dates are required.');
       return;
     }
@@ -140,9 +142,9 @@ export class RequestLeaveDialog {
     this.api
       .create({
         leaveType: this.leaveType,
-        startDate: this.startDate,
-        endDate: this.endDate,
-        halfDay: halfDayValue(this.startDate, this.endDate, this.halfDay),
+        startDate,
+        endDate,
+        halfDay: halfDayValue(startDate, endDate, this.halfDay),
         note: this.note ? this.note.trim() : undefined,
       })
       .subscribe({
@@ -292,7 +294,9 @@ export class AddLeaveDialog {
       this.error.set('Choose a person.');
       return;
     }
-    if (!this.startDate || !this.endDate) {
+    const startDate = toIsoDate(this.startDate);
+    const endDate = toIsoDate(this.endDate);
+    if (!startDate || !endDate) {
       this.error.set('Start and end dates are required.');
       return;
     }
@@ -303,9 +307,9 @@ export class AddLeaveDialog {
       .recordForStaff({
         staffId: this.staffId,
         leaveType: this.leaveType,
-        startDate: this.startDate,
-        endDate: this.endDate,
-        halfDay: halfDayValue(this.startDate, this.endDate, this.halfDay),
+        startDate,
+        endDate,
+        halfDay: halfDayValue(startDate, endDate, this.halfDay),
         note: this.note ? this.note.trim() : undefined,
       })
       .subscribe({

@@ -5,6 +5,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { BannerComponent, DialogComponent, OpsDateModule, OpsToneDirective } from '@hr-host';
+import { toIsoDate } from '../hr-dates';
 import { AttendanceStaffOption } from './attendance.models';
 
 export interface PunchForDialogData {
@@ -535,11 +536,12 @@ export class OvertimeRequestDialog {
   protected save(): void {
     const hours = Number(this.hours());
     const reason = this.reason().trim();
-    if (!this.workDate() || !Number.isFinite(hours) || hours <= 0 || hours > 24 || !reason) {
+    const workDate = toIsoDate(this.workDate());
+    if (!workDate || !Number.isFinite(hours) || hours <= 0 || hours > 24 || !reason) {
       this.error.set('Enter a date, hours, and a reason.');
       return;
     }
-    this.dialogRef.close({ workDate: this.workDate(), hours, reason });
+    this.dialogRef.close({ workDate, hours, reason });
   }
 }
 

@@ -105,6 +105,7 @@ async function mount(
 
 describe('Employee directory', () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     TestBed.inject(HttpTestingController).verify();
     TestBed.resetTestingModule();
   });
@@ -339,6 +340,7 @@ describe('Employee directory', () => {
     expect(post.request.body.role).toBe('technician');
     expect(post.request.body.displayName).toBe('Nia New');
     expect(post.request.body.email).toBe('nia.new@rakkiicars.ph');
+    expect(post.request.body.hireDate).toBe('2026-04-01');
     post.flush({
       ...activePerson,
       id: 'p-new',
@@ -355,6 +357,159 @@ describe('Employee directory', () => {
       items: [activePerson, { ...activePerson, id: 'p-new', displayName: 'Nia New' }],
       configHealth: [],
     });
+  });
+
+  it('posts a picked hire date as the local calendar day', async () => {
+    const { http, fixture, host } = await mount('owner');
+    const add = Array.from(host.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Add person'),
+    ) as HTMLButtonElement;
+    add.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    http.expectNone((req) => req.url.includes('/api/settings/branches'));
+
+    const dialog = TestBed.inject(MatDialog).openDialogs[0].componentInstance as {
+      displayName: string;
+      email: string;
+      hireDate: Date | string;
+    };
+    dialog.displayName = 'Nia New';
+    dialog.email = 'nia.new@rakkiicars.ph';
+    dialog.hireDate = new Date(2026, 0, 5);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const form = document.body.querySelector('form#directory-person') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    const post = http.expectOne(
+      (req) =>
+        req.method === 'POST' &&
+        req.url.includes('/api/employee-directory') &&
+        !req.url.includes('/documents'),
+    );
+    expect(post.request.body.hireDate).toBe('2026-01-05');
+    expect(String(post.request.body.hireDate)).not.toContain('T');
+    post.flush({
+      ...activePerson,
+      id: 'p-new',
+      displayName: 'Nia New',
+      email: 'nia.new@rakkiicars.ph',
+      hireDate: '2026-01-05',
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const reload = http.expectOne(
+      (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
+    );
+    reload.flush({
+      headcount: 2,
+      items: [activePerson, { ...activePerson, id: 'p-new', displayName: 'Nia New' }],
+      configHealth: [],
+    });
+  });
+
+  it('posts the local hire day when toISOString reports the previous day', async () => {
+    const { http, fixture, host } = await mount('owner');
+    const add = Array.from(host.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Add person'),
+    ) as HTMLButtonElement;
+    add.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    http.expectNone((req) => req.url.includes('/api/settings/branches'));
+
+    const hireDate = new Date(2026, 0, 5);
+    const utc = new Date('2026-01-04T16:00:00.000Z');
+    const toIso = vi.spyOn(hireDate, 'toISOString').mockReturnValue('2026-01-04T16:00:00.000Z');
+    vi.spyOn(hireDate, 'getUTCFullYear').mockReturnValue(utc.getUTCFullYear());
+    vi.spyOn(hireDate, 'getUTCMonth').mockReturnValue(utc.getUTCMonth());
+    vi.spyOn(hireDate, 'getUTCDate').mockReturnValue(utc.getUTCDate());
+    vi.spyOn(hireDate, 'getUTCDay').mockReturnValue(utc.getUTCDay());
+    vi.spyOn(hireDate, 'getUTCHours').mockReturnValue(utc.getUTCHours());
+    vi.spyOn(hireDate, 'getUTCMinutes').mockReturnValue(utc.getUTCMinutes());
+    vi.spyOn(hireDate, 'getUTCSeconds').mockReturnValue(utc.getUTCSeconds());
+    vi.spyOn(hireDate, 'getUTCMilliseconds').mockReturnValue(utc.getUTCMilliseconds());
+
+    const dialog = TestBed.inject(MatDialog).openDialogs[0].componentInstance as {
+      displayName: string;
+      email: string;
+      hireDate: Date | string;
+    };
+    dialog.displayName = 'Nia New';
+    dialog.email = 'nia.new@rakkiicars.ph';
+    dialog.hireDate = hireDate;
+
+    const form = document.body.querySelector('form#directory-person') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    const post = http.expectOne(
+      (req) =>
+        req.method === 'POST' &&
+        req.url.includes('/api/employee-directory') &&
+        !req.url.includes('/documents'),
+    );
+    expect(post.request.body.hireDate).toBe('2026-01-05');
+    expect(String(post.request.body.hireDate)).not.toContain('T');
+    expect(toIso).not.toHaveBeenCalled();
+    post.flush({
+      ...activePerson,
+      id: 'p-new',
+      displayName: 'Nia New',
+      email: 'nia.new@rakkiicars.ph',
+      hireDate: '2026-01-05',
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const reload = http.expectOne(
+      (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
+    );
+    reload.flush({
+      headcount: 2,
+      items: [activePerson, { ...activePerson, id: 'p-new', displayName: 'Nia New' }],
+      configHealth: [],
+    });
+  });
+
+  it('patches picked birth and separation dates as local calendar days', async () => {
+    const { http, fixture, host } = await mount('owner');
+    await openOwnerEdit(host, fixture);
+    const dialog = TestBed.inject(MatDialog).openDialogs[0].componentInstance as {
+      hireDate: Date | string;
+      birthDate: Date | string;
+      separationDate: Date | string;
+    };
+    dialog.hireDate = new Date(2026, 0, 5);
+    dialog.birthDate = new Date(1990, 3, 15);
+    dialog.separationDate = new Date(2026, 0, 5, 23, 30);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const form = document.body.querySelector('form#directory-person') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    const patch = http.expectOne(
+      (req) => req.method === 'PATCH' && req.url.includes('/api/employee-directory/p-active'),
+    );
+    expect(patch.request.body.hireDate).toBe('2026-01-05');
+    expect(patch.request.body.birthDate).toBe('1990-04-15');
+    expect(patch.request.body.separationDate).toBe('2026-01-05');
+    expect(String(patch.request.body.hireDate)).not.toContain('T');
+    expect(String(patch.request.body.birthDate)).not.toContain('T');
+    expect(String(patch.request.body.separationDate)).not.toContain('T');
+    patch.flush({
+      ...activePerson,
+      hireDate: '2026-01-05',
+      birthDate: '1990-04-15',
+      separationDate: '2026-01-05',
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const reload = http.expectOne(
+      (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
+    );
+    reload.flush({ headcount: 1, items: [activePerson], configHealth: [] });
   });
 
   it('owner row has no edit button for admin, but has edit button for owner', async () => {

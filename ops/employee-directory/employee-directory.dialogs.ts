@@ -16,6 +16,7 @@ import {
   OpsDateModule,
 } from '@hr-host';
 import { MatOption, MatSelect, MatSelectTrigger } from '@angular/material/select';
+import { toIsoDate } from '../hr-dates';
 import { WEEKDAY_LABELS } from '../payroll/payroll-premiums.format';
 import {
   DirectoryRole,
@@ -756,7 +757,8 @@ export class DirectoryPersonDialog {
 
     if (this.data.mode === 'add') {
       const email = this.email.trim();
-      if (!email || !this.hireDate) {
+      const hireDate = toIsoDate(this.hireDate);
+      if (!email || !hireDate) {
         this.error.set('Name, email, and hire date are required.');
         this.saving.set(false);
         return;
@@ -773,7 +775,7 @@ export class DirectoryPersonDialog {
           email,
           displayName,
           role: asDirectoryRole(this.role),
-          hireDate: this.hireDate,
+          hireDate,
           mobile: this.mobile.trim() || null,
           emergencyContactName: this.emergencyName.trim() || null,
           emergencyContactPhone: this.emergencyPhone.trim() || null,
@@ -851,7 +853,7 @@ export class DirectoryPersonDialog {
       .update(person.id, {
         displayName,
         mobile: this.mobile.trim(),
-        hireDate: this.hireDate || null,
+        hireDate: toIsoDate(this.hireDate),
         emergencyContactName: this.emergencyName.trim(),
         emergencyContactPhone: this.emergencyPhone.trim(),
         position: this.position.trim(),
@@ -863,12 +865,12 @@ export class DirectoryPersonDialog {
         pagIbig: this.pagIbig.trim(),
         registeredAddress: this.registeredAddress.trim(),
         zipCode: this.zipCode.trim(),
-        birthDate: this.birthDate || null,
+        birthDate: toIsoDate(this.birthDate),
         clearBirthDate: !this.birthDate,
         ...(this.data.isOwner
           ? {
               ...directoryEditRole(person.role, this.role),
-              separationDate: this.separationDate || null,
+              separationDate: toIsoDate(this.separationDate),
               separationReason: this.separationReason.trim(),
               ...(accessDirty
                 ? {

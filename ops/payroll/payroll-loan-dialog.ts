@@ -7,6 +7,7 @@ import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/for
 import { MatInput } from '@angular/material/input';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { BannerComponent, DialogComponent, OpsDateModule } from '@hr-host';
+import { toIsoDate } from '../hr-dates';
 import { loanKindSuggestions } from './payroll-loans.format';
 import { StaffLoan } from './payroll.models';
 
@@ -186,7 +187,7 @@ export class StaffLoanDialog {
       this.error.set('Per period must be greater than zero.');
       return;
     }
-    const startPeriod = this.startPeriod.trim();
+    const startPeriod = calendarDay(this.startPeriod) ?? '';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(startPeriod)) {
       this.error.set('Start period is required.');
       return;
@@ -317,6 +318,14 @@ export class LoanOverrideDialog {
     }
     this.ref.close({ loanId: this.loanId, amount, reason });
   }
+}
+
+/** A datepicker writes a `Date`. A string keeps the trim this dialog already used. */
+function calendarDay(value: Date | string | null | undefined): string | null {
+  if (typeof value === 'string') {
+    return toIsoDate(value.trim());
+  }
+  return toIsoDate(value);
 }
 
 function readPositive(raw: string | number | null): number | null {
