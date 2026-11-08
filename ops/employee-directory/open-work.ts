@@ -37,8 +37,9 @@ export function applyMoveAll(
 export function handoverCandidates(
   staff: readonly StaffAvailabilityRow[],
   personId: string,
+  canAssign: (role: StaffAvailabilityRow['role']) => boolean = canBeAssignedJobs,
 ): StaffAvailabilityRow[] {
-  return staff.filter((row) => row.staffId !== personId && canBeAssignedJobs(row.role));
+  return staff.filter((row) => row.staffId !== personId && canAssign(row.role));
 }
 
 /** "Name (On leave today)" style label for a picker option. */

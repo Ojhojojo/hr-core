@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { StaffAvailabilityRow } from '@hr-host';
 import type { DeactivationSummary, OpenWorkLeave } from './employee-directory.api';
 import {
@@ -10,15 +10,10 @@ import {
   pickerLabel,
 } from './open-work';
 
-vi.mock('@hr-host', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@hr-host')>();
-  return {
-    ...actual,
-    canBeAssignedJobs: (role: string) => role === 'alpha' || role === 'beta',
-  };
-});
-
 const jobs = [{ jobId: 'j-1' }, { jobId: 'j-2' }];
+
+const acceptAll = () => true;
+const acceptsAlphaBeta = (role: string) => role === 'alpha' || role === 'beta';
 
 const base = {
   displayName: 'Ana',
@@ -28,7 +23,7 @@ const base = {
   clockedIn: true,
 };
 
-// The predicate is stubbed, so these role values belong to the test.
+// The predicate is passed in by the test, so these role values belong to the test.
 function row(
   id: string,
   role: string,
@@ -64,12 +59,15 @@ describe('applyMoveAll', () => {
 describe('handoverCandidates and pickerLabel', () => {
   it('leaves out the person being handed over', () => {
     const rows = [row('me', 'alpha'), row('other', 'alpha', { displayName: 'Ben' })];
-    expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['other']);
+    expect(handoverCandidates(rows, 'me', acceptAll).map((r) => r.staffId)).toEqual(['other']);
   });
 
   it('keeps exactly the fixture roles the predicate accepts', () => {
     const rows = [row('alpha-1', 'alpha'), row('beta-1', 'beta'), row('gamma-1', 'gamma')];
-    expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['alpha-1', 'beta-1']);
+    expect(handoverCandidates(rows, 'me', acceptsAlphaBeta).map((r) => r.staffId)).toEqual([
+      'alpha-1',
+      'beta-1',
+    ]);
   });
 
   it('adds the availability hint to the label', () => {
