@@ -20,25 +20,21 @@ vi.mock('@hr-host', async (importOriginal) => {
 
 const jobs = [{ jobId: 'j-1' }, { jobId: 'j-2' }];
 
-function seat(overrides: { staffId?: string; role?: string; displayName?: string } = {}) {
-  return {
-    staffId: overrides.staffId ?? 's-1',
-    displayName: overrides.displayName ?? 'Ana',
-    role: overrides.role ?? 'alpha',
-  };
-}
+const base = {
+  displayName: 'Ana',
+  onApprovedLeave: false,
+  leaveType: null,
+  halfDay: null,
+  clockedIn: true,
+};
 
-function person(overrides: Partial<StaffAvailabilityRow> = {}): StaffAvailabilityRow {
-  return {
-    staffId: 's-1',
-    displayName: 'Ana',
-    role: 'owner',
-    onApprovedLeave: false,
-    leaveType: null,
-    halfDay: null,
-    clockedIn: true,
-    ...overrides,
-  };
+// The predicate is stubbed, so these role values belong to the test.
+function row(
+  id: string,
+  role: string,
+  extra: Partial<StaffAvailabilityRow> = {},
+): StaffAvailabilityRow {
+  return { ...base, ...extra, staffId: id, role } as unknown as StaffAvailabilityRow;
 }
 
 describe('handoverMoves', () => {
@@ -67,27 +63,25 @@ describe('applyMoveAll', () => {
 
 describe('handoverCandidates and pickerLabel', () => {
   it('leaves out the person being handed over', () => {
-    const rows = [seat({ staffId: 'me' }), seat({ staffId: 'other', displayName: 'Ben' })];
+    const rows = [row('me', 'alpha'), row('other', 'alpha', { displayName: 'Ben' })];
     expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['other']);
   });
 
   it('keeps exactly the fixture roles the predicate accepts', () => {
-    const rows = [
-      seat({ staffId: 'alpha-1', role: 'alpha' }),
-      seat({ staffId: 'beta-1', role: 'beta' }),
-      seat({ staffId: 'gamma-1', role: 'gamma' }),
-    ];
-    expect(handoverCandidates(rows, 'me').map((row) => row.staffId)).toEqual(['alpha-1', 'beta-1']);
+    const rows = [row('alpha-1', 'alpha'), row('beta-1', 'beta'), row('gamma-1', 'gamma')];
+    expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['alpha-1', 'beta-1']);
   });
 
   it('adds the availability hint to the label', () => {
-    expect(pickerLabel(person({ displayName: 'Ana' }))).toBe('Ana');
-    expect(pickerLabel(person({ displayName: 'Ana', clockedIn: false }))).toBe(
+    expect(pickerLabel(row('s-1', 'alpha', { displayName: 'Ana' }))).toBe('Ana');
+    expect(pickerLabel(row('s-1', 'alpha', { displayName: 'Ana', clockedIn: false }))).toBe(
       'Ana (Not clocked in today)',
     );
-    expect(pickerLabel(person({ displayName: 'Ana', onApprovedLeave: true, halfDay: 'am' }))).toBe(
-      'Ana (On leave today (AM))',
-    );
+    expect(
+      pickerLabel(
+        row('s-1', 'alpha', { displayName: 'Ana', onApprovedLeave: true, halfDay: 'am' }),
+      ),
+    ).toBe('Ana (On leave today (AM))');
   });
 });
 
