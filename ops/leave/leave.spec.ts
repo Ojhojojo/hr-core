@@ -6,7 +6,8 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { afterEach, describe, expect, it } from 'vitest';
-import { AuthMe, AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
+import { AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
+import { hostFloorRole, hostStaffMe, type HostMe, type HostRole } from '../host-spec-fixtures';
 import { LeaveBalance, LeaveRequestRow, StaffLeaveBalances } from './leave.api';
 import { LeavePage } from './leave';
 
@@ -57,17 +58,14 @@ const teamBalances: StaffLeaveBalances[] = [
   },
 ];
 
-function me(role: AuthMe['staffRole']): AuthMe {
-  return {
-    authUserId: role ?? 'staff',
-    email: `${role}@rakkiicars.ph`,
-    profileKind: 'staff',
-    staffRole: role,
+function me(role: HostRole): HostMe {
+  return hostStaffMe(role, {
+    authUserId: String(role),
+    email: `${String(role)}@rakkiicars.ph`,
     branchId: 'branch-1',
     branchCode: 'demo',
-    isStaff: true,
     displayName: 'Tester',
-  };
+  });
 }
 
 function confirmStub(confirmed = true) {
@@ -84,7 +82,7 @@ function confirmStub(confirmed = true) {
 }
 
 async function mount(
-  role: AuthMe['staffRole'],
+  role: HostRole,
   customRequests?: LeaveRequestRow[],
   confirmObj = confirmStub(true),
 ) {
@@ -166,7 +164,7 @@ describe('Leave', () => {
   });
 
   it('technician cannot approve, reject, add leave for others, or set days', async () => {
-    const { host } = await mount('technician');
+    const { host } = await mount(hostFloorRole());
     expect(host.querySelector('button[name="approve"]')).toBeNull();
     expect(host.querySelector('button[name="reject"]')).toBeNull();
     expect(host.querySelector('button[name="addLeave"]')).toBeNull();
@@ -271,7 +269,7 @@ describe('Leave', () => {
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { me: signal(me('technician')) } },
+        { provide: AuthService, useValue: { me: signal(me(hostFloorRole())) } },
         { provide: OpsConfirmService, useValue: confirmStub(true).service },
       ],
     }).compileComponents();

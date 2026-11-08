@@ -1,4 +1,3 @@
-import { signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
@@ -7,7 +6,8 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { describe, expect, it } from 'vitest';
-import { AuthMe, AuthService, ShopInfo, formatPhp } from '@hr-host';
+import { provideNativeDateAdapter } from '@angular/material/core';
+import { ShopInfo, formatPhp } from '@hr-host';
 import { EmployeeCard } from '../employee-directory/employee-directory.api';
 import { HrDocumentDialog } from './hr-document-dialog';
 
@@ -40,16 +40,6 @@ const person: EmployeeCard = {
   pagIbig: '1234-5678-9012',
 };
 
-function authStub(me: AuthMe) {
-  return {
-    me: signal(me),
-    loading: signal(false),
-    isSignedIn: () => true,
-    isStaff: () => true,
-    refreshMe: async () => {},
-  };
-}
-
 describe('HrDocumentDialog', () => {
   async function mountDialog(kind: 'nte' | 'nod' | 'quitclaim', withPerson = true) {
     await TestBed.configureTestingModule({
@@ -57,6 +47,7 @@ describe('HrDocumentDialog', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
+        provideNativeDateAdapter(),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: MAT_DIALOG_DATA, useValue: { kind, person: withPerson ? person : null, shop } },
@@ -112,16 +103,3 @@ describe('HrDocumentDialog', () => {
     http.verify();
   });
 });
-
-function personAuth(role: AuthMe['staffRole']): AuthMe {
-  return {
-    authUserId: role ?? 'staff',
-    email: `${role}@rakkiicars.ph`,
-    profileKind: 'staff',
-    staffRole: role,
-    branchId: 'branch-1',
-    branchCode: 'demo',
-    isStaff: true,
-    displayName: 'Tester',
-  };
-}

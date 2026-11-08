@@ -7,7 +7,9 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AuthMe, AuthService } from '@hr-host';
+import { provideNativeDateAdapter } from '@angular/material/core';
+import { AuthService } from '@hr-host';
+import { hostFloorRole, hostStaffMe, type HostMe, type HostRole } from '../host-spec-fixtures';
 import { EmployeeCard } from './employee-directory.api';
 import { EmployeeDirectoryPage } from './employee-directory';
 import { HR_DIRECTORY_ROLES, type DirectoryRoleOption } from './directory-roles';
@@ -45,21 +47,18 @@ const inactivePerson: EmployeeCard = {
   emergencyContactPhone: null,
 };
 
-function me(role: AuthMe['staffRole']): AuthMe {
-  return {
-    authUserId: role ?? 'staff',
-    email: `${role}@rakkiicars.ph`,
-    profileKind: 'staff',
-    staffRole: role,
+function me(role: HostRole): HostMe {
+  return hostStaffMe(role, {
+    authUserId: String(role),
+    email: `${String(role)}@rakkiicars.ph`,
     branchId: 'branch-1',
     branchCode: 'demo',
-    isStaff: true,
     displayName: 'Tester',
-  };
+  });
 }
 
 async function mount(
-  role: AuthMe['staffRole'],
+  role: HostRole,
   people: EmployeeCard[] = [activePerson, inactivePerson],
   healthIssues: any[] = [],
   beforeFlush?: (host: HTMLElement) => void,
@@ -74,6 +73,7 @@ async function mount(
     providers: [
       provideZonelessChangeDetection(),
       provideNoopAnimations(),
+      provideNativeDateAdapter(),
       provideHttpClient(),
       provideHttpClientTesting(),
       { provide: AuthService, useValue: { me: signal(me(role)) } },
@@ -121,7 +121,7 @@ describe('Employee directory', () => {
   });
 
   it('hides inactive people until include inactive is on', async () => {
-    const { http, fixture, host } = await mount('technician');
+    const { http, fixture, host } = await mount(hostFloorRole());
     expect(host.textContent).toContain('Include inactive');
     expect(host.textContent).toContain('Ana Active');
     expect(host.textContent).toContain('Active');
@@ -157,7 +157,7 @@ describe('Employee directory', () => {
       ...activePerson,
       displayName: 'Tech Worker',
     };
-    const { host } = await mount('technician', [techPerson]);
+    const { host } = await mount(hostFloorRole(), [techPerson]);
     expect(host.querySelector('button[name="edit"]')).toBeNull();
     expect(host.querySelector('button[name="deactivate"]')).toBeNull();
     expect(host.textContent).not.toContain('Add person');

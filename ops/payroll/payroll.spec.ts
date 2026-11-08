@@ -7,7 +7,9 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { afterEach, describe, expect, it } from 'vitest';
 import { of } from 'rxjs';
-import { AuthMe, AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
+import { provideNativeDateAdapter } from '@angular/material/core';
+import { AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
+import { hostAdminRole, hostOwnerRole, hostStaffMe, type HostMe } from '../host-spec-fixtures';
 import { PayrollPage } from './payroll';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { PayrollApi } from './payroll.api';
@@ -24,43 +26,23 @@ import {
   StatutorySuggestion,
 } from './payroll.models';
 
-const ownerMe: AuthMe = {
+const ownerMe: HostMe = hostStaffMe(hostOwnerRole(), {
   authUserId: 'owner-id',
   email: 'owner@rakkiicars.ph',
-  profileKind: 'staff',
-  staffRole: 'owner',
   branchId: null,
   branchCode: null,
-  isStaff: true,
   displayName: 'Owner Apple',
-};
+});
 
-const adminMe: AuthMe = {
-  ...ownerMe,
+const adminMe: HostMe = hostStaffMe(hostAdminRole(), {
   authUserId: 'admin-id',
-  staffRole: 'admin',
+  email: 'owner@rakkiicars.ph',
   branchId: 'branch-1',
   branchCode: 'main-roosevelt',
   displayName: 'Admin Rezza',
-};
+});
 
-const techMe: AuthMe = {
-  ...ownerMe,
-  authUserId: 'tech-id',
-  staffRole: 'technician',
-  branchId: 'branch-1',
-  branchCode: 'main-roosevelt',
-  displayName: 'Danilo Santos',
-};
-
-const salesMe: AuthMe = {
-  ...ownerMe,
-  authUserId: 'sales-id',
-  staffRole: 'sales',
-  displayName: 'Sales Sarah',
-};
-
-function authStub(me: AuthMe) {
+function authStub(me: HostMe) {
   return {
     me: signal(me),
     loading: signal(false),
@@ -191,7 +173,7 @@ function confirmStub() {
 }
 
 async function mountPayroll(
-  me: AuthMe = ownerMe,
+  me: HostMe = ownerMe,
   register: PayrollRegisterResponse = mockPayrollData,
   payrollSchedules = false,
 ) {
@@ -201,6 +183,7 @@ async function mountPayroll(
     providers: [
       provideZonelessChangeDetection(),
       provideNoopAnimations(),
+      provideNativeDateAdapter(),
       provideRouter([]),
       provideHttpClient(),
       provideHttpClientTesting(),
