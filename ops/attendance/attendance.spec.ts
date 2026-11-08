@@ -6,17 +6,11 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AuthService } from '@hr-host';
-import {
-  hostAdminRole,
-  hostFloorRole,
-  hostOwnerRole,
-  hostStaffMe,
-  type HostMe,
-} from '../host-spec-fixtures';
+import { MEMBER_ROLE, specUser, type SpecUser } from '../host-spec-fixtures';
 import { AttendancePage, manilaWeekRange } from './attendance';
 import { AttendanceRegisterResponse, OvertimeListResponse } from './attendance.models';
 
-const ownerMe: HostMe = hostStaffMe(hostOwnerRole(), {
+const ownerMe: SpecUser = specUser('owner', {
   authUserId: 'owner',
   email: 'owner@rakkiicars.ph',
   branchId: null,
@@ -24,7 +18,7 @@ const ownerMe: HostMe = hostStaffMe(hostOwnerRole(), {
   displayName: 'Apple',
 });
 
-const floorMe: HostMe = hostStaffMe(hostFloorRole(), {
+const memberMe: SpecUser = specUser(MEMBER_ROLE, {
   authUserId: 'tech',
   email: 'owner@rakkiicars.ph',
   branchId: 'branch-1',
@@ -32,7 +26,7 @@ const floorMe: HostMe = hostStaffMe(hostFloorRole(), {
   displayName: "Danilo 'Danny' Santos",
 });
 
-const adminMe: HostMe = hostStaffMe(hostAdminRole(), {
+const adminMe: SpecUser = specUser('admin', {
   authUserId: 'admin',
   email: 'owner@rakkiicars.ph',
   branchId: 'branch-1',
@@ -40,7 +34,7 @@ const adminMe: HostMe = hostStaffMe(hostAdminRole(), {
   displayName: 'Admin Staff',
 });
 
-function authStub(me: HostMe) {
+function authStub(me: SpecUser) {
   return {
     me: signal(me),
   };
@@ -126,7 +120,7 @@ describe('AttendancePage', () => {
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: authStub(floorMe) },
+        { provide: AuthService, useValue: authStub(memberMe) },
       ],
     }).compileComponents();
 

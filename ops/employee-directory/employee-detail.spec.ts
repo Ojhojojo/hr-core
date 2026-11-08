@@ -8,7 +8,7 @@ import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthService, OpsConfirmService } from '@hr-host';
-import { hostFloorRole, hostStaffMe, type HostMe, type HostRole } from '../host-spec-fixtures';
+import { MEMBER_ROLE, specUser, type SpecUser } from '../host-spec-fixtures';
 import { EmployeeCard } from './employee-directory.api';
 import { EmployeeDetailPage } from './employee-detail';
 
@@ -32,10 +32,10 @@ const testEmployee: EmployeeCard = {
   status: 'active',
 };
 
-function me(role: HostRole, staffId?: string | null): HostMe {
-  return hostStaffMe(role, {
-    authUserId: String(role),
-    email: `${String(role)}@rakkiicars.ph`,
+function me(role: string, staffId?: string | null): SpecUser {
+  return specUser(role, {
+    authUserId: role || 'user',
+    email: `${role || 'user'}@rakkiicars.ph`,
     branchId: 'branch-1',
     branchCode: 'demo',
     displayName: 'Tester',
@@ -43,11 +43,7 @@ function me(role: HostRole, staffId?: string | null): HostMe {
   });
 }
 
-async function mountDetail(
-  role: HostRole,
-  tab = 'overview',
-  employee: EmployeeCard = testEmployee,
-) {
+async function mountDetail(role: string, tab = 'overview', employee: EmployeeCard = testEmployee) {
   const routerSpy = {
     navigate: vi.fn(),
   };
@@ -169,7 +165,7 @@ describe('EmployeeDetailPage', () => {
 
     TestBed.resetTestingModule();
 
-    const { host: techHost } = await mountDetail(hostFloorRole());
+    const { host: techHost } = await mountDetail(MEMBER_ROLE);
     const techEditBtn = techHost.querySelector('ops-page-header button[matButton="filled"]');
     expect(techEditBtn).toBeNull();
   });
@@ -191,7 +187,7 @@ describe('EmployeeDetailPage', () => {
 
     TestBed.resetTestingModule();
 
-    const { host: techHost } = await mountDetail(hostFloorRole());
+    const { host: techHost } = await mountDetail(MEMBER_ROLE);
     const techTabs = Array.from(techHost.querySelectorAll('[role="tab"]')).map((t) =>
       t.textContent?.trim(),
     );
@@ -276,10 +272,10 @@ describe('EmployeeDetailPage', () => {
   });
 
   it.each([
-    { name: 'owner', staffRole: 'owner' as HostRole, cardRole: 'owner' as const },
-    { name: 'admin', staffRole: 'admin' as HostRole, cardRole: 'admin' as const },
-    { name: 'technician', staffRole: hostFloorRole(), cardRole: 'technician' as const },
-    { name: 'sales', staffRole: hostFloorRole(), cardRole: 'sales' as const },
+    { name: 'owner', staffRole: 'owner', cardRole: 'owner' as const },
+    { name: 'admin', staffRole: 'admin', cardRole: 'admin' as const },
+    { name: 'member', staffRole: MEMBER_ROLE, cardRole: 'technician' as const },
+    { name: 'reader', staffRole: MEMBER_ROLE, cardRole: 'sales' as const },
   ])(
     'loads the $name caller profile read-only and does not stay on the skeleton',
     async ({ name, staffRole, cardRole }) => {
@@ -355,7 +351,7 @@ describe('EmployeeDetailPage', () => {
         provideNoopAnimations(),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { me: signal(me(hostFloorRole(), null)) } },
+        { provide: AuthService, useValue: { me: signal(me(MEMBER_ROLE, null)) } },
         { provide: Router, useValue: { navigate: vi.fn() } },
         {
           provide: ActivatedRoute,

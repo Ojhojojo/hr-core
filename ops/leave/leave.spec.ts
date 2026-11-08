@@ -7,7 +7,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
-import { hostFloorRole, hostStaffMe, type HostMe, type HostRole } from '../host-spec-fixtures';
+import { MEMBER_ROLE, specUser, type SpecUser } from '../host-spec-fixtures';
 import { LeaveBalance, LeaveRequestRow, StaffLeaveBalances } from './leave.api';
 import { LeavePage } from './leave';
 
@@ -58,10 +58,10 @@ const teamBalances: StaffLeaveBalances[] = [
   },
 ];
 
-function me(role: HostRole): HostMe {
-  return hostStaffMe(role, {
-    authUserId: String(role),
-    email: `${String(role)}@rakkiicars.ph`,
+function me(role: string): SpecUser {
+  return specUser(role, {
+    authUserId: role || 'user',
+    email: `${role || 'user'}@rakkiicars.ph`,
     branchId: 'branch-1',
     branchCode: 'demo',
     displayName: 'Tester',
@@ -82,7 +82,7 @@ function confirmStub(confirmed = true) {
 }
 
 async function mount(
-  role: HostRole,
+  role: string,
   customRequests?: LeaveRequestRow[],
   confirmObj = confirmStub(true),
 ) {
@@ -164,7 +164,7 @@ describe('Leave', () => {
   });
 
   it('technician cannot approve, reject, add leave for others, or set days', async () => {
-    const { host } = await mount(hostFloorRole());
+    const { host } = await mount(MEMBER_ROLE);
     expect(host.querySelector('button[name="approve"]')).toBeNull();
     expect(host.querySelector('button[name="reject"]')).toBeNull();
     expect(host.querySelector('button[name="addLeave"]')).toBeNull();
@@ -269,7 +269,7 @@ describe('Leave', () => {
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { me: signal(me(hostFloorRole())) } },
+        { provide: AuthService, useValue: { me: signal(me(MEMBER_ROLE)) } },
         { provide: OpsConfirmService, useValue: confirmStub(true).service },
       ],
     }).compileComponents();

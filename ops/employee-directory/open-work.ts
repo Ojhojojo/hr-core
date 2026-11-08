@@ -33,12 +33,21 @@ export function applyMoveAll(
   return Object.fromEntries(jobs.map((job) => [job.jobId, staffId]));
 }
 
-/** Picker candidates: active shop staff who can work jobs, except the person being handed over. */
-export function handoverCandidates(
-  staff: readonly StaffAvailabilityRow[],
+/**
+ * Picker candidates: everyone except the person being handed over, and except people
+ * the host predicate rejects. `role` stays a string so a spec can stub that predicate
+ * with its own fixture roles. The host function decides; this package does not name
+ * the host's role union.
+ */
+export function handoverCandidates<T extends { staffId: string; role: string }>(
+  staff: readonly T[],
   personId: string,
-): StaffAvailabilityRow[] {
-  return staff.filter((row) => row.staffId !== personId && canBeAssignedJobs(row.role));
+): T[] {
+  return staff.filter(
+    (row) =>
+      row.staffId !== personId &&
+      canBeAssignedJobs(row.role as Parameters<typeof canBeAssignedJobs>[0]),
+  );
 }
 
 /** "Name (On leave today)" style label for a picker option. */

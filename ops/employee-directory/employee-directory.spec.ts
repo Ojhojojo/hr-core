@@ -9,7 +9,7 @@ import { Router } from '@angular/router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { AuthService } from '@hr-host';
-import { hostFloorRole, hostStaffMe, type HostMe, type HostRole } from '../host-spec-fixtures';
+import { MEMBER_ROLE, specUser, type SpecUser } from '../host-spec-fixtures';
 import { EmployeeCard } from './employee-directory.api';
 import { EmployeeDirectoryPage } from './employee-directory';
 import { HR_DIRECTORY_ROLES, type DirectoryRoleOption } from './directory-roles';
@@ -47,10 +47,10 @@ const inactivePerson: EmployeeCard = {
   emergencyContactPhone: null,
 };
 
-function me(role: HostRole): HostMe {
-  return hostStaffMe(role, {
-    authUserId: String(role),
-    email: `${String(role)}@rakkiicars.ph`,
+function me(role: string): SpecUser {
+  return specUser(role, {
+    authUserId: role || 'user',
+    email: `${role || 'user'}@rakkiicars.ph`,
     branchId: 'branch-1',
     branchCode: 'demo',
     displayName: 'Tester',
@@ -58,7 +58,7 @@ function me(role: HostRole): HostMe {
 }
 
 async function mount(
-  role: HostRole,
+  role: string,
   people: EmployeeCard[] = [activePerson, inactivePerson],
   healthIssues: any[] = [],
   beforeFlush?: (host: HTMLElement) => void,
@@ -121,7 +121,7 @@ describe('Employee directory', () => {
   });
 
   it('hides inactive people until include inactive is on', async () => {
-    const { http, fixture, host } = await mount(hostFloorRole());
+    const { http, fixture, host } = await mount(MEMBER_ROLE);
     expect(host.textContent).toContain('Include inactive');
     expect(host.textContent).toContain('Ana Active');
     expect(host.textContent).toContain('Active');
@@ -157,7 +157,7 @@ describe('Employee directory', () => {
       ...activePerson,
       displayName: 'Tech Worker',
     };
-    const { host } = await mount(hostFloorRole(), [techPerson]);
+    const { host } = await mount(MEMBER_ROLE, [techPerson]);
     expect(host.querySelector('button[name="edit"]')).toBeNull();
     expect(host.querySelector('button[name="deactivate"]')).toBeNull();
     expect(host.textContent).not.toContain('Add person');

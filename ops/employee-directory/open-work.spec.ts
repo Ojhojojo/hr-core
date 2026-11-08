@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { canBeAssignedJobs, type StaffAvailabilityRow } from '@hr-host';
-import { hostStaffRoles } from '../host-spec-fixtures';
+import { describe, expect, it, vi } from 'vitest';
+import type { StaffAvailabilityRow } from '@hr-host';
 import type { DeactivationSummary, OpenWorkLeave } from './employee-directory.api';
 import {
   applyMoveAll,
@@ -11,32 +10,35 @@ import {
   pickerLabel,
 } from './open-work';
 
+vi.mock('@hr-host', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@hr-host')>();
+  return {
+    ...actual,
+    canBeAssignedJobs: (role: string) => role === 'alpha' || role === 'beta',
+  };
+});
+
 const jobs = [{ jobId: 'j-1' }, { jobId: 'j-2' }];
 
-type HostAvailabilityRole = StaffAvailabilityRow['role'];
-
-function availabilityRoles(): HostAvailabilityRole[] {
-  return hostStaffRoles() as HostAvailabilityRole[];
-}
-
-function roleWhere(
-  pred: (role: HostAvailabilityRole) => boolean,
-): HostAvailabilityRole | undefined {
-  return availabilityRoles().find((role) => pred(role));
+function seat(overrides: { staffId?: string; role?: string; displayName?: string } = {}) {
+  return {
+    staffId: overrides.staffId ?? 's-1',
+    displayName: overrides.displayName ?? 'Ana',
+    role: overrides.role ?? 'alpha',
+  };
 }
 
 function person(overrides: Partial<StaffAvailabilityRow> = {}): StaffAvailabilityRow {
-  const row = {
+  return {
     staffId: 's-1',
     displayName: 'Ana',
-    role: roleWhere((role) => canBeAssignedJobs(role)) ?? availabilityRoles()[0],
+    role: 'owner',
     onApprovedLeave: false,
     leaveType: null,
     halfDay: null,
     clockedIn: true,
     ...overrides,
   };
-  return row as StaffAvailabilityRow;
 }
 
 describe('handoverMoves', () => {
@@ -65,27 +67,17 @@ describe('applyMoveAll', () => {
 
 describe('handoverCandidates and pickerLabel', () => {
   it('leaves out the person being handed over', () => {
-    const rows = [person({ staffId: 'me' }), person({ staffId: 'other', displayName: 'Ben' })];
+    const rows = [seat({ staffId: 'me' }), seat({ staffId: 'other', displayName: 'Ben' })];
     expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['other']);
   });
 
-  it('keeps staff the host can assign and leaves out staff it cannot', () => {
-    const assignable = roleWhere((role) => canBeAssignedJobs(role));
-    const blocked = roleWhere((role) => !canBeAssignedJobs(role));
+  it('keeps exactly the fixture roles the predicate accepts', () => {
     const rows = [
-      ...(assignable ? [person({ staffId: 'kept', role: assignable })] : []),
-      ...(blocked ? [person({ staffId: 'left-out', role: blocked })] : []),
+      seat({ staffId: 'alpha-1', role: 'alpha' }),
+      seat({ staffId: 'beta-1', role: 'beta' }),
+      seat({ staffId: 'gamma-1', role: 'gamma' }),
     ];
-    const ids = handoverCandidates(rows, 'me').map((row) => row.staffId);
-    if (assignable) {
-      expect(ids).toContain('kept');
-    }
-    if (blocked) {
-      expect(ids).not.toContain('left-out');
-    }
-    expect(ids).toEqual(
-      rows.filter((row) => canBeAssignedJobs(row.role)).map((row) => row.staffId),
-    );
+    expect(handoverCandidates(rows, 'me').map((row) => row.staffId)).toEqual(['alpha-1', 'beta-1']);
   });
 
   it('adds the availability hint to the label', () => {
