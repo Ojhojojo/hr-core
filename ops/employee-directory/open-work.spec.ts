@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { StaffAvailabilityRow } from '@hr-host';
+import { canBeAssignedJobs, type StaffAvailabilityRow } from '@hr-host';
+import { hostStaffRoles } from '../host-spec-fixtures';
 import type { DeactivationSummary, OpenWorkLeave } from './employee-directory.api';
 import {
   applyMoveAll,
@@ -12,17 +13,30 @@ import {
 
 const jobs = [{ jobId: 'j-1' }, { jobId: 'j-2' }];
 
-function person(overrides: Partial<StaffAvailabilityRow>): StaffAvailabilityRow {
-  return {
+type HostAvailabilityRole = StaffAvailabilityRow['role'];
+
+function availabilityRoles(): HostAvailabilityRole[] {
+  return hostStaffRoles() as HostAvailabilityRole[];
+}
+
+function roleWhere(
+  pred: (role: HostAvailabilityRole) => boolean,
+): HostAvailabilityRole | undefined {
+  return availabilityRoles().find((role) => pred(role));
+}
+
+function person(overrides: Partial<StaffAvailabilityRow> = {}): StaffAvailabilityRow {
+  const row = {
     staffId: 's-1',
     displayName: 'Ana',
-    role: 'technician',
+    role: roleWhere((role) => canBeAssignedJobs(role)) ?? availabilityRoles()[0],
     onApprovedLeave: false,
     leaveType: null,
     halfDay: null,
     clockedIn: true,
     ...overrides,
   };
+  return row as StaffAvailabilityRow;
 }
 
 describe('handoverMoves', () => {
@@ -55,14 +69,23 @@ describe('handoverCandidates and pickerLabel', () => {
     expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['other']);
   });
 
-  it('leaves out sales staff, who cannot open the workshop', () => {
+  it('keeps staff the host can assign and leaves out staff it cannot', () => {
+    const assignable = roleWhere((role) => canBeAssignedJobs(role));
+    const blocked = roleWhere((role) => !canBeAssignedJobs(role));
     const rows = [
-      person({ staffId: 'tech', role: 'technician' }),
-      person({ staffId: 'desk', role: 'admin' }),
-      person({ staffId: 'boss', role: 'owner' }),
-      person({ staffId: 'seller', role: 'sales' }),
+      ...(assignable ? [person({ staffId: 'kept', role: assignable })] : []),
+      ...(blocked ? [person({ staffId: 'left-out', role: blocked })] : []),
     ];
-    expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['tech', 'desk', 'boss']);
+    const ids = handoverCandidates(rows, 'me').map((row) => row.staffId);
+    if (assignable) {
+      expect(ids).toContain('kept');
+    }
+    if (blocked) {
+      expect(ids).not.toContain('left-out');
+    }
+    expect(ids).toEqual(
+      rows.filter((row) => canBeAssignedJobs(row.role)).map((row) => row.staffId),
+    );
   });
 
   it('adds the availability hint to the label', () => {

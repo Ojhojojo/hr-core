@@ -8,7 +8,6 @@ import { ActivatedRoute } from '@angular/router';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  AuthMe,
   AuthService,
   ShopApiService,
   manilaToday,
@@ -16,36 +15,42 @@ import {
   OpsConfirmService,
   OpsToastService,
 } from '@hr-host';
+import {
+  hostAdminRole,
+  hostFloorRole,
+  hostOwnerRole,
+  hostStaffMe,
+  type HostMe,
+} from '../host-spec-fixtures';
 import { ClockPage, clockModeFrom } from './clock';
 import { AttendanceMe } from './clock.models';
 import { formatDay } from '../hr-dates';
 
-const techMe: AuthMe = {
+const floorMe: HostMe = hostStaffMe(hostFloorRole(), {
   authUserId: 'tech',
   email: 'tech@rakkiicars.ph',
-  profileKind: 'staff',
-  staffRole: 'technician',
   branchId: 'branch-1',
   branchCode: 'main-roosevelt',
-  isStaff: true,
   displayName: "Danilo 'Danny' Santos",
-};
+});
 
-const adminMe: AuthMe = {
-  ...techMe,
+const adminMe: HostMe = hostStaffMe(hostAdminRole(), {
   authUserId: 'admin',
-  staffRole: 'admin',
+  email: 'tech@rakkiicars.ph',
+  branchId: 'branch-1',
+  branchCode: 'main-roosevelt',
   displayName: 'Clarissa Reyes',
-};
+});
 
-const ownerMe: AuthMe = {
-  ...techMe,
+const ownerMe: HostMe = hostStaffMe(hostOwnerRole(), {
   authUserId: 'owner',
-  staffRole: 'owner',
+  email: 'tech@rakkiicars.ph',
+  branchId: 'branch-1',
+  branchCode: 'main-roosevelt',
   displayName: 'Shop Owner',
-};
+});
 
-function authStub(me: AuthMe) {
+function authStub(me: HostMe) {
   return { me: signal(me) };
 }
 
@@ -82,7 +87,7 @@ describe('ClockPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         clockRoute('self'),
-        { provide: AuthService, useValue: authStub(techMe) },
+        { provide: AuthService, useValue: authStub(floorMe) },
         { provide: OpsConfirmService, useValue: confirmStub().service },
         { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
       ],
@@ -121,7 +126,7 @@ describe('ClockPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         clockRoute('self'),
-        { provide: AuthService, useValue: authStub(techMe) },
+        { provide: AuthService, useValue: authStub(floorMe) },
         { provide: OpsConfirmService, useValue: confirmStub().service },
         { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
       ],
@@ -253,7 +258,7 @@ describe('ClockPage', () => {
           provideHttpClient(),
           provideHttpClientTesting(),
           clockRoute('self'),
-          { provide: AuthService, useValue: authStub(techMe) },
+          { provide: AuthService, useValue: authStub(floorMe) },
           { provide: OpsConfirmService, useValue: confirmStub().service },
           { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
           {
@@ -393,7 +398,7 @@ describe('ClockPage', () => {
           provideHttpClient(),
           provideHttpClientTesting(),
           clockRoute('self'),
-          { provide: AuthService, useValue: authStub(techMe) },
+          { provide: AuthService, useValue: authStub(floorMe) },
           { provide: OpsConfirmService, useValue: confirmStub().service },
           { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
         ],
@@ -439,7 +444,7 @@ describe('ClockPage', () => {
   it.each([
     ['owner', ownerMe],
     ['admin', adminMe],
-    ['technician', techMe],
+    ['staff', floorMe],
   ] as const)(
     '%s on the self route sees the personal clock and not the kiosk',
     async (_role, me) => {
@@ -494,7 +499,7 @@ describe('ClockPage', () => {
           provideHttpClient(),
           provideHttpClientTesting(),
           clockRoute('self'),
-          { provide: AuthService, useValue: authStub(techMe) },
+          { provide: AuthService, useValue: authStub(floorMe) },
           { provide: OpsConfirmService, useValue: confirmStub().service },
           { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
         ],

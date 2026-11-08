@@ -7,7 +7,8 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AuthMe, AuthService, OpsConfirmService } from '@hr-host';
+import { AuthService, OpsConfirmService } from '@hr-host';
+import { hostFloorRole, hostStaffMe, type HostMe, type HostRole } from '../host-spec-fixtures';
 import { EmployeeCard } from './employee-directory.api';
 import { EmployeeDetailPage } from './employee-detail';
 
@@ -31,22 +32,19 @@ const testEmployee: EmployeeCard = {
   status: 'active',
 };
 
-function me(role: AuthMe['staffRole'], staffId?: string | null): AuthMe {
-  return {
-    authUserId: role ?? 'staff',
-    email: `${role}@rakkiicars.ph`,
-    profileKind: 'staff',
-    staffRole: role,
+function me(role: HostRole, staffId?: string | null): HostMe {
+  return hostStaffMe(role, {
+    authUserId: String(role),
+    email: `${String(role)}@rakkiicars.ph`,
     branchId: 'branch-1',
     branchCode: 'demo',
-    isStaff: true,
     displayName: 'Tester',
-    staffId,
-  };
+    ...(staffId !== undefined ? { staffId } : {}),
+  });
 }
 
 async function mountDetail(
-  role: AuthMe['staffRole'],
+  role: HostRole,
   tab = 'overview',
   employee: EmployeeCard = testEmployee,
 ) {
@@ -171,7 +169,7 @@ describe('EmployeeDetailPage', () => {
 
     TestBed.resetTestingModule();
 
-    const { host: techHost } = await mountDetail('technician');
+    const { host: techHost } = await mountDetail(hostFloorRole());
     const techEditBtn = techHost.querySelector('ops-page-header button[matButton="filled"]');
     expect(techEditBtn).toBeNull();
   });
@@ -193,7 +191,7 @@ describe('EmployeeDetailPage', () => {
 
     TestBed.resetTestingModule();
 
-    const { host: techHost } = await mountDetail('technician');
+    const { host: techHost } = await mountDetail(hostFloorRole());
     const techTabs = Array.from(techHost.querySelectorAll('[role="tab"]')).map((t) =>
       t.textContent?.trim(),
     );
@@ -277,15 +275,20 @@ describe('EmployeeDetailPage', () => {
     expect(editBtnTech?.textContent?.trim()).toBe('Edit');
   });
 
-  it.each(['owner', 'admin', 'sales', 'technician'] as const)(
-    'loads the %s caller profile read-only and does not stay on the skeleton',
-    async (role) => {
-      const staffId = `self-${role}`;
+  it.each([
+    { name: 'owner', staffRole: 'owner' as HostRole, cardRole: 'owner' as const },
+    { name: 'admin', staffRole: 'admin' as HostRole, cardRole: 'admin' as const },
+    { name: 'technician', staffRole: hostFloorRole(), cardRole: 'technician' as const },
+    { name: 'sales', staffRole: hostFloorRole(), cardRole: 'sales' as const },
+  ])(
+    'loads the $name caller profile read-only and does not stay on the skeleton',
+    async ({ name, staffRole, cardRole }) => {
+      const staffId = `self-${name}`;
       const person: EmployeeCard = {
         ...testEmployee,
         id: staffId,
-        role,
-        displayName: `${role} person`,
+        role: cardRole,
+        displayName: `${name} person`,
       };
 
       await TestBed.configureTestingModule({
@@ -295,7 +298,7 @@ describe('EmployeeDetailPage', () => {
           provideNoopAnimations(),
           provideHttpClient(),
           provideHttpClientTesting(),
-          { provide: AuthService, useValue: { me: signal(me(role, staffId)) } },
+          { provide: AuthService, useValue: { me: signal(me(staffRole, staffId)) } },
           { provide: Router, useValue: { navigate: vi.fn() } },
           {
             provide: ActivatedRoute,
@@ -319,7 +322,7 @@ describe('EmployeeDetailPage', () => {
       const getReq = http.expectOne(`/api/employee-directory/${staffId}`);
       expect(getReq.request.method).toBe('GET');
       getReq.flush(person);
-      if (role === 'owner') {
+      if (name === 'owner') {
         http.expectOne('/api/settings/branches').flush([]);
       } else {
         http.expectNone('/api/settings/branches');
@@ -330,7 +333,7 @@ describe('EmployeeDetailPage', () => {
 
       const host = fixture.nativeElement as HTMLElement;
       expect(host.querySelector('ops-skeleton')).toBeNull();
-      expect(host.textContent).toContain(`${role} person`);
+      expect(host.textContent).toContain(`${name} person`);
       expect(host.textContent).toContain('Overview');
       expect(host.querySelector('button[aria-label="More actions"]')).toBeNull();
       expect(host.textContent).not.toContain('Edit');
@@ -352,7 +355,7 @@ describe('EmployeeDetailPage', () => {
         provideNoopAnimations(),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { me: signal(me('sales', null)) } },
+        { provide: AuthService, useValue: { me: signal(me(hostFloorRole(), null)) } },
         { provide: Router, useValue: { navigate: vi.fn() } },
         {
           provide: ActivatedRoute,

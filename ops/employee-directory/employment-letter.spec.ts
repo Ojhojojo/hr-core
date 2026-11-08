@@ -5,6 +5,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import { ShopInfo } from '@hr-host';
 import {
   EmploymentLetterDialog,
@@ -80,6 +81,7 @@ describe('EmploymentLetterDialog', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
+        provideNativeDateAdapter(),
         provideHttpClient(),
         provideHttpClientTesting(),
         {

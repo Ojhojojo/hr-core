@@ -5,40 +5,42 @@ import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { afterEach, describe, expect, it } from 'vitest';
-import { AuthMe, AuthService } from '@hr-host';
+import { AuthService } from '@hr-host';
+import {
+  hostAdminRole,
+  hostFloorRole,
+  hostOwnerRole,
+  hostStaffMe,
+  type HostMe,
+} from '../host-spec-fixtures';
 import { AttendancePage, manilaWeekRange } from './attendance';
 import { AttendanceRegisterResponse, OvertimeListResponse } from './attendance.models';
 
-const ownerMe: AuthMe = {
+const ownerMe: HostMe = hostStaffMe(hostOwnerRole(), {
   authUserId: 'owner',
   email: 'owner@rakkiicars.ph',
-  profileKind: 'staff',
-  staffRole: 'owner',
   branchId: null,
   branchCode: null,
-  isStaff: true,
   displayName: 'Apple',
-};
+});
 
-const techMe: AuthMe = {
-  ...ownerMe,
+const floorMe: HostMe = hostStaffMe(hostFloorRole(), {
   authUserId: 'tech',
-  staffRole: 'technician',
+  email: 'owner@rakkiicars.ph',
   branchId: 'branch-1',
   branchCode: 'main-roosevelt',
   displayName: "Danilo 'Danny' Santos",
-};
+});
 
-const adminMe: AuthMe = {
-  ...ownerMe,
+const adminMe: HostMe = hostStaffMe(hostAdminRole(), {
   authUserId: 'admin',
-  staffRole: 'admin',
+  email: 'owner@rakkiicars.ph',
   branchId: 'branch-1',
   branchCode: 'main-roosevelt',
   displayName: 'Admin Staff',
-};
+});
 
-function authStub(me: AuthMe) {
+function authStub(me: HostMe) {
   return {
     me: signal(me),
   };
@@ -124,7 +126,7 @@ describe('AttendancePage', () => {
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: authStub(techMe) },
+        { provide: AuthService, useValue: authStub(floorMe) },
       ],
     }).compileComponents();
 
