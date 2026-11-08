@@ -3,7 +3,6 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { provideRouter } from '@angular/router';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { describe, expect, it } from 'vitest';
 import { provideNativeDateAdapter } from '@angular/material/core';
