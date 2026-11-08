@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { of } from 'rxjs';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
-import { hostAdminRole, hostOwnerRole, hostStaffMe, type HostMe } from '../host-spec-fixtures';
+import { specUser, type SpecUser } from '../host-spec-fixtures';
 import { PayrollPage } from './payroll';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { PayrollApi } from './payroll.api';
@@ -26,7 +26,7 @@ import {
   StatutorySuggestion,
 } from './payroll.models';
 
-const ownerMe: HostMe = hostStaffMe(hostOwnerRole(), {
+const ownerMe: SpecUser = specUser('owner', {
   authUserId: 'owner-id',
   email: 'owner@rakkiicars.ph',
   branchId: null,
@@ -34,7 +34,7 @@ const ownerMe: HostMe = hostStaffMe(hostOwnerRole(), {
   displayName: 'Owner Apple',
 });
 
-const adminMe: HostMe = hostStaffMe(hostAdminRole(), {
+const adminMe: SpecUser = specUser('admin', {
   authUserId: 'admin-id',
   email: 'owner@rakkiicars.ph',
   branchId: 'branch-1',
@@ -42,7 +42,7 @@ const adminMe: HostMe = hostStaffMe(hostAdminRole(), {
   displayName: 'Admin Rezza',
 });
 
-function authStub(me: HostMe) {
+function authStub(me: SpecUser) {
   return {
     me: signal(me),
     loading: signal(false),
@@ -173,7 +173,7 @@ function confirmStub() {
 }
 
 async function mountPayroll(
-  me: HostMe = ownerMe,
+  me: SpecUser = ownerMe,
   register: PayrollRegisterResponse = mockPayrollData,
   payrollSchedules = false,
 ) {

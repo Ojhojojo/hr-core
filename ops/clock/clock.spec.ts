@@ -15,18 +15,12 @@ import {
   OpsConfirmService,
   OpsToastService,
 } from '@hr-host';
-import {
-  hostAdminRole,
-  hostFloorRole,
-  hostOwnerRole,
-  hostStaffMe,
-  type HostMe,
-} from '../host-spec-fixtures';
+import { MEMBER_ROLE, specUser, type SpecUser } from '../host-spec-fixtures';
 import { ClockPage, clockModeFrom } from './clock';
 import { AttendanceMe } from './clock.models';
 import { formatDay } from '../hr-dates';
 
-const floorMe: HostMe = hostStaffMe(hostFloorRole(), {
+const memberMe: SpecUser = specUser(MEMBER_ROLE, {
   authUserId: 'tech',
   email: 'tech@rakkiicars.ph',
   branchId: 'branch-1',
@@ -34,7 +28,7 @@ const floorMe: HostMe = hostStaffMe(hostFloorRole(), {
   displayName: "Danilo 'Danny' Santos",
 });
 
-const adminMe: HostMe = hostStaffMe(hostAdminRole(), {
+const adminMe: SpecUser = specUser('admin', {
   authUserId: 'admin',
   email: 'tech@rakkiicars.ph',
   branchId: 'branch-1',
@@ -42,7 +36,7 @@ const adminMe: HostMe = hostStaffMe(hostAdminRole(), {
   displayName: 'Clarissa Reyes',
 });
 
-const ownerMe: HostMe = hostStaffMe(hostOwnerRole(), {
+const ownerMe: SpecUser = specUser('owner', {
   authUserId: 'owner',
   email: 'tech@rakkiicars.ph',
   branchId: 'branch-1',
@@ -50,7 +44,7 @@ const ownerMe: HostMe = hostStaffMe(hostOwnerRole(), {
   displayName: 'Shop Owner',
 });
 
-function authStub(me: HostMe) {
+function authStub(me: SpecUser) {
   return { me: signal(me) };
 }
 
@@ -87,7 +81,7 @@ describe('ClockPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         clockRoute('self'),
-        { provide: AuthService, useValue: authStub(floorMe) },
+        { provide: AuthService, useValue: authStub(memberMe) },
         { provide: OpsConfirmService, useValue: confirmStub().service },
         { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
       ],
@@ -126,7 +120,7 @@ describe('ClockPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         clockRoute('self'),
-        { provide: AuthService, useValue: authStub(floorMe) },
+        { provide: AuthService, useValue: authStub(memberMe) },
         { provide: OpsConfirmService, useValue: confirmStub().service },
         { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
       ],
@@ -258,7 +252,7 @@ describe('ClockPage', () => {
           provideHttpClient(),
           provideHttpClientTesting(),
           clockRoute('self'),
-          { provide: AuthService, useValue: authStub(floorMe) },
+          { provide: AuthService, useValue: authStub(memberMe) },
           { provide: OpsConfirmService, useValue: confirmStub().service },
           { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
           {
@@ -398,7 +392,7 @@ describe('ClockPage', () => {
           provideHttpClient(),
           provideHttpClientTesting(),
           clockRoute('self'),
-          { provide: AuthService, useValue: authStub(floorMe) },
+          { provide: AuthService, useValue: authStub(memberMe) },
           { provide: OpsConfirmService, useValue: confirmStub().service },
           { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
         ],
@@ -444,7 +438,7 @@ describe('ClockPage', () => {
   it.each([
     ['owner', ownerMe],
     ['admin', adminMe],
-    ['staff', floorMe],
+    ['member', memberMe],
   ] as const)(
     '%s on the self route sees the personal clock and not the kiosk',
     async (_role, me) => {
@@ -499,7 +493,7 @@ describe('ClockPage', () => {
           provideHttpClient(),
           provideHttpClientTesting(),
           clockRoute('self'),
-          { provide: AuthService, useValue: authStub(floorMe) },
+          { provide: AuthService, useValue: authStub(memberMe) },
           { provide: OpsConfirmService, useValue: confirmStub().service },
           { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
         ],

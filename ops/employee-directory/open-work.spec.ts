@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canBeAssignedJobs, type StaffAvailabilityRow } from '@hr-host';
-import { hostStaffRoles } from '../host-spec-fixtures';
+import type { StaffAvailabilityRow } from '@hr-host';
 import type { DeactivationSummary, OpenWorkLeave } from './employee-directory.api';
 import {
   applyMoveAll,
@@ -13,30 +12,24 @@ import {
 
 const jobs = [{ jobId: 'j-1' }, { jobId: 'j-2' }];
 
-type HostAvailabilityRole = StaffAvailabilityRow['role'];
+const acceptAll = () => true;
+const acceptsAlphaBeta = (role: string) => role === 'alpha' || role === 'beta';
 
-function availabilityRoles(): HostAvailabilityRole[] {
-  return hostStaffRoles() as HostAvailabilityRole[];
-}
+const base = {
+  displayName: 'Ana',
+  onApprovedLeave: false,
+  leaveType: null,
+  halfDay: null,
+  clockedIn: true,
+};
 
-function roleWhere(
-  pred: (role: HostAvailabilityRole) => boolean,
-): HostAvailabilityRole | undefined {
-  return availabilityRoles().find((role) => pred(role));
-}
-
-function person(overrides: Partial<StaffAvailabilityRow> = {}): StaffAvailabilityRow {
-  const row = {
-    staffId: 's-1',
-    displayName: 'Ana',
-    role: roleWhere((role) => canBeAssignedJobs(role)) ?? availabilityRoles()[0],
-    onApprovedLeave: false,
-    leaveType: null,
-    halfDay: null,
-    clockedIn: true,
-    ...overrides,
-  };
-  return row as StaffAvailabilityRow;
+// The predicate is passed in by the test, so these role values belong to the test.
+function row(
+  id: string,
+  role: string,
+  extra: Partial<StaffAvailabilityRow> = {},
+): StaffAvailabilityRow {
+  return { ...base, ...extra, staffId: id, role } as unknown as StaffAvailabilityRow;
 }
 
 describe('handoverMoves', () => {
@@ -65,37 +58,28 @@ describe('applyMoveAll', () => {
 
 describe('handoverCandidates and pickerLabel', () => {
   it('leaves out the person being handed over', () => {
-    const rows = [person({ staffId: 'me' }), person({ staffId: 'other', displayName: 'Ben' })];
-    expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['other']);
+    const rows = [row('me', 'alpha'), row('other', 'alpha', { displayName: 'Ben' })];
+    expect(handoverCandidates(rows, 'me', acceptAll).map((r) => r.staffId)).toEqual(['other']);
   });
 
-  it('keeps staff the host can assign and leaves out staff it cannot', () => {
-    const assignable = roleWhere((role) => canBeAssignedJobs(role));
-    const blocked = roleWhere((role) => !canBeAssignedJobs(role));
-    const rows = [
-      ...(assignable ? [person({ staffId: 'kept', role: assignable })] : []),
-      ...(blocked ? [person({ staffId: 'left-out', role: blocked })] : []),
-    ];
-    const ids = handoverCandidates(rows, 'me').map((row) => row.staffId);
-    if (assignable) {
-      expect(ids).toContain('kept');
-    }
-    if (blocked) {
-      expect(ids).not.toContain('left-out');
-    }
-    expect(ids).toEqual(
-      rows.filter((row) => canBeAssignedJobs(row.role)).map((row) => row.staffId),
-    );
+  it('keeps exactly the fixture roles the predicate accepts', () => {
+    const rows = [row('alpha-1', 'alpha'), row('beta-1', 'beta'), row('gamma-1', 'gamma')];
+    expect(handoverCandidates(rows, 'me', acceptsAlphaBeta).map((r) => r.staffId)).toEqual([
+      'alpha-1',
+      'beta-1',
+    ]);
   });
 
   it('adds the availability hint to the label', () => {
-    expect(pickerLabel(person({ displayName: 'Ana' }))).toBe('Ana');
-    expect(pickerLabel(person({ displayName: 'Ana', clockedIn: false }))).toBe(
+    expect(pickerLabel(row('s-1', 'alpha', { displayName: 'Ana' }))).toBe('Ana');
+    expect(pickerLabel(row('s-1', 'alpha', { displayName: 'Ana', clockedIn: false }))).toBe(
       'Ana (Not clocked in today)',
     );
-    expect(pickerLabel(person({ displayName: 'Ana', onApprovedLeave: true, halfDay: 'am' }))).toBe(
-      'Ana (On leave today (AM))',
-    );
+    expect(
+      pickerLabel(
+        row('s-1', 'alpha', { displayName: 'Ana', onApprovedLeave: true, halfDay: 'am' }),
+      ),
+    ).toBe('Ana (On leave today (AM))');
   });
 });
 
