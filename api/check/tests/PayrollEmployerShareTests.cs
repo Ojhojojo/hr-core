@@ -154,7 +154,7 @@ public sealed class PayrollEmployerShareTests
     }
 
     [Fact]
-    public void Flag_on_maps_employer_share_columns_as_nullable_14_2_default_0()
+    public void Flag_on_maps_employer_share_columns_as_nullable_14_2_without_a_default()
     {
         var built = new DbContextOptionsBuilder<TestHrDb>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -174,7 +174,7 @@ public sealed class PayrollEmployerShareTests
             Assert.True(property.IsNullable);
             Assert.Equal(14, property.GetPrecision());
             Assert.Equal(2, property.GetScale());
-            Assert.Equal(0m, property.GetDefaultValue());
+            Assert.Null(property.GetDefaultValue());
         }
     }
 

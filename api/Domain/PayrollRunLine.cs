@@ -44,7 +44,7 @@ public sealed class PayrollRunLine
     /// <summary>
     /// Employer SSS share in PHP, including the EC. Null when the shop had remittance off at lock.
     /// Mapped only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on: nullable
-    /// <c>numeric(14,2)</c>, default 0. Ignored when the flag is off, so the host model is unchanged.
+    /// <c>numeric(14,2)</c> with no database default, so null stays null. Ignored when the flag is off.
     /// </summary>
     public decimal? EmployerSss { get; set; }
 

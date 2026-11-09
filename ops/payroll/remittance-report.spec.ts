@@ -33,6 +33,8 @@ const november: RemittanceReportModel = {
   total: 4430,
 };
 
+const novemberCsv = remittanceCsv(november);
+
 const empty: RemittanceReportModel = {
   branchId: 'branch-north',
   month: '2026-09',
@@ -50,17 +52,16 @@ const empty: RemittanceReportModel = {
 
 describe('remittance CSV', () => {
   it('matches the November 2025 salary of 20000 on screen and in the file', () => {
-    const csv = remittanceCsv(november);
-    expect(csv).toBe(
+    expect(novemberCsv).toBe(
       'Agency,Employee share,Employer share,Total\n' +
         'SSS,1000.00,2030.00,3030.00\n' +
         'PhilHealth,500.00,500.00,1000.00\n' +
         'Pag-IBIG,200.00,200.00,400.00\n' +
         'Total,1700.00,2730.00,4430.00\n',
     );
-    expect(sumColumn(csv, 1)).toBe(november.employeeShare);
-    expect(sumColumn(csv, 2)).toBe(november.employerShare);
-    expect(sumColumn(csv, 3)).toBe(november.total);
+    expect(sumColumn(novemberCsv, 1)).toBe(november.employeeShare);
+    expect(sumColumn(novemberCsv, 2)).toBe(november.employerShare);
+    expect(sumColumn(novemberCsv, 3)).toBe(november.total);
   });
 });
 
@@ -94,13 +95,17 @@ describe('PayrollApi remittance', () => {
     const exported = http.expectOne((r) => r.url.includes('/api/ops/payroll/remittance/export'));
     expect(exported.request.method).toBe('GET');
     expect(exported.request.params.get('month')).toBe('2026-11');
-    exported.flush(new Blob([remittanceCsv(november)]));
+    exported.flush(new Blob([novemberCsv]));
     http.verify();
   });
 });
 
 describe('Remittance report screen', () => {
-  afterEach(() => TestBed.resetTestingModule());
+  const createObjectUrl = URL.createObjectURL;
+  afterEach(() => {
+    URL.createObjectURL = createObjectUrl;
+    TestBed.resetTestingModule();
+  });
 
   async function mount() {
     await TestBed.configureTestingModule({
@@ -164,24 +169,24 @@ describe('Remittance report screen', () => {
     const total = host.querySelector('[data-remittance-total]');
     expect(parseMoney(total?.querySelector('[data-total]')?.textContent)).toBe(4430);
 
-    const csv = remittanceCsv(november);
-    expect(sumColumn(csv, 1)).toBe(
+    expect(sumColumn(novemberCsv, 1)).toBe(
       money(host, 'sss', 'employee') +
         money(host, 'philhealth', 'employee') +
         money(host, 'pagibig', 'employee'),
     );
-    expect(sumColumn(csv, 2)).toBe(2030 + 500 + 200);
-    expect(sumColumn(csv, 3)).toBe(parseMoney(total?.querySelector('[data-total]')?.textContent));
+    expect(sumColumn(novemberCsv, 2)).toBe(2030 + 500 + 200);
+    expect(sumColumn(novemberCsv, 3)).toBe(
+      parseMoney(total?.querySelector('[data-total]')?.textContent),
+    );
 
     const blobs: Blob[] = [];
-    const previous = URL.createObjectURL?.bind(URL);
     URL.createObjectURL = (blob: Blob) => {
       blobs.push(blob);
-      return previous ? previous(blob) : 'blob:remittance';
+      return createObjectUrl.call(URL, blob);
     };
     host.querySelector<HTMLButtonElement>('[name="exportRemittance"]')?.click();
     expect(blobs.length).toBe(1);
-    expect(await blobText(blobs[0])).toBe(csv);
+    expect(await blobText(blobs[0])).toBe(novemberCsv);
     http.verify();
   });
 

@@ -350,9 +350,11 @@ public static class HrModel
             e.Property(x => x.LoanDeductions).HasPrecision(12, 2);
             if (features.EmployerRemittance)
             {
-                e.Property(x => x.EmployerSss).HasPrecision(14, 2).HasDefaultValue(0m);
-                e.Property(x => x.EmployerPhilHealth).HasPrecision(14, 2).HasDefaultValue(0m);
-                e.Property(x => x.EmployerPagIbig).HasPrecision(14, 2).HasDefaultValue(0m);
+                // No database default. A null means the shop had the report off, and EF must
+                // store that null. A default of 0 makes Postgres fill 0 when EF omits the column.
+                e.Property(x => x.EmployerSss).HasPrecision(14, 2);
+                e.Property(x => x.EmployerPhilHealth).HasPrecision(14, 2);
+                e.Property(x => x.EmployerPagIbig).HasPrecision(14, 2);
             }
             else
             {
