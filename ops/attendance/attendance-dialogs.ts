@@ -8,6 +8,19 @@ import { BannerComponent, DialogComponent, OpsDateModule, OpsToneDirective } fro
 import { toIsoDate } from '../hr-dates';
 import { AttendanceStaffOption } from './attendance.models';
 
+/**
+ * `yyyy-MM-ddTHH:mm` for a Manila punch field.
+ * A native datepicker stores a `Date`. Interpolating that calls `Date.toString()`.
+ * `toIsoDate` uses the local calendar day and leaves an iso day string unchanged.
+ */
+function manilaDateTime(date: Date | string | null | undefined, time: string): string | null {
+  const day = toIsoDate(date);
+  if (!day || !time) {
+    return null;
+  }
+  return `${day}T${time}`;
+}
+
 export interface PunchForDialogData {
   staff: AttendanceStaffOption[];
 }
@@ -186,18 +199,23 @@ export class PunchForDialog {
       return;
     }
 
-    if (!this.inDate() || !this.inTime()) {
+    const inAtManila = manilaDateTime(this.inDate(), this.inTime());
+    if (!inAtManila) {
       this.error.set('Enter a clock-in date and time.');
       return;
     }
 
     const result: PunchForDialogResult = {
       staffId: this.staffId(),
-      inAtManila: `${this.inDate()}T${this.inTime()}`,
+      inAtManila,
     };
     if (this.outTime()) {
-      const outDate = this.outDate() || this.inDate();
-      result.outAtManila = `${outDate}T${this.outTime()}`;
+      const outAtManila = manilaDateTime(this.outDate() || this.inDate(), this.outTime());
+      if (!outAtManila) {
+        this.error.set('Enter a clock-out date and time.');
+        return;
+      }
+      result.outAtManila = outAtManila;
     }
 
     this.dialogRef.close(result);
@@ -298,7 +316,8 @@ export class ClosePunchDialog {
 
   protected save(): void {
     const reason = this.reason().trim();
-    if (!this.outDate() || !this.outTime()) {
+    const outAtManila = manilaDateTime(this.outDate(), this.outTime());
+    if (!outAtManila) {
       this.error.set('Enter a clock-out date and time.');
       return;
     }
@@ -308,7 +327,7 @@ export class ClosePunchDialog {
       return;
     }
 
-    this.dialogRef.close({ outAtManila: `${this.outDate()}T${this.outTime()}`, reason });
+    this.dialogRef.close({ outAtManila, reason });
   }
 }
 
