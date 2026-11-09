@@ -17,10 +17,10 @@ public sealed class HrCoreFeatures
 
     /// <summary>
     /// Monthly remittance report and the per-branch on/off row (<c>BranchRemittanceSetting</c>).
-    /// Off: that entity is not in the EF model, <c>/api/ops/payroll/remittance</c> is not mapped,
-    /// and locking a run does not query it. The employer-share columns on <c>PayrollRunLine</c>
-    /// stay in the model either way. On: a shop can turn the report on; a lock then stores the
-    /// employer SSS, PhilHealth, and Pag-IBIG shares.
+    /// Off: that entity is not in the EF model, the employer-share columns are ignored,
+    /// <c>/api/ops/payroll/remittance</c> is not mapped, and locking a run does not query it.
+    /// On: the columns and <c>BranchRemittanceSetting</c> are mapped, and a shop can turn the
+    /// report on so a lock stores the employer SSS, PhilHealth, and Pag-IBIG shares.
     /// </summary>
     public bool EmployerRemittance { get; set; }
 }

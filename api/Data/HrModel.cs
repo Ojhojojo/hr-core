@@ -319,11 +319,14 @@ public static class HrModel
                 t.HasCheckConstraint(
                     "CK_PayrollRunLines_OtPay",
                     "\"OtPay\" IS NULL OR \"OtPay\" >= 0");
-                t.HasCheckConstraint(
-                    "CK_PayrollRunLines_EmployerShares",
-                    "(\"EmployerSss\" IS NULL OR \"EmployerSss\" >= 0) " +
-                    "AND (\"EmployerPhilHealth\" IS NULL OR \"EmployerPhilHealth\" >= 0) " +
-                    "AND (\"EmployerPagIbig\" IS NULL OR \"EmployerPagIbig\" >= 0)");
+                if (features.EmployerRemittance)
+                {
+                    t.HasCheckConstraint(
+                        "CK_PayrollRunLines_EmployerShares",
+                        "(\"EmployerSss\" IS NULL OR \"EmployerSss\" >= 0) " +
+                        "AND (\"EmployerPhilHealth\" IS NULL OR \"EmployerPhilHealth\" >= 0) " +
+                        "AND (\"EmployerPagIbig\" IS NULL OR \"EmployerPagIbig\" >= 0)");
+                }
             });
             e.Property(x => x.StaffName).HasMaxLength(200).IsRequired();
             e.Property(x => x.RatePhp).HasPrecision(12, 2);
@@ -345,9 +348,19 @@ public static class HrModel
             e.Property(x => x.PremiumPay).HasPrecision(12, 2);
             e.Property(x => x.Allowances).HasPrecision(12, 2);
             e.Property(x => x.LoanDeductions).HasPrecision(12, 2);
-            e.Property(x => x.EmployerSss).HasPrecision(14, 2).HasDefaultValue(0m);
-            e.Property(x => x.EmployerPhilHealth).HasPrecision(14, 2).HasDefaultValue(0m);
-            e.Property(x => x.EmployerPagIbig).HasPrecision(14, 2).HasDefaultValue(0m);
+            if (features.EmployerRemittance)
+            {
+                e.Property(x => x.EmployerSss).HasPrecision(14, 2).HasDefaultValue(0m);
+                e.Property(x => x.EmployerPhilHealth).HasPrecision(14, 2).HasDefaultValue(0m);
+                e.Property(x => x.EmployerPagIbig).HasPrecision(14, 2).HasDefaultValue(0m);
+            }
+            else
+            {
+                e.Ignore(x => x.EmployerSss);
+                e.Ignore(x => x.EmployerPhilHealth);
+                e.Ignore(x => x.EmployerPagIbig);
+            }
+
             e.HasIndex(x => new { x.RunId, x.StaffId }).IsUnique();
             e.HasOne(x => x.Run).WithMany(run => run.Lines).HasForeignKey(x => x.RunId)
                 .OnDelete(DeleteBehavior.Cascade);

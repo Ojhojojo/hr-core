@@ -137,12 +137,29 @@ public sealed class PayrollEmployerShareTests
     }
 
     [Fact]
-    public void Employer_share_columns_are_nullable_14_2_with_default_0()
+    public void Flag_off_leaves_employer_share_columns_out_of_the_model()
     {
         var options = new DbContextOptionsBuilder<TestHrDb>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         using var db = new TestHrDb(options);
+        var line = db.Model.FindEntityType(typeof(PayrollRunLine));
+        Assert.NotNull(line);
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerSss)));
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerPhilHealth)));
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerPagIbig)));
+        Assert.DoesNotContain(
+            typeof(BranchRemittanceSetting),
+            db.Model.GetEntityTypes().Select(entity => entity.ClrType));
+    }
+
+    [Fact]
+    public void Flag_on_maps_employer_share_columns_as_nullable_14_2_default_0()
+    {
+        var built = new DbContextOptionsBuilder<TestHrDb>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseHrCoreFeatures(new HrCoreFeatures { EmployerRemittance = true });
+        using var db = new TestHrDb((DbContextOptions<TestHrDb>)built.Options);
         var line = db.Model.FindEntityType(typeof(PayrollRunLine));
         Assert.NotNull(line);
         foreach (var name in new[]
@@ -159,10 +176,6 @@ public sealed class PayrollEmployerShareTests
             Assert.Equal(2, property.GetScale());
             Assert.Equal(0m, property.GetDefaultValue());
         }
-
-        Assert.DoesNotContain(
-            typeof(BranchRemittanceSetting),
-            db.Model.GetEntityTypes().Select(entity => entity.ClrType));
     }
 
     [Fact]

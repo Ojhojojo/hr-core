@@ -53,6 +53,11 @@ public sealed class PayrollSchedulesFlagTests
         }
 
         Assert.DoesNotContain(typeof(BranchRemittanceSetting), types);
+        var line = db.Model.FindEntityType(typeof(PayrollRunLine));
+        Assert.NotNull(line);
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerSss)));
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerPhilHealth)));
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerPagIbig)));
     }
 
     [Fact]

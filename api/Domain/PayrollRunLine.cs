@@ -42,20 +42,21 @@ public sealed class PayrollRunLine
     public decimal? LoanDeductions { get; set; }
 
     /// <summary>
-    /// Employer SSS share in PHP, including the EC. Null when remittance was off at lock.
-    /// Nullable <c>numeric(14,2)</c>; existing rows default to 0.
+    /// Employer SSS share in PHP, including the EC. Null when the shop had remittance off at lock.
+    /// Mapped only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on: nullable
+    /// <c>numeric(14,2)</c>, default 0. Ignored when the flag is off, so the host model is unchanged.
     /// </summary>
     public decimal? EmployerSss { get; set; }
 
     /// <summary>
-    /// Employer PhilHealth share in PHP. Null when remittance was off at lock.
-    /// Nullable <c>numeric(14,2)</c>; existing rows default to 0.
+    /// Employer PhilHealth share in PHP. Null when the shop had remittance off at lock.
+    /// Mapped only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on.
     /// </summary>
     public decimal? EmployerPhilHealth { get; set; }
 
     /// <summary>
-    /// Employer Pag-IBIG share in PHP. Null when remittance was off at lock.
-    /// Nullable <c>numeric(14,2)</c>; existing rows default to 0.
+    /// Employer Pag-IBIG share in PHP. Null when the shop had remittance off at lock.
+    /// Mapped only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on.
     /// </summary>
     public decimal? EmployerPagIbig { get; set; }
 }

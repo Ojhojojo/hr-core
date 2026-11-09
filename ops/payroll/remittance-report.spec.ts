@@ -181,7 +181,7 @@ describe('Remittance report screen', () => {
     };
     host.querySelector<HTMLButtonElement>('[name="exportRemittance"]')?.click();
     expect(blobs.length).toBe(1);
-    expect(await blobs[0].text()).toBe(csv);
+    expect(await blobText(blobs[0])).toBe(csv);
     http.verify();
   });
 
@@ -202,7 +202,10 @@ describe('Remittance report screen', () => {
     http.expectOne((r) => r.url.includes('/api/ops/payroll/remittance')).flush(off);
     fixture.detectChanges();
 
-    host.querySelector<HTMLElement>('mat-slide-toggle')?.click();
+    // Material listens on the inner button. Clicking the host does not emit ngModelChange.
+    const toggle = host.querySelector<HTMLButtonElement>('mat-slide-toggle button');
+    expect(toggle).toBeTruthy();
+    toggle?.click();
     fixture.detectChanges();
     const put = http.expectOne(
       (r) => r.method === 'PUT' && r.url.includes('/api/ops/payroll/remittance'),
@@ -229,6 +232,18 @@ describe('Remittance report screen', () => {
     http.verify();
   });
 });
+
+async function blobText(blob: Blob): Promise<string> {
+  if (typeof blob.text === 'function') {
+    return blob.text();
+  }
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(blob);
+  });
+}
 
 function money(
   host: HTMLElement,
