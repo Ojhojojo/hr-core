@@ -54,6 +54,19 @@ function submit(fixture: ComponentFixture<unknown>, formId: string): void {
   form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 }
 
+async function expectStillOpen(
+  fixture: ComponentFixture<unknown>,
+  close: ReturnType<typeof vi.fn>,
+  message: string,
+): Promise<void> {
+  fixture.detectChanges();
+  await fixture.whenStable();
+  expect(close).not.toHaveBeenCalled();
+  const root = fixture.nativeElement as HTMLElement;
+  const alert = root.querySelector('[role="alert"]') ?? document.querySelector('[role="alert"]');
+  expect(alert?.textContent).toContain(message);
+}
+
 describe('Punch for dialog', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -145,7 +158,33 @@ describe('Punch for dialog', () => {
     setField(fixture, 'inTime', '08:15');
     submit(fixture, 'punch-for-form');
 
-    expect(close).not.toHaveBeenCalled();
+    await expectStillOpen(fixture, close, 'Enter a clock-in date and time.');
+  });
+
+  it('does not close when the clock-in date is invalid', async () => {
+    const close = vi.fn();
+    const fixture = await mount(close);
+
+    setField(fixture, 'punchStaff', 'staff-1');
+    pickDate(fixture, 'inDate', new Date(Number.NaN));
+    setField(fixture, 'inTime', '08:15');
+    submit(fixture, 'punch-for-form');
+
+    await expectStillOpen(fixture, close, 'Enter a clock-in date and time.');
+  });
+
+  it('does not close when the clock-out date is invalid', async () => {
+    const close = vi.fn();
+    const fixture = await mount(close);
+
+    setField(fixture, 'punchStaff', 'staff-1');
+    pickDate(fixture, 'inDate', new Date(2026, 0, 5));
+    setField(fixture, 'inTime', '08:15');
+    pickDate(fixture, 'outDate', new Date(Number.NaN));
+    setField(fixture, 'outTime', '17:45');
+    submit(fixture, 'punch-for-form');
+
+    await expectStillOpen(fixture, close, 'Enter a clock-out date and time.');
   });
 });
 
@@ -216,6 +255,18 @@ describe('Close punch dialog', () => {
     setField(fixture, 'outTime', '17:45');
     submit(fixture, 'close-punch-form');
 
-    expect(close).not.toHaveBeenCalled();
+    await expectStillOpen(fixture, close, 'A reason is required to close the punch.');
+  });
+
+  it('does not close when the clock-out date is invalid', async () => {
+    const close = vi.fn();
+    const fixture = await mount(close);
+
+    pickDate(fixture, 'outDate', new Date(Number.NaN));
+    setField(fixture, 'outTime', '17:45');
+    setField(fixture, 'reason', 'Shift ended');
+    submit(fixture, 'close-punch-form');
+
+    await expectStillOpen(fixture, close, 'Enter a clock-out date and time.');
   });
 });
