@@ -24,7 +24,7 @@ leaves any of these out.
 | `HrRoles` answers: who is desk staff, who clocks in by default, who sees only themselves in the staff list, and the role for unknown people | `apps/api/Features/HrAdapters/ShopHrAppContract.cs` |
 | `StaffAccessFlags`: app-specific staff permissions, read from and written to the staff JSON | same file |
 | A DbContext that implements `IHrDb` and calls `HrModel.Configure(modelBuilder)` | `apps/api/Shared/Data/AppDbContext.cs` |
-| Optionally `HrCoreFeatures`. `PayrollSchedules` defaults to off. Pass the same instance to `HrModel.Configure(modelBuilder, features)` and `AddHrCore<AppDbContext>(features)`. Do not add `DbSet` properties for those entities until the flag is on | Qurio turns `PayrollSchedules` on. Rakkii leaves it off |
+| Optionally `HrCoreFeatures`. `PayrollSchedules` and `EmployerRemittance` default to off. Pass the same instance to `HrModel.Configure(modelBuilder, features)` and `AddHrCore<AppDbContext>(features)`. Do not add `DbSet` properties for those entities until the flag is on | Qurio turns `PayrollSchedules` on, and `EmployerRemittance` when it wants the report. Rakkii leaves both off |
 | `IStaffInvite` (how new staff get a sign-in) | `apps/api/Shared/Infrastructure/SupabaseStaffInvite.cs` |
 | Optionally `IStaffWorkHooks`, for open work a person holds (Rakkii: jobs) | `apps/api/Features/Jobs/StaffWork/JobStaffWork.cs` |
 | Its own fields on `Organization`, `Branch` and `Staff`, as partial class parts | `apps/api/Shared/Domain/*.Shop.cs` |
@@ -32,6 +32,8 @@ leaves any of these out.
 Then in `Program.cs`, call `services.AddHrCore<AppDbContext>()` and `app.MapHrCore()`.
 
 `PayrollSchedules` (on `HrCoreFeatures`) covers `BranchPayrollCutoff`, `BranchDeductionSchedule`, and `PayrollCatchUp`. It is off by default. Off, those entities are not in the EF model, `/api/ops/payroll/cutoff-schedule`, `/api/ops/payroll/deduction-schedule`, and `/api/ops/payroll/catch-ups` are not mapped, and the register and loan pricing do not query them. On, cut-offs and deduction schedules behave as they do for a host that opted in. The payroll screen hides those panels unless the host provides the `HR_PAYROLL_SCHEDULES` injection token with `true` (`ops/payroll/payroll-schedules.ts`). Rakkii leaves both off. Qurio sets both on.
+
+`EmployerRemittance` covers the per-branch remittance switch (`BranchRemittanceSetting`) and `/api/ops/payroll/remittance`. It is off by default. Off, that entity is not in the EF model, the report routes are not mapped, and locking a run does not query the setting. The employer-share columns on `PayrollRunLine` (`EmployerSss`, `EmployerPhilHealth`, `EmployerPagIbig`, nullable `numeric(14,2)`, default 0) are always in the model, so every host adds them with the pin. They stay null when the flag is off or the shop has not turned the report on, and payslips do not show them. The payroll screen hides the Remittance panel unless the host provides `HR_EMPLOYER_REMITTANCE` with `true` (`ops/payroll/payroll-remittance.ts`). Rakkii leaves the flag off. Qurio sets it on, then an owner turns the report on for each shop.
 
 `api/check/HrCore.Check.csproj` builds the package with a minimal stand-in host
 (`api/check/Host/MinimalHost.cs`). CI runs it on every PR, so nothing app-specific can

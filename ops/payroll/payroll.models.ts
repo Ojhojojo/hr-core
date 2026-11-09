@@ -679,3 +679,34 @@ export interface PayrollFinalPay {
   grossTotal: number;
   notes: string[];
 }
+
+/** One agency on the monthly remittance report. Amounts are PHP. */
+export interface RemittanceAgency {
+  key: string;
+  label: string;
+  employeeShare: number;
+  employerShare: number;
+  total: number;
+}
+
+/** Current shop, one month. `enabled` is false until the shop turns the report on. */
+export interface RemittanceReport {
+  branchId: string;
+  month: string;
+  enabled: boolean;
+  agencies: RemittanceAgency[];
+  employeeShare: number;
+  employerShare: number;
+  total: number;
+  /** Set when the report is on and no locked run ends in the month. */
+  emptyMessage?: string | null;
+}
+
+export interface RemittanceSetting {
+  branchId: string;
+  enabled: boolean;
+}
+
+export interface UpdateRemittanceSetting {
+  enabled: boolean;
+}

@@ -8,7 +8,11 @@ namespace HrCore.Features.Payroll;
 /// <see cref="PayrollRunLine"/> rows. Runs are never edited or deleted; a mistake is voided and
 /// corrected in the next period.
 /// </summary>
-public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollService payroll)
+public sealed class PayrollRunService(
+    IHrDb db,
+    HrChangeLogService hr,
+    PayrollService payroll,
+    PayrollRemittanceService remittance)
 {
     public const string RefType = "payroll_run";
 
@@ -157,6 +161,8 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
 
         var register = await payroll.GetRegisterAsync(
             [branch], start, end, includeInactive: false, includeUnscopedOwners, cancellationToken);
+        var employerShares = await remittance.ForRegisterAsync(
+            branch, start, end, register.Rows, includeUnscopedOwners, cancellationToken);
 
         var now = DateTime.UtcNow;
         var run = new PayrollRun
@@ -180,6 +186,21 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
         foreach (var row in register.Rows)
         {
             var lineId = Guid.NewGuid();
+            decimal? employerSss = null;
+            decimal? employerPhilHealth = null;
+            decimal? employerPagIbig = null;
+            if (employerShares is not null)
+            {
+                if (!employerShares.TryGetValue(row.StaffId, out var share))
+                {
+                    share = default;
+                }
+
+                employerSss = share.Sss;
+                employerPhilHealth = share.PhilHealth;
+                employerPagIbig = share.PagIbig;
+            }
+
             db.PayrollRunLines.Add(new PayrollRunLine
             {
                 Id = lineId,
@@ -207,7 +228,10 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
                 NightHours = row.NightHours,
                 PremiumPay = row.PremiumPay,
                 Allowances = row.Allowances,
-                LoanDeductions = row.LoanDeductions
+                LoanDeductions = row.LoanDeductions,
+                EmployerSss = employerSss,
+                EmployerPhilHealth = employerPhilHealth,
+                EmployerPagIbig = employerPagIbig
             });
             if (row.AllowanceItems is { Count: > 0 } items)
             {
@@ -615,7 +639,10 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
             allowanceItems is { Count: > 0 } ? allowanceItems : null,
             line.LoanDeductions,
             loanItems is { Count: > 0 } ? loanItems : null,
-            line.OtPay);
+            line.OtPay,
+            line.EmployerSss,
+            line.EmployerPhilHealth,
+            line.EmployerPagIbig);
 
     private static string? BlankToNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

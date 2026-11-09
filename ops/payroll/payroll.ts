@@ -79,6 +79,8 @@ import { alignCutoffPeriod, formatCutoffMonth, shiftMonth } from './payroll-cuto
 import { PayrollCutoffSettings } from './payroll-cutoff-settings';
 import { DeductionSchedule } from './deduction-schedule';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
+import { RemittanceReport } from './remittance-report';
+import { HR_EMPLOYER_REMITTANCE } from './payroll-remittance';
 
 @Component({
   selector: 'app-ops-payroll',
@@ -112,6 +114,7 @@ import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
     StatusBadgeComponent,
     PayrollCutoffSettings,
     DeductionSchedule,
+    RemittanceReport,
   ],
   templateUrl: './payroll.html',
   styles: `
@@ -310,6 +313,9 @@ export class PayrollPage {
   private readonly toast = inject(OpsToastService);
   /** Host flag. Absent means off, so rakkii's payroll screen stays as it was. */
   protected readonly payrollSchedules = inject(HR_PAYROLL_SCHEDULES, { optional: true }) ?? false;
+  /** Host flag. Absent means off, so the remittance panel and its calls stay hidden. */
+  protected readonly employerRemittance =
+    inject(HR_EMPLOYER_REMITTANCE, { optional: true }) ?? false;
 
   protected readonly from = signal('');
   protected readonly to = signal('');

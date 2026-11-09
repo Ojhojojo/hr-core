@@ -34,6 +34,7 @@ public sealed class PayrollSchedulesFlagTests
         Assert.DoesNotContain(typeof(BranchPayrollCutoff), types);
         Assert.DoesNotContain(typeof(BranchDeductionSchedule), types);
         Assert.DoesNotContain(typeof(PayrollCatchUp), types);
+        Assert.DoesNotContain(typeof(BranchRemittanceSetting), types);
         Assert.Contains(typeof(Staff), types);
     }
 
@@ -50,6 +51,40 @@ public sealed class PayrollSchedulesFlagTests
         {
             Assert.Contains(scheduleType, types);
         }
+
+        Assert.DoesNotContain(typeof(BranchRemittanceSetting), types);
+    }
+
+    [Fact]
+    public void Remittance_flag_on_includes_only_the_setting_table()
+    {
+        var built = new DbContextOptionsBuilder<TestHrDb>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseHrCoreFeatures(new HrCoreFeatures { EmployerRemittance = true });
+        using var db = new TestHrDb((DbContextOptions<TestHrDb>)built.Options);
+        var types = db.Model.GetEntityTypes().Select(entity => entity.ClrType).ToHashSet();
+
+        Assert.Contains(typeof(BranchRemittanceSetting), types);
+        Assert.DoesNotContain(typeof(BranchPayrollCutoff), types);
+    }
+
+    [Fact]
+    public async Task Flag_off_remittance_routes_are_404()
+    {
+        await using var app = await FlagApp.StartAsync(payrollSchedules: false);
+        foreach (var url in new[]
+        {
+            "/api/ops/payroll/remittance",
+            "/api/ops/payroll/remittance?month=2026-11",
+            "/api/ops/payroll/remittance/export?month=2026-11"
+        })
+        {
+            var response = await app.SendAsync(HttpMethod.Get, url);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        var put = await app.SendAsync(HttpMethod.Put, "/api/ops/payroll/remittance");
+        Assert.Equal(HttpStatusCode.NotFound, put.StatusCode);
     }
 
     [Fact]

@@ -1,0 +1,88 @@
+<div class="remittance-report" data-remittance-report>
+  @if (loading()) {
+    <ops-skeleton data-remittance-loading [rows]="3" label="Loading remittance" />
+  } @else if (loadError()) {
+    <ops-banner tone="danger" role="alert" [message]="loadError()" />
+    <button matButton="outlined" type="button" name="retryRemittance" (click)="load()">
+      Retry
+    </button>
+  } @else if (ready()) {
+    @if (report(); as current) {
+      @if (saveError()) {
+        <ops-banner tone="danger" role="alert" [message]="saveError()" />
+      }
+      <mat-slide-toggle
+        [attr.name]="'remittanceEnabled'"
+        [ngModel]="enabled()"
+        (ngModelChange)="setEnabled($event)"
+        [disabled]="saving()"
+      >
+        Record employer shares for this shop
+      </mat-slide-toggle>
+      @if (!current.enabled) {
+        <p data-remittance-off>
+          Employer shares stay off for this shop. Locking a run keeps today's lines and payslips.
+        </p>
+      } @else {
+        <div class="remittance-actions">
+          <button matButton="outlined" type="button" name="remittancePrevMonth" (click)="shift(-1)">
+            Previous
+          </button>
+          <span data-remittance-month>{{ formatMonth(current.month) }}</span>
+          <button matButton="outlined" type="button" name="remittanceNextMonth" (click)="shift(1)">
+            Next
+          </button>
+          @if (!current.emptyMessage) {
+            <button
+              matButton="outlined"
+              type="button"
+              name="exportRemittance"
+              (click)="exportCsv()"
+            >
+              Export CSV
+            </button>
+          }
+        </div>
+        @if (current.emptyMessage) {
+          <ops-empty-state
+            data-remittance-empty
+            title="Nothing to remit"
+            [message]="current.emptyMessage"
+            icon="inbox"
+          />
+        } @else {
+          <div class="remittance-table" data-remittance-table>
+            <table>
+              <thead>
+                <tr>
+                  <th>Agency</th>
+                  <th>Employee share</th>
+                  <th>Employer share</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (agency of current.agencies; track agency.key) {
+                  <tr [attr.data-agency]="agency.key">
+                    <th scope="row">{{ agency.label }}</th>
+                    <td data-employee>{{ formatMoney(agency.employeeShare) }}</td>
+                    <td data-employer>{{ formatMoney(agency.employerShare) }}</td>
+                    <td data-total>{{ formatMoney(agency.total) }}</td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot>
+                <tr data-remittance-total>
+                  <th scope="row">Total</th>
+                  <td data-employee>{{ formatMoney(current.employeeShare) }}</td>
+                  <td data-employer>{{ formatMoney(current.employerShare) }}</td>
+                  <td data-total>{{ formatMoney(current.total) }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        }
+      }
+    }
+  }
+</div>

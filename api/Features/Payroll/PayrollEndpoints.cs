@@ -331,6 +331,11 @@ public static class PayrollEndpoints
             MapPayrollScheduleApi(app);
         }
 
+        if (features.EmployerRemittance)
+        {
+            app.MapRemittanceApi();
+        }
+
         return app;
     }
 

@@ -240,6 +240,20 @@
   </mat-expansion-panel>
 }
 
+@if (employerRemittance) {
+  <mat-expansion-panel class="ops-premium-panel" (opened)="remittance.load()">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        Remittance
+        <ops-info-tip
+          text="Employer SSS, PhilHealth, and Pag-IBIG for locked runs whose period ends in the month. Off until this shop turns it on."
+        />
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    <app-ops-remittance-report #remittance />
+  </mat-expansion-panel>
+}
+
 <mat-expansion-panel class="ops-premium-panel" (opened)="loadPremiums()">
   <mat-expansion-panel-header>
     <mat-panel-title>

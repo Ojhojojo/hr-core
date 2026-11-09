@@ -46,6 +46,7 @@ public static class HrCoreSetup
         services.AddScoped<PayrollService>();
         services.AddScoped<PayrollCutoffService>();
         services.AddScoped<PayrollDeductionScheduleService>();
+        services.AddScoped<PayrollRemittanceService>();
         services.AddScoped<PayrollRateService>();
         services.AddScoped<PayrollRunService>();
         services.AddScoped<Bir2316Service>();
