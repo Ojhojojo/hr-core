@@ -12,7 +12,11 @@ import { AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
 import { specUser, type SpecUser } from '../host-spec-fixtures';
 import { PayrollPage } from './payroll';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
-import { HR_CAN_VIEW_REMITTANCE, HR_EMPLOYER_REMITTANCE } from './payroll-remittance';
+import {
+  HR_EMPLOYER_REMITTANCE,
+  HR_REMITTANCE_ACCESS,
+  type HrCapabilityUser,
+} from './payroll-remittance';
 import { PayrollApi } from './payroll.api';
 import { buildPayslipView, payslipAllowanceLines, payslipLoanLines } from './payroll-payslip';
 import {
@@ -178,7 +182,7 @@ async function mountPayroll(
   register: PayrollRegisterResponse = mockPayrollData,
   payrollSchedules = false,
   employerRemittance = false,
-  canViewRemittance: ((role: string | null | undefined) => boolean) | null = null,
+  canView: ((user: HrCapabilityUser | null | undefined) => boolean) | null = null,
 ) {
   const confirm = confirmStub();
   await TestBed.configureTestingModule({
@@ -194,9 +198,7 @@ async function mountPayroll(
       { provide: OpsConfirmService, useValue: confirm.service },
       ...(payrollSchedules ? [{ provide: HR_PAYROLL_SCHEDULES, useValue: true }] : []),
       ...(employerRemittance ? [{ provide: HR_EMPLOYER_REMITTANCE, useValue: true }] : []),
-      ...(canViewRemittance
-        ? [{ provide: HR_CAN_VIEW_REMITTANCE, useValue: canViewRemittance }]
-        : []),
+      ...(canView ? [{ provide: HR_REMITTANCE_ACCESS, useValue: { canView } }] : []),
     ],
   }).compileComponents();
 
@@ -1534,8 +1536,15 @@ describe('Employer remittance flag', () => {
     http.verify();
   });
 
-  it('shows the panel when the host turns the flag on, without calling it yet', async () => {
+  it('hides the report when the host has not provided a capability', async () => {
     const { host, http } = await mountPayroll(ownerMe, mockPayrollData, false, true);
+    expect(host.querySelector('app-ops-remittance-report')).toBeNull();
+    expect(http.match((r) => r.url.includes('/remittance')).length).toBe(0);
+    http.verify();
+  });
+
+  it('shows the panel when the host allows the caller, without calling it yet', async () => {
+    const { host, http } = await mountPayroll(ownerMe, mockPayrollData, false, true, () => true);
     expect(host.querySelector('app-ops-remittance-report')).toBeTruthy();
     expect(host.textContent).toContain('Remittance');
     expect(http.match((r) => r.url.includes('/remittance')).length).toBe(0);

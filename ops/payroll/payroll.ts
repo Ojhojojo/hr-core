@@ -10,8 +10,6 @@ import {
   fitDialogToHandset,
   ShopApiService,
   AuthService,
-  canReviewEmployerShares,
-  canViewRemittance,
   BannerComponent,
   CardComponent,
   EmptyStateComponent,
@@ -84,11 +82,9 @@ import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { RemittanceReport } from './remittance-report';
 import { EmployerShareReviewPanel } from './employer-share-review';
 import {
-  HR_CAN_REVIEW_EMPLOYER_SHARES,
-  HR_CAN_VIEW_REMITTANCE,
   HR_EMPLOYER_REMITTANCE,
-  mayReviewEmployerShares,
-  mayViewRemittance,
+  HR_EMPLOYER_SHARE_REVIEW,
+  HR_REMITTANCE_ACCESS,
 } from './payroll-remittance';
 
 @Component({
@@ -326,22 +322,15 @@ export class PayrollPage {
   /** Host flag. Absent means off, so the remittance panel and its calls stay hidden. */
   protected readonly employerRemittance =
     inject(HR_EMPLOYER_REMITTANCE, { optional: true }) ?? false;
-  private readonly remittanceAccess =
-    inject(HR_CAN_VIEW_REMITTANCE, { optional: true }) ?? canViewRemittance;
-  /** The panel stays hidden when the host capability refuses this caller. */
+  private readonly remittanceAccess = inject(HR_REMITTANCE_ACCESS);
+  /** Hidden until the host provides a capability that allows this caller. */
   protected readonly showRemittance = computed(
-    () =>
-      this.employerRemittance &&
-      mayViewRemittance(this.auth.me()?.staffRole, this.remittanceAccess),
+    () => this.employerRemittance && this.remittanceAccess.canView(this.auth.me()),
   );
-  private readonly shareReviewAccess =
-    inject(HR_CAN_REVIEW_EMPLOYER_SHARES, { optional: true }) ?? canReviewEmployerShares;
+  private readonly shareReview = inject(HR_EMPLOYER_SHARE_REVIEW);
   /** The review panel is on a locked run, and only when the host capability allows it. */
   protected readonly showEmployerShareReview = computed(
-    () =>
-      this.employerRemittance &&
-      this.isLocked() &&
-      mayReviewEmployerShares(this.auth.me()?.staffRole, this.shareReviewAccess),
+    () => this.employerRemittance && this.isLocked() && this.shareReview.canReview(this.auth.me()),
   );
 
   protected readonly from = signal('');

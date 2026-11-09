@@ -8,7 +8,7 @@ import { PayrollApi } from './payroll.api';
 import { RemittanceReport as RemittanceReportModel } from './payroll.models';
 import { RemittanceReport } from './remittance-report';
 import { remittanceCsv } from './remittance-report.format';
-import { mayViewRemittance } from './payroll-remittance';
+import { HR_EMPLOYER_SHARE_REVIEW, HR_REMITTANCE_ACCESS } from './payroll-remittance';
 
 const off: RemittanceReportModel = {
   branchId: 'branch-north',
@@ -52,11 +52,36 @@ const empty: RemittanceReportModel = {
 };
 
 describe('remittance access', () => {
-  it('asks the injected capability and does not name a host role', () => {
-    const allow = (role: string | null | undefined) => role === 'desk';
-    expect(mayViewRemittance('desk', allow)).toBe(true);
-    expect(mayViewRemittance('member', allow)).toBe(false);
-    expect(mayViewRemittance(null, allow)).toBe(false);
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('denies view and review until the host provides a capability', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({});
+    const view = TestBed.inject(HR_REMITTANCE_ACCESS);
+    const review = TestBed.inject(HR_EMPLOYER_SHARE_REVIEW);
+    const desk = { staffRole: 'desk' };
+    expect(view.canView(desk)).toBe(false);
+    expect(view.canView(null)).toBe(false);
+    expect(review.canReview(desk)).toBe(false);
+    expect(review.canReview(null)).toBe(false);
+  });
+
+  it('uses a neutral stub and does not name a host role', () => {
+    const allow = {
+      canView: (user: { staffRole?: string | null } | null | undefined) =>
+        user?.staffRole === 'desk',
+    };
+    expect(allow.canView({ staffRole: 'desk' })).toBe(true);
+    expect(allow.canView({ staffRole: 'member' })).toBe(false);
+    expect(allow.canView(null)).toBe(false);
+  });
+});
+
+describe('remittance money text', () => {
+  it('reads PHP 1,000.00 and the peso sign as the same amount', () => {
+    expect(parseMoney('PHP 1,000.00')).toBe(1000);
+    expect(parseMoney('₱2,030.00')).toBe(2030);
+    expect(parseMoney('PHP 4,430.00')).toBe(4430);
   });
 });
 
@@ -337,8 +362,10 @@ function money(
   return parseMoney(cell?.textContent);
 }
 
+/** The host money format may be "₱1,000.00" or "PHP 1,000.00". Keep the number. */
 function parseMoney(text: string | null | undefined): number {
-  return Number((text ?? '').replace(/[₱,\s]/g, ''));
+  const match = (text ?? '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : Number.NaN;
 }
 
 function sumColumn(csv: string, index: number): number {
