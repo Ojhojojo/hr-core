@@ -161,6 +161,8 @@ public sealed class PayrollRunService(
 
         var register = await payroll.GetRegisterAsync(
             [branch], start, end, includeInactive: false, includeUnscopedOwners, cancellationToken);
+        // ForRegisterAsync calls PayrollEmployerShare.Compute. Lock does not.
+        // The owner review step will replace this store. It is not built yet.
         var employerShares = await remittance.ForRegisterAsync(
             branch, start, end, register.Rows, includeUnscopedOwners, cancellationToken);
 

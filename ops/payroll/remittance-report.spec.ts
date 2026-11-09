@@ -8,6 +8,7 @@ import { PayrollApi } from './payroll.api';
 import { RemittanceReport as RemittanceReportModel } from './payroll.models';
 import { RemittanceReport } from './remittance-report';
 import { remittanceCsv } from './remittance-report.format';
+import { mayViewRemittance } from './payroll-remittance';
 
 const off: RemittanceReportModel = {
   branchId: 'branch-north',
@@ -49,6 +50,15 @@ const empty: RemittanceReportModel = {
   total: 0,
   emptyMessage: 'There is nothing to remit yet.',
 };
+
+describe('remittance access', () => {
+  it('asks the injected capability and does not name a host role', () => {
+    const allow = (role: string | null | undefined) => role === 'desk';
+    expect(mayViewRemittance('desk', allow)).toBe(true);
+    expect(mayViewRemittance('member', allow)).toBe(false);
+    expect(mayViewRemittance(null, allow)).toBe(false);
+  });
+});
 
 describe('remittance CSV', () => {
   it('matches the November 2025 salary of 20000 on screen and in the file', () => {

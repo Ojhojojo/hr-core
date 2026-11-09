@@ -44,9 +44,9 @@ public sealed class PayrollEmployerShareTests
         Assert.Equal(250m, StatutoryPack.PhilHealthEmployerShare(November2025, 8_000m));
         Assert.Equal(2_500m, StatutoryPack.PhilHealthEmployerShare(November2025, 120_000m));
 
-        // 2024 rate is 2.25%.
-        Assert.Equal(675m, StatutoryPack.PhilHealthEmployerShare(November2024, 30_000m));
-        Assert.Equal(675m, StatutoryPack.PhilHealthEmployeeShare(November2024, 30_000m));
+        // Circular 2020-0005 sets 5% for 2024 as well, split in half.
+        Assert.Equal(750m, StatutoryPack.PhilHealthEmployerShare(November2024, 30_000m));
+        Assert.Equal(750m, StatutoryPack.PhilHealthEmployeeShare(November2024, 30_000m));
 
         // 20,001 × 2.5% = 500.025, which rounds away from zero to 500.03.
         Assert.Equal(500.03m, StatutoryPack.PhilHealthEmployerShare(November2025, 20_001m));
@@ -55,17 +55,139 @@ public sealed class PayrollEmployerShareTests
     [Fact]
     public void PagIbig_employer_share_is_2_percent_of_the_capped_base()
     {
-        // The employee share on a small salary is 1%. The employer share stays 2%.
-        Assert.Equal(40m, StatutoryPack.PagIbigEmployeeShare(4_000m));
+        // Circular 460: 1% employee share only through 1,500. The employer share stays 2%.
+        var february2024 = new DateOnly(2024, 2, 1);
+        Assert.Equal(15m, StatutoryPack.PagIbigEmployeeShare(february2024, 1_500m));
+        Assert.Equal(30m, StatutoryPack.PagIbigEmployerShare(february2024, 1_500m));
+        Assert.Equal(80m, StatutoryPack.PagIbigEmployeeShare(4_000m));
         Assert.Equal(80m, StatutoryPack.PagIbigEmployerShare(4_000m));
-        Assert.Equal(50m, StatutoryPack.PagIbigEmployeeShare(5_000m));
+        Assert.Equal(100m, StatutoryPack.PagIbigEmployeeShare(5_000m));
         Assert.Equal(100m, StatutoryPack.PagIbigEmployerShare(5_000m));
 
-        // Above the pack's small-salary band both sides are 2%, and the base stops at 10,000.
+        // Above 1,500 both sides are 2%. From February 2024 the base stops at 10,000.
         Assert.Equal(200m, StatutoryPack.PagIbigEmployeeShare(20_000m));
         Assert.Equal(200m, StatutoryPack.PagIbigEmployerShare(20_000m));
         Assert.Equal(200m, StatutoryPack.PagIbigEmployerShare(120_000m));
         Assert.Equal(0m, StatutoryPack.PagIbigEmployerShare(0m));
+
+        // January 2024 still caps the fund salary at 5,000.
+        var january2024 = new DateOnly(2024, 1, 1);
+        Assert.Equal(100m, StatutoryPack.PagIbigEmployeeShare(january2024, 20_000m));
+        Assert.Equal(100m, StatutoryPack.PagIbigEmployerShare(january2024, 20_000m));
+    }
+
+    [Fact]
+    public void Sss_msc_uses_the_centred_band_at_each_published_edge()
+    {
+        // 2025, Circular 2024-006. 19,999 is the 20,000 band: employee 1,000, employer 2,030.
+        Assert.Equal(20_000m, StatutoryPack.SssMsc(November2025, 19_999m));
+        Assert.Equal(1_000m, StatutoryPack.SssEmployeeShare(November2025, 19_999m));
+        Assert.Equal(2_030m, StatutoryPack.SssEmployerShare(November2025, 19_999m));
+
+        // Below 5,250 is the minimum MSC 5,000. 5,250 starts MSC 5,500.
+        Assert.Equal(5_000m, StatutoryPack.SssMsc(November2025, 0m));
+        Assert.Equal(5_000m, StatutoryPack.SssMsc(November2025, 4_250m));
+        Assert.Equal(5_000m, StatutoryPack.SssMsc(November2025, 4_750m));
+        Assert.Equal(5_000m, StatutoryPack.SssMsc(November2025, 5_249.99m));
+        Assert.Equal(5_500m, StatutoryPack.SssMsc(November2025, 5_250m));
+        Assert.Equal(250m, StatutoryPack.SssEmployeeShare(November2025, 4_250m));
+        Assert.Equal(510m, StatutoryPack.SssEmployerShare(November2025, 4_750m));
+
+        // 19,750–20,249.99 is MSC 20,000. 20,250 starts MSC 20,500.
+        Assert.Equal(19_500m, StatutoryPack.SssMsc(November2025, 19_749.99m));
+        Assert.Equal(20_000m, StatutoryPack.SssMsc(November2025, 19_750m));
+        Assert.Equal(20_000m, StatutoryPack.SssMsc(November2025, 20_249.99m));
+        Assert.Equal(20_500m, StatutoryPack.SssMsc(November2025, 20_250m));
+        Assert.Equal(1_000m, StatutoryPack.SssEmployeeShare(November2025, 19_750m));
+        Assert.Equal(2_030m, StatutoryPack.SssEmployerShare(November2025, 19_750m));
+        Assert.Equal(1_025m, StatutoryPack.SssEmployeeShare(November2025, 20_250m));
+        Assert.Equal(2_080m, StatutoryPack.SssEmployerShare(November2025, 20_250m));
+
+        // 34,750 and over is the maximum MSC 35,000.
+        Assert.Equal(34_500m, StatutoryPack.SssMsc(November2025, 34_749.99m));
+        Assert.Equal(35_000m, StatutoryPack.SssMsc(November2025, 34_750m));
+        Assert.Equal(35_000m, StatutoryPack.SssMsc(November2025, 120_000m));
+        Assert.Equal(1_750m, StatutoryPack.SssEmployeeShare(November2025, 34_750m));
+        Assert.Equal(3_530m, StatutoryPack.SssEmployerShare(November2025, 120_000m));
+
+        // 2024 still uses the January 2023 schedule: floor 4,000, ceiling 30,000.
+        Assert.Equal(4_000m, StatutoryPack.SssMsc(November2024, 0m));
+        Assert.Equal(4_000m, StatutoryPack.SssMsc(November2024, 4_249.99m));
+        Assert.Equal(4_500m, StatutoryPack.SssMsc(November2024, 4_250m));
+        Assert.Equal(4_500m, StatutoryPack.SssMsc(November2024, 4_749.99m));
+        Assert.Equal(5_000m, StatutoryPack.SssMsc(November2024, 4_750m));
+        Assert.Equal(180m, StatutoryPack.SssEmployeeShare(November2024, 0m));
+        Assert.Equal(390m, StatutoryPack.SssEmployerShare(November2024, 0m));
+        Assert.Equal(202.50m, StatutoryPack.SssEmployeeShare(November2024, 4_250m));
+        Assert.Equal(437.50m, StatutoryPack.SssEmployerShare(November2024, 4_250m));
+        Assert.Equal(225m, StatutoryPack.SssEmployeeShare(November2024, 4_750m));
+        Assert.Equal(485m, StatutoryPack.SssEmployerShare(November2024, 4_750m));
+        Assert.Equal(20_000m, StatutoryPack.SssMsc(November2024, 19_750m));
+        Assert.Equal(20_000m, StatutoryPack.SssMsc(November2024, 19_999m));
+        Assert.Equal(20_500m, StatutoryPack.SssMsc(November2024, 20_250m));
+        Assert.Equal(900m, StatutoryPack.SssEmployeeShare(November2024, 19_999m));
+        Assert.Equal(1_930m, StatutoryPack.SssEmployerShare(November2024, 19_999m));
+        Assert.Equal(922.50m, StatutoryPack.SssEmployeeShare(November2024, 20_250m));
+        Assert.Equal(1_977.50m, StatutoryPack.SssEmployerShare(November2024, 20_250m));
+        Assert.Equal(30_000m, StatutoryPack.SssMsc(November2024, 29_750m));
+        Assert.Equal(30_000m, StatutoryPack.SssMsc(November2024, 120_000m));
+        Assert.Equal(1_350m, StatutoryPack.SssEmployeeShare(November2024, 120_000m));
+        Assert.Equal(2_880m, StatutoryPack.SssEmployerShare(November2024, 120_000m));
+    }
+
+    [Fact]
+    public void Daily_paid_halves_are_exact_and_an_odd_centavo_stays_unassigned()
+    {
+        Assert.Equal(PayrollEmployerShare.OddCentavoHalf, "unassigned");
+
+        var (sssEarlier, sssLater) = PayrollEmployerShare.SplitHalfMonth(2_030m);
+        Assert.Equal(1_015m, sssEarlier);
+        Assert.Equal(1_015m, sssLater);
+        var (pagibigEarlier, pagibigLater) = PayrollEmployerShare.SplitHalfMonth(200m);
+        Assert.Equal(100m, pagibigEarlier);
+        Assert.Equal(100m, pagibigLater);
+
+        // PhilHealth on 20,001 is 500.03. Each half is 250.01 and one centavo is left off both.
+        var (oddEarlier, oddLater) = PayrollEmployerShare.SplitHalfMonth(500.03m);
+        Assert.Equal(250.01m, oddEarlier);
+        Assert.Equal(250.01m, oddLater);
+        Assert.Equal(500.02m, oddEarlier + oddLater);
+
+        var (firstEarlier, firstLater) = PayrollEmployerShare.SplitHalfMonth(500.03m, "first");
+        Assert.Equal(250.02m, firstEarlier);
+        Assert.Equal(250.01m, firstLater);
+        var (secondEarlier, secondLater) = PayrollEmployerShare.SplitHalfMonth(500.03m, "second");
+        Assert.Equal(250.01m, secondEarlier);
+        Assert.Equal(250.02m, secondLater);
+
+        var first = PayrollEmployerShare.ForPeriod(
+            November2025,
+            20_001m,
+            10_000m,
+            [],
+            null,
+            2,
+            PayBasis.Daily,
+            PayrollEmployerShare.HalfMonth.First);
+        var second = PayrollEmployerShare.ForPeriod(
+            November2025,
+            20_001m,
+            10_000m,
+            [],
+            null,
+            2,
+            PayBasis.Daily,
+            PayrollEmployerShare.HalfMonth.Second);
+        Assert.Equal(first, second);
+        Assert.Equal(250.01m, first.PhilHealth);
+        Assert.Equal(1_015m, first.Sss);
+        Assert.Equal(100m, first.PagIbig);
+
+        // A full month keeps the monthly share, including the odd centavo.
+        var full = PayrollEmployerShare.ForPeriod(
+            November2025, 20_001m, 20_001m, [], null, 0, PayBasis.Daily, PayrollEmployerShare.HalfMonth.Full);
+        Assert.Equal(500.03m, full.PhilHealth);
+        Assert.Equal(2_030m, full.Sss);
     }
 
     [Fact]

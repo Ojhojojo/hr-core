@@ -1,8 +1,15 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { apiErrorMessage, BannerComponent, EmptyStateComponent, SkeletonComponent } from '@hr-host';
+import {
+  apiErrorMessage,
+  BannerComponent,
+  EmptyStateComponent,
+  formatPhp,
+  SkeletonComponent,
+} from '@hr-host';
 import { MatButton } from '@angular/material/button';
 import { MatSlideToggle } from '@angular/material/slide-toggle';
+import { MatTableModule } from '@angular/material/table';
 import { PayrollApi } from './payroll.api';
 import { formatCutoffMonth, shiftMonth } from './payroll-cutoff.format';
 import { type RemittanceReport as RemittanceReportBody } from './payroll.models';
@@ -17,6 +24,7 @@ import { remittanceCsv } from './remittance-report.format';
     SkeletonComponent,
     MatButton,
     MatSlideToggle,
+    MatTableModule,
   ],
   templateUrl: './remittance-report.html',
   styles: `
@@ -35,34 +43,14 @@ import { remittanceCsv } from './remittance-report.format';
     .remittance-table {
       overflow-x: auto;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th,
-    td {
-      padding: var(--space-2) var(--space-3);
-      text-align: left;
-    }
-    td,
-    tfoot th {
-      text-align: right;
-    }
-    tbody th,
-    thead th:first-child,
-    tfoot th:first-child {
-      text-align: left;
-    }
-    tfoot th,
-    tfoot td {
-      font-weight: 600;
-    }
   `,
 })
 export class RemittanceReport {
   private readonly api = inject(PayrollApi);
 
   protected readonly formatMonth = formatCutoffMonth;
+  protected readonly formatPhp = formatPhp;
+  protected readonly columns = ['agency', 'employee', 'employer', 'total'];
   protected readonly loading = signal(false);
   protected readonly ready = signal(false);
   protected readonly saving = signal(false);
@@ -111,11 +99,6 @@ export class RemittanceReport {
         this.saveError.set(apiErrorMessage(err) || 'Could not save the remittance setting.');
       },
     });
-  }
-
-  protected formatMoney(amount: number | null | undefined): string {
-    const value = Number(amount ?? 0);
-    return `₱${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   protected exportCsv(): void {

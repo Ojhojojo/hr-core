@@ -240,7 +240,7 @@
   </mat-expansion-panel>
 }
 
-@if (employerRemittance) {
+@if (showRemittance()) {
   <mat-expansion-panel class="ops-premium-panel" (opened)="remittance.load()">
     <mat-expansion-panel-header>
       <mat-panel-title>

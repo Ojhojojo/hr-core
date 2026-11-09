@@ -10,6 +10,7 @@ import {
   fitDialogToHandset,
   ShopApiService,
   AuthService,
+  canViewRemittance,
   BannerComponent,
   CardComponent,
   EmptyStateComponent,
@@ -80,7 +81,11 @@ import { PayrollCutoffSettings } from './payroll-cutoff-settings';
 import { DeductionSchedule } from './deduction-schedule';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { RemittanceReport } from './remittance-report';
-import { HR_EMPLOYER_REMITTANCE } from './payroll-remittance';
+import {
+  HR_CAN_VIEW_REMITTANCE,
+  HR_EMPLOYER_REMITTANCE,
+  mayViewRemittance,
+} from './payroll-remittance';
 
 @Component({
   selector: 'app-ops-payroll',
@@ -316,6 +321,14 @@ export class PayrollPage {
   /** Host flag. Absent means off, so the remittance panel and its calls stay hidden. */
   protected readonly employerRemittance =
     inject(HR_EMPLOYER_REMITTANCE, { optional: true }) ?? false;
+  private readonly remittanceAccess =
+    inject(HR_CAN_VIEW_REMITTANCE, { optional: true }) ?? canViewRemittance;
+  /** The panel stays hidden when the host capability refuses this caller. */
+  protected readonly showRemittance = computed(
+    () =>
+      this.employerRemittance &&
+      mayViewRemittance(this.auth.me()?.staffRole, this.remittanceAccess),
+  );
 
   protected readonly from = signal('');
   protected readonly to = signal('');

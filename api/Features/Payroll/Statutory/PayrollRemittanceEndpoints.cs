@@ -15,34 +15,35 @@ public static class PayrollRemittanceEndpoints
             .WithName("PayrollRemittance")
             .WithSummary("Monthly remittance report for the current shop")
             .WithDescription(
-                "Owner and admin. Query: month, strictly yyyy-MM. Omitted month is the current Asia/Manila month. " +
+                "The host's remittance capability. The default is the owner-or-admin policy. " +
+                "Query: month, strictly yyyy-MM. Omitted month is the current Asia/Manila month. " +
                 "enabled is false until the shop turns the report on. When it is on, agencies list the employee share, " +
                 "employer share, and total for SSS, PhilHealth, and Pag-IBIG across locked runs whose period ends in " +
                 "that month. Voided runs are excluded. No locked run returns the empty message. " +
-                "403 problem details for any other staff role.");
+                "403 problem details when the capability refuses the caller.");
 
         api.MapGet("/export", ExportReport)
             .WithName("PayrollRemittanceExport")
             .WithSummary("Monthly remittance CSV")
             .WithDescription(
                 "Same month and shop as the remittance report. CSV totals match the report. " +
-                "403 problem details for any other staff role.");
+                "403 problem details when the host capability refuses the caller.");
 
         api.MapPut("/", SaveSetting)
             .WithName("PayrollRemittanceSave")
             .WithSummary("Turn the remittance report on or off for the current shop")
             .WithDescription(
-                "Owner and admin. Body: enabled (true or false). Missing enabled is 400 problem details. " +
+                "The host's remittance capability. Body: enabled (true or false). Missing enabled is 400 problem details. " +
                 "Off is the default. Turning it on does not rewrite a run already locked. " +
-                "Logged on the settings trail. 403 problem details for any other staff role.");
+                "Logged on the settings trail. 403 problem details when the capability refuses the caller.");
 
         return app;
     }
 
-    private static IResult? DenyUnlessOwnerOrAdmin(HttpContext http)
+    private static IResult? DenyUnlessCanView(HttpContext http, IHrRemittanceAccess access)
     {
         var staff = http.GetStaff();
-        if (staff is { Role: StaffRole.Owner or StaffRole.Admin })
+        if (staff is not null && access.CanView(staff.Role))
         {
             return null;
         }
@@ -58,9 +59,10 @@ public static class PayrollRemittanceEndpoints
         HttpContext http,
         BranchResolver branches,
         PayrollRemittanceService remittance,
+        IHrRemittanceAccess access,
         CancellationToken cancellationToken)
     {
-        var denied = DenyUnlessOwnerOrAdmin(http);
+        var denied = DenyUnlessCanView(http, access);
         if (denied is not null)
         {
             return Task.FromResult(denied);
@@ -89,9 +91,10 @@ public static class PayrollRemittanceEndpoints
         HttpContext http,
         BranchResolver branches,
         PayrollRemittanceService remittance,
+        IHrRemittanceAccess access,
         CancellationToken cancellationToken)
     {
-        var denied = DenyUnlessOwnerOrAdmin(http);
+        var denied = DenyUnlessCanView(http, access);
         if (denied is not null)
         {
             return Task.FromResult(denied);
@@ -131,9 +134,10 @@ public static class PayrollRemittanceEndpoints
         HttpContext http,
         BranchResolver branches,
         PayrollRemittanceService remittance,
+        IHrRemittanceAccess access,
         CancellationToken cancellationToken)
     {
-        var denied = DenyUnlessOwnerOrAdmin(http);
+        var denied = DenyUnlessCanView(http, access);
         if (denied is not null)
         {
             return Task.FromResult(denied);

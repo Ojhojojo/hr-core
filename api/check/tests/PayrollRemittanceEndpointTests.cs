@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging;
 
 namespace HrCore.Tests;
 
-public sealed class RemittanceApp : IAsyncLifetime
+public class RemittanceApp : IAsyncLifetime
 {
     public const string OwnerId = "alex-rivera";
     public const string AdminId = "sam-lee";
@@ -26,6 +26,10 @@ public sealed class RemittanceApp : IAsyncLifetime
     private WebApplication app = null!;
 
     public HttpClient Client { get; private set; } = null!;
+
+    protected virtual void ConfigureAccess(IServiceCollection services)
+    {
+    }
 
     public async Task InitializeAsync()
     {
@@ -41,6 +45,7 @@ public sealed class RemittanceApp : IAsyncLifetime
         var databaseRoot = new Microsoft.EntityFrameworkCore.Storage.InMemoryDatabaseRoot();
         builder.Services.AddDbContext<TestHrDb>(options =>
             options.UseInMemoryDatabase(databaseName, databaseRoot).UseHrCoreFeatures(features));
+        ConfigureAccess(builder.Services);
         builder.Services.AddHrCore<TestHrDb>(features);
         builder.Services.AddSingleton(new DemoBranchOptions { Enabled = false });
         builder.Services.AddSingleton<IStaffInvite, NoStaffInvite>();
@@ -491,5 +496,36 @@ public sealed class PayrollRemittanceEndpointTests(RemittanceApp app) : IClassFi
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
         using var _ = response;
         return JsonSerializer.Deserialize<JsonElement>(text);
+    }
+}
+
+/// <summary>Host capability that refuses every role. Neutral: it does not name a host role.</summary>
+public sealed class DeniedRemittanceApp : RemittanceApp
+{
+    protected override void ConfigureAccess(IServiceCollection services)
+    {
+        services.AddSingleton<IHrRemittanceAccess>(new NoRemittanceAccess());
+    }
+
+    private sealed class NoRemittanceAccess : IHrRemittanceAccess
+    {
+        public bool CanView(StaffRole role) => false;
+    }
+}
+
+public sealed class RemittanceAccessTests(DeniedRemittanceApp app) : IClassFixture<DeniedRemittanceApp>
+{
+    [Fact]
+    public async Task A_caller_the_host_capability_refuses_gets_403_on_the_report_and_the_export()
+    {
+        var report = await app.SendAsync(
+            RemittanceApp.OwnerId, HttpMethod.Get, "/api/ops/payroll/remittance?month=2026-11");
+        Assert.Equal(HttpStatusCode.Forbidden, report.StatusCode);
+        report.Dispose();
+
+        var export = await app.SendAsync(
+            RemittanceApp.OwnerId, HttpMethod.Get, "/api/ops/payroll/remittance/export?month=2026-11");
+        Assert.Equal(HttpStatusCode.Forbidden, export.StatusCode);
+        export.Dispose();
     }
 }

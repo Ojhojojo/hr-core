@@ -51,34 +51,55 @@
             icon="inbox"
           />
         } @else {
-          <div class="remittance-table" data-remittance-table>
-            <table>
-              <thead>
-                <tr>
-                  <th>Agency</th>
-                  <th>Employee share</th>
-                  <th>Employer share</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (agency of current.agencies; track agency.key) {
-                  <tr [attr.data-agency]="agency.key">
-                    <th scope="row">{{ agency.label }}</th>
-                    <td data-employee>{{ formatMoney(agency.employeeShare) }}</td>
-                    <td data-employer>{{ formatMoney(agency.employerShare) }}</td>
-                    <td data-total>{{ formatMoney(agency.total) }}</td>
-                  </tr>
-                }
-              </tbody>
-              <tfoot>
-                <tr data-remittance-total>
-                  <th scope="row">Total</th>
-                  <td data-employee>{{ formatMoney(current.employeeShare) }}</td>
-                  <td data-employer>{{ formatMoney(current.employerShare) }}</td>
-                  <td data-total>{{ formatMoney(current.total) }}</td>
-                </tr>
-              </tfoot>
+          <div class="remittance-table ops-table-wrap" data-remittance-table>
+            <table mat-table [dataSource]="current.agencies" class="ops-table">
+              <ng-container matColumnDef="agency">
+                <th mat-header-cell *matHeaderCellDef>Agency</th>
+                <td mat-cell *matCellDef="let row" data-label="Agency">{{ row.label }}</td>
+                <td mat-footer-cell *matFooterCellDef>Total</td>
+              </ng-container>
+              <ng-container matColumnDef="employee">
+                <th mat-header-cell *matHeaderCellDef class="num">Employee share</th>
+                <td
+                  mat-cell
+                  *matCellDef="let row"
+                  data-label="Employee share"
+                  data-employee
+                  class="num"
+                >
+                  {{ formatPhp(row.employeeShare) }}
+                </td>
+                <td mat-footer-cell *matFooterCellDef data-employee class="num">
+                  {{ formatPhp(current.employeeShare) }}
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="employer">
+                <th mat-header-cell *matHeaderCellDef class="num">Employer share</th>
+                <td
+                  mat-cell
+                  *matCellDef="let row"
+                  data-label="Employer share"
+                  data-employer
+                  class="num"
+                >
+                  {{ formatPhp(row.employerShare) }}
+                </td>
+                <td mat-footer-cell *matFooterCellDef data-employer class="num">
+                  {{ formatPhp(current.employerShare) }}
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="total">
+                <th mat-header-cell *matHeaderCellDef class="num">Total</th>
+                <td mat-cell *matCellDef="let row" data-label="Total" data-total class="num">
+                  {{ formatPhp(row.total) }}
+                </td>
+                <td mat-footer-cell *matFooterCellDef data-total class="num">
+                  {{ formatPhp(current.total) }}
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="columns"></tr>
+              <tr mat-row *matRowDef="let row; columns: columns" [attr.data-agency]="row.key"></tr>
+              <tr mat-footer-row *matFooterRowDef="columns" data-remittance-total></tr>
             </table>
           </div>
         }

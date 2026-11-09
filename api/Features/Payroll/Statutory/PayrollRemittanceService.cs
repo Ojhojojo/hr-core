@@ -51,17 +51,8 @@ public sealed class PayrollRemittanceService(
             .Select(rule => new PayrollEmployerShare.Rule(rule.DeductionKey, rule.Mode, rule.CutoffOrdinal))
             .ToList();
 
-        var shares = new Dictionary<Guid, PayrollEmployerShare.Shares>(periodRows.Count);
-        foreach (var row in periodRows)
-        {
-            var monthRow = monthRows.FirstOrDefault(candidate => candidate.StaffId == row.StaffId);
-            var monthBase = monthRow is null ? 0m : PayrollService.StatutoryBase(monthRow);
-            var periodBase = PayrollService.StatutoryBase(row);
-            shares[row.StaffId] = PayrollEmployerShare.ForPeriod(
-                monthStart, monthBase, periodBase, allocation, matched, periodCount);
-        }
-
-        return shares;
+        return PayrollEmployerShare.Compute(
+            from, to, periodRows, monthRows, allocation, matched, periodCount);
     }
 
     public async Task<RemittanceReportDto?> GetAsync(
