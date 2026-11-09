@@ -12,6 +12,11 @@ import { AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
 import { specUser, type SpecUser } from '../host-spec-fixtures';
 import { PayrollPage } from './payroll';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
+import {
+  HR_EMPLOYER_REMITTANCE,
+  HR_REMITTANCE_ACCESS,
+  type HrCapabilityUser,
+} from './payroll-remittance';
 import { PayrollApi } from './payroll.api';
 import { buildPayslipView, payslipAllowanceLines, payslipLoanLines } from './payroll-payslip';
 import {
@@ -176,6 +181,8 @@ async function mountPayroll(
   me: SpecUser = ownerMe,
   register: PayrollRegisterResponse = mockPayrollData,
   payrollSchedules = false,
+  employerRemittance = false,
+  canView: ((user: HrCapabilityUser | null | undefined) => boolean) | null = null,
 ) {
   const confirm = confirmStub();
   await TestBed.configureTestingModule({
@@ -190,6 +197,8 @@ async function mountPayroll(
       { provide: AuthService, useValue: authStub(me) },
       { provide: OpsConfirmService, useValue: confirm.service },
       ...(payrollSchedules ? [{ provide: HR_PAYROLL_SCHEDULES, useValue: true }] : []),
+      ...(employerRemittance ? [{ provide: HR_EMPLOYER_REMITTANCE, useValue: true }] : []),
+      ...(canView ? [{ provide: HR_REMITTANCE_ACCESS, useValue: { canView } }] : []),
     ],
   }).compileComponents();
 
@@ -1512,6 +1521,40 @@ describe('Payroll schedules flag', () => {
     expect(
       http.match((r) => /cutoff-schedule|deduction-schedule|catch-ups/.test(r.url)).length,
     ).toBe(0);
+    http.verify();
+  });
+});
+
+describe('Employer remittance flag', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('hides the remittance panel and does not call it when the flag is off', async () => {
+    const { host, http } = await mountPayroll();
+    expect(host.querySelector('app-ops-remittance-report')).toBeNull();
+    expect(host.textContent).not.toContain('Remittance');
+    expect(http.match((r) => r.url.includes('/remittance')).length).toBe(0);
+    http.verify();
+  });
+
+  it('hides the report when the host has not provided a capability', async () => {
+    const { host, http } = await mountPayroll(ownerMe, mockPayrollData, false, true);
+    expect(host.querySelector('app-ops-remittance-report')).toBeNull();
+    expect(http.match((r) => r.url.includes('/remittance')).length).toBe(0);
+    http.verify();
+  });
+
+  it('shows the panel when the host allows the caller, without calling it yet', async () => {
+    const { host, http } = await mountPayroll(ownerMe, mockPayrollData, false, true, () => true);
+    expect(host.querySelector('app-ops-remittance-report')).toBeTruthy();
+    expect(host.textContent).toContain('Remittance');
+    expect(http.match((r) => r.url.includes('/remittance')).length).toBe(0);
+    http.verify();
+  });
+
+  it('hides the report when the injected capability declines the caller', async () => {
+    const { host, http } = await mountPayroll(ownerMe, mockPayrollData, false, true, () => false);
+    expect(host.querySelector('app-ops-remittance-report')).toBeNull();
+    expect(http.match((r) => r.url.includes('/remittance')).length).toBe(0);
     http.verify();
   });
 });

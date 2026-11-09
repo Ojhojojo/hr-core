@@ -9,7 +9,8 @@ namespace HrCore.Tests;
 /// <summary>
 /// Stand-in host context. It calls <see cref="HrModel.Configure"/> the way Rakkii and Qurio do.
 /// Payroll schedule tables are included only when the options carry
-/// <see cref="HrCoreFeatures.PayrollSchedules"/>. There is no <c>DbSet</c> for those types,
+/// <see cref="HrCoreFeatures.PayrollSchedules"/>. The remittance setting is included only when
+/// <see cref="HrCoreFeatures.EmployerRemittance"/> is on. There is no <c>DbSet</c> for those types,
 /// so a flag-off context does not discover them.
 /// </summary>
 public sealed class TestHrDb(DbContextOptions<TestHrDb> options) : DbContext(options), IHrDb
@@ -72,17 +73,22 @@ public sealed class HrCoreFeaturesExtension : IDbContextOptionsExtension
         public override bool IsDatabaseProvider => false;
 
         public override string LogFragment =>
-            extension.Features.PayrollSchedules ? "PayrollSchedules " : "";
+            (extension.Features.PayrollSchedules ? "PayrollSchedules " : "")
+            + (extension.Features.EmployerRemittance ? "EmployerRemittance " : "");
 
         public override int GetServiceProviderHashCode() =>
-            extension.Features.PayrollSchedules ? 1 : 0;
+            (extension.Features.PayrollSchedules ? 1 : 0)
+            + (extension.Features.EmployerRemittance ? 2 : 0);
 
         public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) =>
             other is ExtensionInfo otherInfo
             && otherInfo.GetServiceProviderHashCode() == GetServiceProviderHashCode();
 
-        public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) =>
+        public override void PopulateDebugInfo(IDictionary<string, string> debugInfo)
+        {
             debugInfo["HrCore:PayrollSchedules"] = extension.Features.PayrollSchedules.ToString();
+            debugInfo["HrCore:EmployerRemittance"] = extension.Features.EmployerRemittance.ToString();
+        }
     }
 }
 

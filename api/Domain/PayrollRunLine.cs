@@ -40,4 +40,23 @@ public sealed class PayrollRunLine
 
     /// <summary>Loan and cash-advance instalments deducted on this line. Null when none applied.</summary>
     public decimal? LoanDeductions { get; set; }
+
+    /// <summary>
+    /// Employer SSS share in PHP, including the EC. Null when the shop had remittance off at lock.
+    /// Mapped only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on: nullable
+    /// <c>numeric(14,2)</c> with no database default, so null stays null. Ignored when the flag is off.
+    /// </summary>
+    public decimal? EmployerSss { get; set; }
+
+    /// <summary>
+    /// Employer PhilHealth share in PHP. Null when the shop had remittance off at lock.
+    /// Mapped only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on.
+    /// </summary>
+    public decimal? EmployerPhilHealth { get; set; }
+
+    /// <summary>
+    /// Employer Pag-IBIG share in PHP. Null when the shop had remittance off at lock.
+    /// Mapped only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on.
+    /// </summary>
+    public decimal? EmployerPagIbig { get; set; }
 }

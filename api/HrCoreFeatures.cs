@@ -14,4 +14,15 @@ public sealed class HrCoreFeatures
     /// and payroll does not query them. On: the cut-off and deduction schedule from #24 and #25.
     /// </summary>
     public bool PayrollSchedules { get; set; }
+
+    /// <summary>
+    /// Monthly remittance report, the per-branch on/off row (<c>BranchRemittanceSetting</c>),
+    /// and the per-month export row (<c>BranchRemittanceExport</c>).
+    /// Off: those entities are not in the EF model, the employer-share columns and the review
+    /// columns on <c>PayrollRun</c> are ignored, the remittance routes are not mapped, and
+    /// lock and void do not query them.
+    /// On: a shop can turn the report on. Lock leaves the employer shares null. Confirm stores
+    /// them after review. Export records the month and then the shares are read-only.
+    /// </summary>
+    public bool EmployerRemittance { get; set; }
 }

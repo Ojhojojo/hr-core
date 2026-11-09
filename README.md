@@ -4,10 +4,10 @@ Shared HR for Rakkii and Qurio: staff, the employee directory, employment docume
 attendance and clock, leave, payroll (earnings, statutory, runs, loans),
 announcements, and the HR and settings change logs.
 
-| Folder | What it is | Where an app puts it |
-| --- | --- | --- |
+| Folder | What it is                                      | Where an app puts it                                          |
+| ------ | ----------------------------------------------- | ------------------------------------------------------------- |
 | `api/` | C# (.NET 10) source under `HrCore.*` namespaces | `packages/hr-core/api`, compiled into the API as linked files |
-| `ops/` | Angular screens | `apps/ops/src/hr-core`, inside the Angular app |
+| `ops/` | Angular screens                                 | `apps/ops/src/hr-core`, inside the Angular app                |
 
 There is no package feed. Each app keeps a pinned copy of this repo's folders and
 updates it with its sync script, so the version an app runs is always one commit
@@ -18,20 +18,22 @@ here. Make HR changes in this repo first, then bump the pin in each app.
 The package uses partial classes and partial methods, so the build fails if the app
 leaves any of these out.
 
-| The app provides | Rakkii example |
-| --- | --- |
-| `StaffRole` enum, which must include `Owner` and `Admin` | `apps/api/Shared/Domain/StaffRole.cs` |
-| `HrRoles` answers: who is desk staff, who clocks in by default, who sees only themselves in the staff list, and the role for unknown people | `apps/api/Features/HrAdapters/ShopHrAppContract.cs` |
-| `StaffAccessFlags`: app-specific staff permissions, read from and written to the staff JSON | same file |
-| A DbContext that implements `IHrDb` and calls `HrModel.Configure(modelBuilder)` | `apps/api/Shared/Data/AppDbContext.cs` |
-| Optionally `HrCoreFeatures`. `PayrollSchedules` defaults to off. Pass the same instance to `HrModel.Configure(modelBuilder, features)` and `AddHrCore<AppDbContext>(features)`. Do not add `DbSet` properties for those entities until the flag is on | Qurio turns `PayrollSchedules` on. Rakkii leaves it off |
-| `IStaffInvite` (how new staff get a sign-in) | `apps/api/Shared/Infrastructure/SupabaseStaffInvite.cs` |
-| Optionally `IStaffWorkHooks`, for open work a person holds (Rakkii: jobs) | `apps/api/Features/Jobs/StaffWork/JobStaffWork.cs` |
-| Its own fields on `Organization`, `Branch` and `Staff`, as partial class parts | `apps/api/Shared/Domain/*.Shop.cs` |
+| The app provides                                                                                                                                                                                                                                                              | Rakkii example                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `StaffRole` enum, which must include `Owner` and `Admin`                                                                                                                                                                                                                      | `apps/api/Shared/Domain/StaffRole.cs`                                                                        |
+| `HrRoles` answers: who is desk staff, who clocks in by default, who sees only themselves in the staff list, and the role for unknown people                                                                                                                                   | `apps/api/Features/HrAdapters/ShopHrAppContract.cs`                                                          |
+| `StaffAccessFlags`: app-specific staff permissions, read from and written to the staff JSON                                                                                                                                                                                   | same file                                                                                                    |
+| A DbContext that implements `IHrDb` and calls `HrModel.Configure(modelBuilder)`                                                                                                                                                                                               | `apps/api/Shared/Data/AppDbContext.cs`                                                                       |
+| Optionally `HrCoreFeatures`. `PayrollSchedules` and `EmployerRemittance` default to off. Pass the same instance to `HrModel.Configure(modelBuilder, features)` and `AddHrCore<AppDbContext>(features)`. Do not add `DbSet` properties for those entities until the flag is on | Qurio turns `PayrollSchedules` on, and `EmployerRemittance` when it wants the report. Rakkii leaves both off |
+| `IStaffInvite` (how new staff get a sign-in)                                                                                                                                                                                                                                  | `apps/api/Shared/Infrastructure/SupabaseStaffInvite.cs`                                                      |
+| Optionally `IStaffWorkHooks`, for open work a person holds (Rakkii: jobs)                                                                                                                                                                                                     | `apps/api/Features/Jobs/StaffWork/JobStaffWork.cs`                                                           |
+| Its own fields on `Organization`, `Branch` and `Staff`, as partial class parts                                                                                                                                                                                                | `apps/api/Shared/Domain/*.Shop.cs`                                                                           |
 
 Then in `Program.cs`, call `services.AddHrCore<AppDbContext>()` and `app.MapHrCore()`.
 
 `PayrollSchedules` (on `HrCoreFeatures`) covers `BranchPayrollCutoff`, `BranchDeductionSchedule`, and `PayrollCatchUp`. It is off by default. Off, those entities are not in the EF model, `/api/ops/payroll/cutoff-schedule`, `/api/ops/payroll/deduction-schedule`, and `/api/ops/payroll/catch-ups` are not mapped, and the register and loan pricing do not query them. On, cut-offs and deduction schedules behave as they do for a host that opted in. The payroll screen hides those panels unless the host provides the `HR_PAYROLL_SCHEDULES` injection token with `true` (`ops/payroll/payroll-schedules.ts`). Rakkii leaves both off. Qurio sets both on.
+
+`EmployerRemittance` covers the per-branch remittance switch (`BranchRemittanceSetting`), the employer-share columns on `PayrollRunLine` (`EmployerSss`, `EmployerPhilHealth`, `EmployerPagIbig`, nullable `numeric(14,2)` with no default, check `CK_PayrollRunLines_EmployerShares`), and `/api/ops/payroll/remittance`. It is off by default. Off, that entity is not in the EF model, those columns are ignored, the check is not in the model, the report routes are not mapped, and locking a run does not query them. A host that leaves the flag off keeps its current database. Payslips do not show employer shares. The payroll screen hides the Remittance panel unless the host provides `HR_EMPLOYER_REMITTANCE` with `true` (`ops/payroll/payroll-remittance.ts`). Rakkii leaves the flag off. Qurio sets it on, applies the columns, the check, and `BranchRemittanceSettings`, then an owner turns the report on for each shop.
 
 `api/check/HrCore.Check.csproj` builds the package with a minimal stand-in host
 (`api/check/Host/MinimalHost.cs`). CI runs it on every PR, so nothing app-specific can
@@ -48,6 +50,23 @@ with a lint rule. `hr-host.ts` exports:
 - shared UI components, dialogs and toasts
 - money and Manila date helpers
 - staff availability, and `canBeAssignedJobs(role)` (who may take over open work)
+- `HR_REMITTANCE_ACCESS` and `HR_EMPLOYER_SHARE_REVIEW` (`ops/payroll/payroll-remittance.ts`): who may open the remittance report (`canView(user)`), and who may confirm employer shares (`canReview(user)`). Both are Angular injection tokens with a deny-all default. A host that does not provide them sees no remittance panel and no review panel. No new `@hr-host` export is required.
+
+```ts
+import { HR_EMPLOYER_SHARE_REVIEW, HR_REMITTANCE_ACCESS } from './payroll/payroll-remittance';
+
+providers: [
+  {
+    provide: HR_REMITTANCE_ACCESS,
+    useValue: { canView: (user) => user?.staffRole === 'owner' || user?.staffRole === 'admin' },
+  },
+  {
+    provide: HR_EMPLOYER_SHARE_REVIEW,
+    useValue: { canReview: (user) => user?.staffRole === 'owner' },
+  },
+];
+```
+
 - `canPickHomeShop(me)`: whether the signed-in owner may choose a person's home shop
 - `clocksByDefault(role)`: whether a new person of that role starts with Uses time clock on (`mustClock`). Use the same rule as the API's `HrRoles.ClocksByDefault`
 
@@ -67,6 +86,7 @@ mounts `hrRoutes` from `hr.routes.ts` under its HR area. See Rakkii's
 ## Names kept for compatibility
 
 Some names stay as they were so Rakkii's ops app and stored data keep working:
+
 - the `affected-jobs` route
 - `jobs` and `jobId` in JSON
 - the `job-files` bucket

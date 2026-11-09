@@ -1,0 +1,90 @@
+<section class="share-review" data-employer-share-review>
+  <h2>Employer shares</h2>
+  @if (loading()) {
+    <p data-share-review-loading>Loading suggested shares.</p>
+  } @else if (error()) {
+    <ops-banner tone="danger" role="alert" [message]="error()" />
+  }
+  @if (review(); as current) {
+    @if (current.readOnly) {
+      <p data-share-review-readonly>This month has been exported. Employer shares are read-only.</p>
+    } @else {
+      <p data-share-review-hint>Suggested shares. Edit any figure, then confirm.</p>
+    }
+    <div class="share-review-table">
+      <table mat-table [dataSource]="current.lines" class="ops-table">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Employee</th>
+          <td mat-cell *matCellDef="let row" data-share-name>{{ row.staffName }}</td>
+        </ng-container>
+        <ng-container matColumnDef="sss">
+          <th mat-header-cell *matHeaderCellDef class="num">SSS</th>
+          <td mat-cell *matCellDef="let row" class="num">
+            <input
+              name="employerShare"
+              data-share-field="sss"
+              type="number"
+              min="0"
+              step="0.01"
+              [ngModel]="draft(row.staffId, 'employerSss')"
+              (ngModelChange)="setDraft(row.staffId, 'employerSss', $event)"
+              [disabled]="current.readOnly || saving()"
+            />
+            <span class="ops-cell-sub" data-share-suggested="sss">{{
+              formatPhp(row.suggestedSss)
+            }}</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="philhealth">
+          <th mat-header-cell *matHeaderCellDef class="num">PhilHealth</th>
+          <td mat-cell *matCellDef="let row" class="num">
+            <input
+              name="employerShare"
+              data-share-field="philhealth"
+              type="number"
+              min="0"
+              step="0.01"
+              [ngModel]="draft(row.staffId, 'employerPhilHealth')"
+              (ngModelChange)="setDraft(row.staffId, 'employerPhilHealth', $event)"
+              [disabled]="current.readOnly || saving()"
+            />
+            <span class="ops-cell-sub">{{ formatPhp(row.suggestedPhilHealth) }}</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="pagibig">
+          <th mat-header-cell *matHeaderCellDef class="num">Pag-IBIG</th>
+          <td mat-cell *matCellDef="let row" class="num">
+            <input
+              name="employerShare"
+              data-share-field="pagibig"
+              type="number"
+              min="0"
+              step="0.01"
+              [ngModel]="draft(row.staffId, 'employerPagIbig')"
+              (ngModelChange)="setDraft(row.staffId, 'employerPagIbig', $event)"
+              [disabled]="current.readOnly || saving()"
+            />
+            <span class="ops-cell-sub">{{ formatPhp(row.suggestedPagIbig) }}</span>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="columns"></tr>
+        <tr
+          mat-row
+          *matRowDef="let row; columns: columns"
+          [attr.data-share-staff]="row.staffId"
+        ></tr>
+      </table>
+    </div>
+    @if (!current.readOnly) {
+      <button
+        matButton="filled"
+        type="button"
+        name="confirmEmployerShares"
+        [disabled]="saving()"
+        (click)="confirm()"
+      >
+        Confirm
+      </button>
+    }
+  }
+</section>

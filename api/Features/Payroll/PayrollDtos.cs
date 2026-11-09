@@ -247,7 +247,13 @@ public sealed record PayrollRunLineDto(
     IReadOnlyList<PayrollAllowanceItemDto>? AllowanceItems = null,
     decimal? LoanDeductions = null,
     IReadOnlyList<PayrollLoanItemDto>? LoanItems = null,
-    decimal? OtPay = null);
+    decimal? OtPay = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? EmployerSss = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? EmployerPhilHealth = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? EmployerPagIbig = null);
 
 public sealed record PayrollRunDetailDto(
     PayrollRunSummaryDto Run,

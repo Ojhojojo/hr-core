@@ -8,6 +8,7 @@ namespace HrCore.Data;
 /// more settings to Branch, Organization and Staff for the fields it owns).
 /// The optional <see cref="HrCoreFeatures"/> argument defaults to every flag off.
 /// <see cref="HrCoreFeatures.PayrollSchedules"/> adds the cut-off, deduction schedule, and catch-up tables.
+/// <see cref="HrCoreFeatures.EmployerRemittance"/> adds <c>BranchRemittanceSetting</c>.
 /// </summary>
 public static class HrModel
 {
@@ -90,6 +91,11 @@ public static class HrModel
         if (features.PayrollSchedules)
         {
             ConfigurePayrollSchedules(modelBuilder);
+        }
+
+        if (features.EmployerRemittance)
+        {
+            ConfigureEmployerRemittance(modelBuilder);
         }
 
         modelBuilder.Entity<Profile>(e =>
@@ -294,6 +300,18 @@ public static class HrModel
                 .OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.VoidedByStaff).WithMany().HasForeignKey(x => x.VoidedByStaffId)
                 .OnDelete(DeleteBehavior.SetNull);
+            if (features.EmployerRemittance)
+            {
+                e.HasOne(x => x.EmployerSharesReviewedByStaff).WithMany()
+                    .HasForeignKey(x => x.EmployerSharesReviewedBy)
+                    .OnDelete(DeleteBehavior.SetNull);
+            }
+            else
+            {
+                e.Ignore(x => x.EmployerSharesReviewedAtUtc);
+                e.Ignore(x => x.EmployerSharesReviewedBy);
+                e.Ignore(x => x.EmployerSharesReviewedByStaff);
+            }
         });
 
         modelBuilder.Entity<PayrollRunLine>(e =>
@@ -313,6 +331,14 @@ public static class HrModel
                 t.HasCheckConstraint(
                     "CK_PayrollRunLines_OtPay",
                     "\"OtPay\" IS NULL OR \"OtPay\" >= 0");
+                if (features.EmployerRemittance)
+                {
+                    t.HasCheckConstraint(
+                        "CK_PayrollRunLines_EmployerShares",
+                        "(\"EmployerSss\" IS NULL OR \"EmployerSss\" >= 0) " +
+                        "AND (\"EmployerPhilHealth\" IS NULL OR \"EmployerPhilHealth\" >= 0) " +
+                        "AND (\"EmployerPagIbig\" IS NULL OR \"EmployerPagIbig\" >= 0)");
+                }
             });
             e.Property(x => x.StaffName).HasMaxLength(200).IsRequired();
             e.Property(x => x.RatePhp).HasPrecision(12, 2);
@@ -334,6 +360,21 @@ public static class HrModel
             e.Property(x => x.PremiumPay).HasPrecision(12, 2);
             e.Property(x => x.Allowances).HasPrecision(12, 2);
             e.Property(x => x.LoanDeductions).HasPrecision(12, 2);
+            if (features.EmployerRemittance)
+            {
+                // No database default. A null means the shop had the report off, and EF must
+                // store that null. A default of 0 makes Postgres fill 0 when EF omits the column.
+                e.Property(x => x.EmployerSss).HasPrecision(14, 2);
+                e.Property(x => x.EmployerPhilHealth).HasPrecision(14, 2);
+                e.Property(x => x.EmployerPagIbig).HasPrecision(14, 2);
+            }
+            else
+            {
+                e.Ignore(x => x.EmployerSss);
+                e.Ignore(x => x.EmployerPhilHealth);
+                e.Ignore(x => x.EmployerPagIbig);
+            }
+
             e.HasIndex(x => new { x.RunId, x.StaffId }).IsUnique();
             e.HasOne(x => x.Run).WithMany(run => run.Lines).HasForeignKey(x => x.RunId)
                 .OnDelete(DeleteBehavior.Cascade);
@@ -606,6 +647,36 @@ public static class HrModel
             e.HasIndex(x => new { x.StaffId, x.PeriodFrom, x.PeriodTo, x.DeductionKey }).IsUnique();
             e.HasOne(x => x.Staff).WithMany().HasForeignKey(x => x.StaffId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    /// <summary>
+    /// Per-branch remittance switch. Called only when <see cref="HrCoreFeatures.EmployerRemittance"/>
+    /// is on, so a host that leaves the flag off does not discover this entity.
+    /// </summary>
+    private static void ConfigureEmployerRemittance(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<BranchRemittanceSetting>(e =>
+        {
+            e.ToTable("BranchRemittanceSettings");
+            e.HasIndex(x => x.BranchId).IsUnique();
+            e.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BranchRemittanceExport>(e =>
+        {
+            e.ToTable("BranchRemittanceExports", t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_BranchRemittanceExports_Month",
+                    "\"Month\" >= 1 AND \"Month\" <= 12");
+            });
+            e.HasIndex(x => new { x.BranchId, x.Year, x.Month }).IsUnique();
+            e.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ExportedByStaff).WithMany().HasForeignKey(x => x.ExportedBy)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 

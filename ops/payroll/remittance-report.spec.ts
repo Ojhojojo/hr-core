@@ -1,0 +1,374 @@
+import { TestBed } from '@angular/core/testing';
+import { provideZonelessChangeDetection } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { afterEach, describe, expect, it } from 'vitest';
+import { PayrollApi } from './payroll.api';
+import { RemittanceReport as RemittanceReportModel } from './payroll.models';
+import { RemittanceReport } from './remittance-report';
+import { remittanceCsv } from './remittance-report.format';
+import { HR_EMPLOYER_SHARE_REVIEW, HR_REMITTANCE_ACCESS } from './payroll-remittance';
+
+const off: RemittanceReportModel = {
+  branchId: 'branch-north',
+  month: '2026-11',
+  enabled: false,
+  agencies: [],
+  employeeShare: 0,
+  employerShare: 0,
+  total: 0,
+};
+
+const november: RemittanceReportModel = {
+  branchId: 'branch-north',
+  month: '2026-11',
+  enabled: true,
+  agencies: [
+    { key: 'sss', label: 'SSS', employeeShare: 1000, employerShare: 2030, total: 3030 },
+    { key: 'philhealth', label: 'PhilHealth', employeeShare: 500, employerShare: 500, total: 1000 },
+    { key: 'pagibig', label: 'Pag-IBIG', employeeShare: 200, employerShare: 200, total: 400 },
+  ],
+  employeeShare: 1700,
+  employerShare: 2730,
+  total: 4430,
+};
+
+const novemberCsv = remittanceCsv(november);
+
+const empty: RemittanceReportModel = {
+  branchId: 'branch-north',
+  month: '2026-09',
+  enabled: true,
+  agencies: [
+    { key: 'sss', label: 'SSS', employeeShare: 0, employerShare: 0, total: 0 },
+    { key: 'philhealth', label: 'PhilHealth', employeeShare: 0, employerShare: 0, total: 0 },
+    { key: 'pagibig', label: 'Pag-IBIG', employeeShare: 0, employerShare: 0, total: 0 },
+  ],
+  employeeShare: 0,
+  employerShare: 0,
+  total: 0,
+  emptyMessage: 'There is nothing to remit yet.',
+};
+
+describe('remittance access', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('denies view and review until the host provides a capability', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({});
+    const view = TestBed.inject(HR_REMITTANCE_ACCESS);
+    const review = TestBed.inject(HR_EMPLOYER_SHARE_REVIEW);
+    const desk = { staffRole: 'desk' };
+    expect(view.canView(desk)).toBe(false);
+    expect(view.canView(null)).toBe(false);
+    expect(review.canReview(desk)).toBe(false);
+    expect(review.canReview(null)).toBe(false);
+  });
+
+  it('uses a neutral stub and does not name a host role', () => {
+    const allow = {
+      canView: (user: { staffRole?: string | null } | null | undefined) =>
+        user?.staffRole === 'desk',
+    };
+    expect(allow.canView({ staffRole: 'desk' })).toBe(true);
+    expect(allow.canView({ staffRole: 'member' })).toBe(false);
+    expect(allow.canView(null)).toBe(false);
+  });
+});
+
+describe('remittance money text', () => {
+  it('reads PHP 1,000.00 and the peso sign as the same amount', () => {
+    expect(parseMoney('PHP 1,000.00')).toBe(1000);
+    expect(parseMoney('₱2,030.00')).toBe(2030);
+    expect(parseMoney('PHP 4,430.00')).toBe(4430);
+  });
+});
+
+describe('remittance CSV', () => {
+  it('matches the November 2025 salary of 20000 on screen and in the file', () => {
+    expect(novemberCsv).toBe(
+      'Agency,Employee share,Employer share,Total\n' +
+        'SSS,1000.00,2030.00,3030.00\n' +
+        'PhilHealth,500.00,500.00,1000.00\n' +
+        'Pag-IBIG,200.00,200.00,400.00\n' +
+        'Total,1700.00,2730.00,4430.00\n',
+    );
+    expect(sumColumn(novemberCsv, 1)).toBe(november.employeeShare);
+    expect(sumColumn(novemberCsv, 2)).toBe(november.employerShare);
+    expect(sumColumn(novemberCsv, 3)).toBe(november.total);
+  });
+});
+
+describe('PayrollApi remittance', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('gets and saves the report and requests the CSV export', () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+    const api = TestBed.inject(PayrollApi);
+    const http = TestBed.inject(HttpTestingController);
+
+    api.getRemittance('2026-11').subscribe();
+    const get = http.expectOne((r) => r.url.includes('/api/ops/payroll/remittance'));
+    expect(get.request.method).toBe('GET');
+    expect(get.request.params.get('month')).toBe('2026-11');
+    get.flush(november);
+
+    api.saveRemittance({ enabled: true }).subscribe();
+    const put = http.expectOne((r) => r.url.endsWith('/api/ops/payroll/remittance'));
+    expect(put.request.method).toBe('PUT');
+    expect(put.request.body).toEqual({ enabled: true });
+    put.flush({ branchId: 'branch-north', enabled: true });
+
+    api.exportRemittance('2026-11').subscribe();
+    const exported = http.expectOne((r) => r.url.includes('/api/ops/payroll/remittance/export'));
+    expect(exported.request.method).toBe('GET');
+    expect(exported.request.params.get('month')).toBe('2026-11');
+    exported.flush(new Blob([novemberCsv]));
+    http.verify();
+  });
+});
+
+describe('Remittance report screen', () => {
+  const createObjectUrl = URL.createObjectURL;
+  afterEach(() => {
+    URL.createObjectURL = createObjectUrl;
+    TestBed.resetTestingModule();
+  });
+
+  async function mount() {
+    await TestBed.configureTestingModule({
+      imports: [RemittanceReport],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideNoopAnimations(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(RemittanceReport);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    fixture.componentInstance.load();
+    fixture.detectChanges();
+    return { fixture, http, host: fixture.nativeElement as HTMLElement };
+  }
+
+  it('shows a loading state, then the off switch', async () => {
+    const { fixture, http, host } = await mount();
+    expect(host.querySelector('[data-remittance-loading]')).toBeTruthy();
+    http.expectOne((r) => r.url.includes('/api/ops/payroll/remittance')).flush(off);
+    fixture.detectChanges();
+    expect(host.querySelector('[data-remittance-loading]')).toBeNull();
+    expect(host.querySelector('[data-remittance-off]')?.textContent).toContain(
+      "Locking a run keeps today's lines and payslips.",
+    );
+    expect(host.querySelector('[data-remittance-table]')).toBeNull();
+    expect(host.querySelector('[data-remittance-empty]')).toBeNull();
+    http.verify();
+  });
+
+  it('shows the load error inline and retries', async () => {
+    const { fixture, http, host } = await mount();
+    http
+      .expectOne((r) => r.url.includes('/api/ops/payroll/remittance'))
+      .flush('nope', { status: 500, statusText: 'Server error' });
+    fixture.detectChanges();
+    const retry = host.querySelector<HTMLButtonElement>('[name="retryRemittance"]');
+    expect(retry).toBeTruthy();
+    retry?.click();
+    fixture.detectChanges();
+    http.expectOne((r) => r.url.includes('/api/ops/payroll/remittance')).flush(off);
+    fixture.detectChanges();
+    expect(host.querySelector('[data-remittance-off]')).toBeTruthy();
+    http.verify();
+  });
+
+  it('shows November totals and the CSV matches those amounts', async () => {
+    const { fixture, http, host } = await mount();
+    http.expectOne((r) => r.url.includes('/api/ops/payroll/remittance')).flush(november);
+    fixture.detectChanges();
+
+    expect(host.querySelector('[data-remittance-month]')?.textContent).toContain('November 2026');
+    expect(money(host, 'sss', 'employee')).toBe(1000);
+    expect(money(host, 'sss', 'employer')).toBe(2030);
+    expect(money(host, 'sss', 'total')).toBe(3030);
+    expect(money(host, 'philhealth', 'employee')).toBe(500);
+    expect(money(host, 'pagibig', 'employer')).toBe(200);
+    const total = host.querySelector('[data-remittance-total]');
+    expect(parseMoney(total?.querySelector('[data-total]')?.textContent)).toBe(4430);
+
+    expect(sumColumn(novemberCsv, 1)).toBe(
+      money(host, 'sss', 'employee') +
+        money(host, 'philhealth', 'employee') +
+        money(host, 'pagibig', 'employee'),
+    );
+    expect(sumColumn(novemberCsv, 2)).toBe(2030 + 500 + 200);
+    expect(sumColumn(novemberCsv, 3)).toBe(
+      parseMoney(total?.querySelector('[data-total]')?.textContent),
+    );
+
+    const blobs: Blob[] = [];
+    URL.createObjectURL = (blob: Blob) => {
+      blobs.push(blob);
+      return createObjectUrl.call(URL, blob);
+    };
+    host.querySelector<HTMLButtonElement>('[name="exportRemittance"]')?.click();
+    const exported = http.expectOne(
+      (r) => r.method === 'GET' && r.url.includes('/api/ops/payroll/remittance/export'),
+    );
+    exported.flush(new Blob([novemberCsv], { type: 'text/csv' }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(blobs.length).toBe(1);
+    expect(await blobText(blobs[0])).toBe(novemberCsv);
+    http.verify();
+  });
+
+  it('lists the runs that block export', async () => {
+    const { fixture, http, host } = await mount();
+    http.expectOne((r) => r.url.includes('/api/ops/payroll/remittance')).flush(november);
+    fixture.detectChanges();
+
+    host.querySelector<HTMLButtonElement>('[name="exportRemittance"]')?.click();
+    const exported = http.expectOne(
+      (r) => r.method === 'GET' && r.url.includes('/api/ops/payroll/remittance/export'),
+    );
+    exported.flush(
+      new Blob(
+        [
+          JSON.stringify({
+            error: 'Review every locked run in this month before exporting.',
+            blockingRuns: [
+              {
+                runId: 'run-1',
+                from: '2026-11-01',
+                to: '2026-11-15',
+                name: 'North Desk',
+                status: 'Not reviewed',
+              },
+            ],
+          }),
+        ],
+        { type: 'application/json' },
+      ),
+      { status: 409, statusText: 'Conflict' },
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    fixture.detectChanges();
+    const list = host.querySelector('[data-remittance-blocking]');
+    expect(list?.textContent).toContain('North Desk');
+    expect(list?.textContent).toContain('Nov');
+    http.verify();
+  });
+
+  it('shows unreviewed locked runs as Not reviewed', async () => {
+    const { fixture, http, host } = await mount();
+    http
+      .expectOne((r) => r.url.includes('/api/ops/payroll/remittance'))
+      .flush({
+        ...november,
+        unreviewedRuns: [
+          {
+            runId: 'run-2',
+            from: '2026-11-16',
+            to: '2026-11-30',
+            name: 'North Desk',
+            status: 'Not reviewed',
+          },
+        ],
+      });
+    fixture.detectChanges();
+    const row = host.querySelector('[data-remittance-unreviewed]');
+    expect(row?.textContent).toContain('Not reviewed');
+    expect(row?.textContent).toContain('North Desk');
+    http.verify();
+  });
+
+  it('says there is nothing to remit yet when the month has no locked run', async () => {
+    const { fixture, http, host } = await mount();
+    http.expectOne((r) => r.url.includes('/api/ops/payroll/remittance')).flush(empty);
+    fixture.detectChanges();
+    expect(host.querySelector('[data-remittance-empty]')?.textContent).toContain(
+      'There is nothing to remit yet.',
+    );
+    expect(host.querySelector('[data-remittance-table]')).toBeNull();
+    expect(host.querySelector('[name="exportRemittance"]')).toBeNull();
+    http.verify();
+  });
+
+  it('turns the report on and moves to the next month', async () => {
+    const { fixture, http, host } = await mount();
+    http.expectOne((r) => r.url.includes('/api/ops/payroll/remittance')).flush(off);
+    fixture.detectChanges();
+
+    // Material listens on the inner button. Clicking the host does not emit ngModelChange.
+    const toggle = host.querySelector<HTMLButtonElement>('mat-slide-toggle button');
+    expect(toggle).toBeTruthy();
+    toggle?.click();
+    fixture.detectChanges();
+    const put = http.expectOne(
+      (r) => r.method === 'PUT' && r.url.includes('/api/ops/payroll/remittance'),
+    );
+    expect(put.request.body).toEqual({ enabled: true });
+    put.flush({ branchId: 'branch-north', enabled: true });
+    fixture.detectChanges();
+    const again = http.expectOne(
+      (r) => r.method === 'GET' && r.url.includes('/api/ops/payroll/remittance'),
+    );
+    again.flush(november);
+    fixture.detectChanges();
+    expect(host.querySelector('[data-remittance-table]')).toBeTruthy();
+
+    host.querySelector<HTMLButtonElement>('[name="remittanceNextMonth"]')?.click();
+    fixture.detectChanges();
+    const next = http.expectOne(
+      (r) => r.method === 'GET' && r.url.includes('/api/ops/payroll/remittance'),
+    );
+    expect(next.request.params.get('month')).toBe('2026-12');
+    next.flush({ ...empty, month: '2026-12' });
+    fixture.detectChanges();
+    expect(host.querySelector('[data-remittance-month]')?.textContent).toContain('December 2026');
+    http.verify();
+  });
+});
+
+async function blobText(blob: Blob): Promise<string> {
+  if (typeof blob.text === 'function') {
+    return blob.text();
+  }
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(blob);
+  });
+}
+
+function money(
+  host: HTMLElement,
+  agency: string,
+  field: 'employee' | 'employer' | 'total',
+): number {
+  const cell = host.querySelector(`[data-agency="${agency}"] [data-${field}]`);
+  return parseMoney(cell?.textContent);
+}
+
+/** The host money format may be "₱1,000.00" or "PHP 1,000.00". Keep the number. */
+function parseMoney(text: string | null | undefined): number {
+  const match = (text ?? '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : Number.NaN;
+}
+
+function sumColumn(csv: string, index: number): number {
+  const lines = csv.trim().split('\n').slice(1, -1);
+  return lines.reduce((sum, line) => sum + Number(line.split(',')[index]), 0);
+}

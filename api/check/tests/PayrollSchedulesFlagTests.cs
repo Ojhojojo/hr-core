@@ -34,6 +34,8 @@ public sealed class PayrollSchedulesFlagTests
         Assert.DoesNotContain(typeof(BranchPayrollCutoff), types);
         Assert.DoesNotContain(typeof(BranchDeductionSchedule), types);
         Assert.DoesNotContain(typeof(PayrollCatchUp), types);
+        Assert.DoesNotContain(typeof(BranchRemittanceSetting), types);
+        Assert.DoesNotContain(typeof(BranchRemittanceExport), types);
         Assert.Contains(typeof(Staff), types);
     }
 
@@ -50,6 +52,54 @@ public sealed class PayrollSchedulesFlagTests
         {
             Assert.Contains(scheduleType, types);
         }
+
+        Assert.DoesNotContain(typeof(BranchRemittanceSetting), types);
+        var line = db.Model.FindEntityType(typeof(PayrollRunLine));
+        Assert.NotNull(line);
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerSss)));
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerPhilHealth)));
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerPagIbig)));
+        var run = db.Model.FindEntityType(typeof(PayrollRun));
+        Assert.NotNull(run);
+        Assert.Null(run.FindProperty(nameof(PayrollRun.EmployerSharesReviewedAtUtc)));
+        Assert.DoesNotContain(typeof(BranchRemittanceExport), types);
+    }
+
+    [Fact]
+    public void Remittance_flag_on_includes_the_setting_and_export_tables()
+    {
+        var built = new DbContextOptionsBuilder<TestHrDb>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseHrCoreFeatures(new HrCoreFeatures { EmployerRemittance = true });
+        using var db = new TestHrDb((DbContextOptions<TestHrDb>)built.Options);
+        var types = db.Model.GetEntityTypes().Select(entity => entity.ClrType).ToHashSet();
+
+        Assert.Contains(typeof(BranchRemittanceSetting), types);
+        Assert.Contains(typeof(BranchRemittanceExport), types);
+        Assert.DoesNotContain(typeof(BranchPayrollCutoff), types);
+        var run = db.Model.FindEntityType(typeof(PayrollRun));
+        Assert.NotNull(run);
+        Assert.NotNull(run.FindProperty(nameof(PayrollRun.EmployerSharesReviewedAtUtc)));
+        Assert.NotNull(run.FindProperty(nameof(PayrollRun.EmployerSharesReviewedBy)));
+    }
+
+    [Fact]
+    public async Task Flag_off_remittance_routes_are_404()
+    {
+        await using var app = await FlagApp.StartAsync(payrollSchedules: false);
+        foreach (var url in new[]
+        {
+            "/api/ops/payroll/remittance",
+            "/api/ops/payroll/remittance?month=2026-11",
+            "/api/ops/payroll/remittance/export?month=2026-11"
+        })
+        {
+            var response = await app.SendAsync(HttpMethod.Get, url);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        var put = await app.SendAsync(HttpMethod.Put, "/api/ops/payroll/remittance");
+        Assert.Equal(HttpStatusCode.NotFound, put.StatusCode);
     }
 
     [Fact]

@@ -8,7 +8,11 @@ namespace HrCore.Features.Payroll;
 /// <see cref="PayrollRunLine"/> rows. Runs are never edited or deleted; a mistake is voided and
 /// corrected in the next period.
 /// </summary>
-public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollService payroll)
+public sealed class PayrollRunService(
+    IHrDb db,
+    HrChangeLogService hr,
+    PayrollService payroll,
+    PayrollRemittanceService remittance)
 {
     public const string RefType = "payroll_run";
 
@@ -157,7 +161,7 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
 
         var register = await payroll.GetRegisterAsync(
             [branch], start, end, includeInactive: false, includeUnscopedOwners, cancellationToken);
-
+        // Lock does not store employer shares. Confirm calls PayrollEmployerShare.Compute.
         var now = DateTime.UtcNow;
         var run = new PayrollRun
         {
@@ -302,7 +306,7 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
     }
 
     /// <summary>Marks a run void. The row and its lines stay; a later period carries the fix.</summary>
-    public async Task<PayrollRunDetailDto?> VoidAsync(
+    public async Task<(PayrollRunDetailDto? Run, string? Error)> VoidAsync(
         IReadOnlyList<Branch> shops,
         Guid runId,
         Guid? actorStaffId,
@@ -311,7 +315,13 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
         var run = await db.PayrollRuns.FirstOrDefaultAsync(r => r.Id == runId, cancellationToken);
         if (run is null || !shops.Any(s => s.Id == run.BranchId))
         {
-            return null;
+            return (null, null);
+        }
+
+        if (run.Status != PayrollRunStatus.Void
+            && await remittance.MonthIsExportedAsync(run.BranchId, run.PeriodTo, cancellationToken))
+        {
+            return (null, PayrollRemittanceService.ExportedMonthVoidMessage);
         }
 
         var openPayments = await db.StaffLoanPayments
@@ -323,6 +333,7 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
             run.Status = PayrollRunStatus.Void;
             run.VoidedAtUtc = now;
             run.VoidedByStaffId = actorStaffId;
+            await remittance.ClearReviewAsync(run, cancellationToken);
 
             // Bonuses paid on this run go back to Scheduled, so the next run for their period can pay them.
             var returnedBonuses = await db.IncentiveBonuses
@@ -366,7 +377,7 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
             await db.SaveChangesAsync(cancellationToken);
         }
 
-        return await GetRunAsync(shops, runId, cancellationToken);
+        return (await GetRunAsync(shops, runId, cancellationToken), null);
     }
 
     /// <summary>
@@ -615,7 +626,10 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
             allowanceItems is { Count: > 0 } ? allowanceItems : null,
             line.LoanDeductions,
             loanItems is { Count: > 0 } ? loanItems : null,
-            line.OtPay);
+            line.OtPay,
+            line.EmployerSss,
+            line.EmployerPhilHealth,
+            line.EmployerPagIbig);
 
     private static string? BlankToNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

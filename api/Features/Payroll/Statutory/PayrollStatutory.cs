@@ -43,7 +43,7 @@ public sealed partial class PayrollService
         var baseAmount = StatutoryBase(row);
         var sss = StatutoryPack.SssEmployeeShare(monthStart, baseAmount);
         var philHealth = StatutoryPack.PhilHealthEmployeeShare(monthStart, baseAmount);
-        var pagIbig = StatutoryPack.PagIbigEmployeeShare(baseAmount);
+        var pagIbig = StatutoryPack.PagIbigEmployeeShare(monthStart, baseAmount);
         var whtTaxable = baseAmount - sss - philHealth - pagIbig;
         var wht = StatutoryPack.MonthlyWithholdingTax(whtTaxable);
 
@@ -146,7 +146,7 @@ public sealed partial class PayrollService
             row.StaffName,
             monthStart.ToString("yyyy-MM"),
             baseAmount,
-            StatutoryPack.SssMsc(baseAmount),
+            StatutoryPack.SssMsc(monthStart, baseAmount),
             sss,
             StatutoryPack.PhilHealthBase(baseAmount),
             philHealth,
@@ -166,7 +166,7 @@ public sealed partial class PayrollService
     /// total, so that replacement stays in the base and the pre-override items are not
     /// subtracted again. No allowance items leaves the gross unchanged.
     /// </summary>
-    private static decimal StatutoryBase(PayrollStaffRowDto row)
+    internal static decimal StatutoryBase(PayrollStaffRowDto row)
     {
         if (row.AllowancesOverridden || row.AllowanceItems is null)
         {

@@ -79,6 +79,13 @@ import { alignCutoffPeriod, formatCutoffMonth, shiftMonth } from './payroll-cuto
 import { PayrollCutoffSettings } from './payroll-cutoff-settings';
 import { DeductionSchedule } from './deduction-schedule';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
+import { RemittanceReport } from './remittance-report';
+import { EmployerShareReviewPanel } from './employer-share-review';
+import {
+  HR_EMPLOYER_REMITTANCE,
+  HR_EMPLOYER_SHARE_REVIEW,
+  HR_REMITTANCE_ACCESS,
+} from './payroll-remittance';
 
 @Component({
   selector: 'app-ops-payroll',
@@ -112,6 +119,8 @@ import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
     StatusBadgeComponent,
     PayrollCutoffSettings,
     DeductionSchedule,
+    RemittanceReport,
+    EmployerShareReviewPanel,
   ],
   templateUrl: './payroll.html',
   styles: `
@@ -310,6 +319,19 @@ export class PayrollPage {
   private readonly toast = inject(OpsToastService);
   /** Host flag. Absent means off, so rakkii's payroll screen stays as it was. */
   protected readonly payrollSchedules = inject(HR_PAYROLL_SCHEDULES, { optional: true }) ?? false;
+  /** Host flag. Absent means off, so the remittance panel and its calls stay hidden. */
+  protected readonly employerRemittance =
+    inject(HR_EMPLOYER_REMITTANCE, { optional: true }) ?? false;
+  private readonly remittanceAccess = inject(HR_REMITTANCE_ACCESS);
+  /** Hidden until the host provides a capability that allows this caller. */
+  protected readonly showRemittance = computed(
+    () => this.employerRemittance && this.remittanceAccess.canView(this.auth.me()),
+  );
+  private readonly shareReview = inject(HR_EMPLOYER_SHARE_REVIEW);
+  /** The review panel is on a locked run, and only when the host capability allows it. */
+  protected readonly showEmployerShareReview = computed(
+    () => this.employerRemittance && this.isLocked() && this.shareReview.canReview(this.auth.me()),
+  );
 
   protected readonly from = signal('');
   protected readonly to = signal('');

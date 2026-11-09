@@ -28,6 +28,11 @@ import {
   UpdateDeductionSchedule,
   PayrollCatchUp,
   SavePayrollCatchUp,
+  ConfirmEmployerShareLine,
+  EmployerShareReview,
+  RemittanceReport,
+  RemittanceSetting,
+  UpdateRemittanceSetting,
   ShopHoliday,
   ShopHolidayList,
   UpsertShopHoliday,
@@ -274,6 +279,43 @@ export class PayrollApi {
 
   saveCatchUp(body: SavePayrollCatchUp): Observable<PayrollCatchUp> {
     return this.http.put<PayrollCatchUp>(`${this.base}/api/ops/payroll/catch-ups`, body);
+  }
+
+  /** Remittance report for the header shop. `month` is yyyy-MM; omitted uses the current month. */
+  getRemittance(month?: string): Observable<RemittanceReport> {
+    let params = new HttpParams();
+    if (month) {
+      params = params.set('month', month);
+    }
+    return this.http.get<RemittanceReport>(`${this.base}/api/ops/payroll/remittance`, { params });
+  }
+
+  saveRemittance(body: UpdateRemittanceSetting): Observable<RemittanceSetting> {
+    return this.http.put<RemittanceSetting>(`${this.base}/api/ops/payroll/remittance`, body);
+  }
+
+  getEmployerShareReview(runId: string): Observable<EmployerShareReview> {
+    return this.http.get<EmployerShareReview>(
+      `${this.base}/api/ops/payroll/remittance/runs/${runId}`,
+    );
+  }
+
+  confirmEmployerShares(
+    runId: string,
+    lines: ConfirmEmployerShareLine[],
+  ): Observable<EmployerShareReview> {
+    return this.http.put<EmployerShareReview>(
+      `${this.base}/api/ops/payroll/remittance/runs/${runId}`,
+      { lines },
+    );
+  }
+
+  exportRemittance(month: string): Observable<HttpResponse<Blob>> {
+    return this.http.get(`${this.base}/api/ops/payroll/remittance/export`, {
+      params: new HttpParams().set('month', month),
+      observe: 'response',
+      responseType: 'blob',
+    });
   }
 
   saveCutoffSchedule(

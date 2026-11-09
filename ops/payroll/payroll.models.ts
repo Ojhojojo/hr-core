@@ -679,3 +679,71 @@ export interface PayrollFinalPay {
   grossTotal: number;
   notes: string[];
 }
+
+/** One agency on the monthly remittance report. Amounts are PHP. */
+export interface RemittanceAgency {
+  key: string;
+  label: string;
+  employeeShare: number;
+  employerShare: number;
+  total: number;
+}
+
+/** Current shop, one month. `enabled` is false until the shop turns the report on. */
+export interface RemittanceReport {
+  branchId: string;
+  month: string;
+  enabled: boolean;
+  agencies: RemittanceAgency[];
+  employeeShare: number;
+  employerShare: number;
+  total: number;
+  /** Set when the report is on and no locked run ends in the month. */
+  emptyMessage?: string | null;
+  /** Locked runs in the month whose employer shares are not confirmed. */
+  unreviewedRuns?: RemittanceRunRef[] | null;
+}
+
+/** A locked run named by its period and shop, with a status such as "Not reviewed". */
+export interface RemittanceRunRef {
+  runId: string;
+  from: string;
+  to: string;
+  name: string;
+  status: string;
+}
+
+export interface EmployerShareReviewLine {
+  staffId: string;
+  staffName: string;
+  suggestedSss: number;
+  suggestedPhilHealth: number;
+  suggestedPagIbig: number;
+  employerSss?: number | null;
+  employerPhilHealth?: number | null;
+  employerPagIbig?: number | null;
+}
+
+export interface EmployerShareReview {
+  runId: string;
+  readOnly: boolean;
+  lines: EmployerShareReviewLine[];
+  reviewedAtUtc?: string | null;
+  reviewedByName?: string | null;
+}
+
+export interface ConfirmEmployerShareLine {
+  staffId: string;
+  employerSss: number;
+  employerPhilHealth: number;
+  employerPagIbig: number;
+}
+
+export interface RemittanceSetting {
+  branchId: string;
+  enabled: boolean;
+}
+
+export interface UpdateRemittanceSetting {
+  enabled: boolean;
+}
