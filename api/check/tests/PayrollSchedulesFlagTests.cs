@@ -35,6 +35,7 @@ public sealed class PayrollSchedulesFlagTests
         Assert.DoesNotContain(typeof(BranchDeductionSchedule), types);
         Assert.DoesNotContain(typeof(PayrollCatchUp), types);
         Assert.DoesNotContain(typeof(BranchRemittanceSetting), types);
+        Assert.DoesNotContain(typeof(BranchRemittanceExport), types);
         Assert.Contains(typeof(Staff), types);
     }
 
@@ -58,10 +59,14 @@ public sealed class PayrollSchedulesFlagTests
         Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerSss)));
         Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerPhilHealth)));
         Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerPagIbig)));
+        var run = db.Model.FindEntityType(typeof(PayrollRun));
+        Assert.NotNull(run);
+        Assert.Null(run.FindProperty(nameof(PayrollRun.EmployerSharesReviewedAtUtc)));
+        Assert.DoesNotContain(typeof(BranchRemittanceExport), types);
     }
 
     [Fact]
-    public void Remittance_flag_on_includes_only_the_setting_table()
+    public void Remittance_flag_on_includes_the_setting_and_export_tables()
     {
         var built = new DbContextOptionsBuilder<TestHrDb>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -70,7 +75,12 @@ public sealed class PayrollSchedulesFlagTests
         var types = db.Model.GetEntityTypes().Select(entity => entity.ClrType).ToHashSet();
 
         Assert.Contains(typeof(BranchRemittanceSetting), types);
+        Assert.Contains(typeof(BranchRemittanceExport), types);
         Assert.DoesNotContain(typeof(BranchPayrollCutoff), types);
+        var run = db.Model.FindEntityType(typeof(PayrollRun));
+        Assert.NotNull(run);
+        Assert.NotNull(run.FindProperty(nameof(PayrollRun.EmployerSharesReviewedAtUtc)));
+        Assert.NotNull(run.FindProperty(nameof(PayrollRun.EmployerSharesReviewedBy)));
     }
 
     [Fact]

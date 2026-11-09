@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import { canViewRemittance } from '@hr-host';
+import { canReviewEmployerShares, canViewRemittance } from '@hr-host';
 
 /**
  * Host opt-in for employer shares and the monthly remittance report.
@@ -18,6 +18,19 @@ export const HR_CAN_VIEW_REMITTANCE = new InjectionToken<
 >('HR_CAN_VIEW_REMITTANCE');
 
 /** True when the host capability allows this caller. Tests pass their own function. */
+/** Host answer for who may confirm employer shares. Specs provide this token. */
+export const HR_CAN_REVIEW_EMPLOYER_SHARES = new InjectionToken<
+  (role: string | null | undefined) => boolean
+>('HR_CAN_REVIEW_EMPLOYER_SHARES');
+
+/** True when the host capability allows this caller to confirm. Tests pass their own function. */
+export function mayReviewEmployerShares(
+  role: string | null | undefined,
+  canReview: (role: string | null | undefined) => boolean = canReviewEmployerShares,
+): boolean {
+  return canReview(role);
+}
+
 export function mayViewRemittance(
   role: string | null | undefined,
   canView: (role: string | null | undefined) => boolean = canViewRemittance,

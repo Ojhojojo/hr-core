@@ -61,6 +61,12 @@
   </div>
 </ops-page-header>
 
+@if (showEmployerShareReview() && runId(); as reviewRunId) {
+  <ops-card>
+    <app-ops-employer-share-review [runId]="reviewRunId" />
+  </ops-card>
+}
+
 @if (isLocked()) {
   <ops-banner
     tone="warn"

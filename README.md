@@ -51,6 +51,7 @@ with a lint rule. `hr-host.ts` exports:
 - money and Manila date helpers
 - staff availability, and `canBeAssignedJobs(role)` (who may take over open work)
 - `canViewRemittance(role)`: who may view or export the remittance report. The payroll screen calls it, and specs pass their own function through `HR_CAN_VIEW_REMITTANCE`. The API default is `IHrRemittanceAccess`, registered with `TryAdd` as owner or admin via `StaffRoleFilter.OwnerOrAdmin`. A host that needs a different answer registers its own `IHrRemittanceAccess` before `AddHrCore`.
+- `canReviewEmployerShares(role)`: who may confirm employer shares. Specs pass their own function through `HR_CAN_REVIEW_EMPLOYER_SHARES`. The API default is `IHrEmployerShareReview`, registered with `TryAdd`, and it refuses every caller until the host replaces it. hr-core does not name a role for this.
 - `canPickHomeShop(me)`: whether the signed-in owner may choose a person's home shop
 - `clocksByDefault(role)`: whether a new person of that role starts with Uses time clock on (`mustClock`). Use the same rule as the API's `HrRoles.ClocksByDefault`
 

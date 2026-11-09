@@ -26,4 +26,11 @@ public static class HrDbSets
     /// </summary>
     public static DbSet<BranchRemittanceSetting> BranchRemittanceSettings(this IHrDb db) =>
         ((DbContext)db).Set<BranchRemittanceSetting>();
+
+    /// <summary>
+    /// Exists only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on.
+    /// Calling it while the flag is off throws, because the type is not in the model.
+    /// </summary>
+    public static DbSet<BranchRemittanceExport> BranchRemittanceExports(this IHrDb db) =>
+        ((DbContext)db).Set<BranchRemittanceExport>();
 }

@@ -161,11 +161,7 @@ public sealed class PayrollRunService(
 
         var register = await payroll.GetRegisterAsync(
             [branch], start, end, includeInactive: false, includeUnscopedOwners, cancellationToken);
-        // ForRegisterAsync calls PayrollEmployerShare.Compute. Lock does not.
-        // The owner review step will replace this store. It is not built yet.
-        var employerShares = await remittance.ForRegisterAsync(
-            branch, start, end, register.Rows, includeUnscopedOwners, cancellationToken);
-
+        // Lock does not store employer shares. Confirm calls PayrollEmployerShare.Compute.
         var now = DateTime.UtcNow;
         var run = new PayrollRun
         {
@@ -188,21 +184,6 @@ public sealed class PayrollRunService(
         foreach (var row in register.Rows)
         {
             var lineId = Guid.NewGuid();
-            decimal? employerSss = null;
-            decimal? employerPhilHealth = null;
-            decimal? employerPagIbig = null;
-            if (employerShares is not null)
-            {
-                if (!employerShares.TryGetValue(row.StaffId, out var share))
-                {
-                    share = default;
-                }
-
-                employerSss = share.Sss;
-                employerPhilHealth = share.PhilHealth;
-                employerPagIbig = share.PagIbig;
-            }
-
             db.PayrollRunLines.Add(new PayrollRunLine
             {
                 Id = lineId,
@@ -230,10 +211,7 @@ public sealed class PayrollRunService(
                 NightHours = row.NightHours,
                 PremiumPay = row.PremiumPay,
                 Allowances = row.Allowances,
-                LoanDeductions = row.LoanDeductions,
-                EmployerSss = employerSss,
-                EmployerPhilHealth = employerPhilHealth,
-                EmployerPagIbig = employerPagIbig
+                LoanDeductions = row.LoanDeductions
             });
             if (row.AllowanceItems is { Count: > 0 } items)
             {
@@ -328,7 +306,7 @@ public sealed class PayrollRunService(
     }
 
     /// <summary>Marks a run void. The row and its lines stay; a later period carries the fix.</summary>
-    public async Task<PayrollRunDetailDto?> VoidAsync(
+    public async Task<(PayrollRunDetailDto? Run, string? Error)> VoidAsync(
         IReadOnlyList<Branch> shops,
         Guid runId,
         Guid? actorStaffId,
@@ -337,7 +315,13 @@ public sealed class PayrollRunService(
         var run = await db.PayrollRuns.FirstOrDefaultAsync(r => r.Id == runId, cancellationToken);
         if (run is null || !shops.Any(s => s.Id == run.BranchId))
         {
-            return null;
+            return (null, null);
+        }
+
+        if (run.Status != PayrollRunStatus.Void
+            && await remittance.MonthIsExportedAsync(run.BranchId, run.PeriodTo, cancellationToken))
+        {
+            return (null, PayrollRemittanceService.ExportedMonthVoidMessage);
         }
 
         var openPayments = await db.StaffLoanPayments
@@ -349,6 +333,7 @@ public sealed class PayrollRunService(
             run.Status = PayrollRunStatus.Void;
             run.VoidedAtUtc = now;
             run.VoidedByStaffId = actorStaffId;
+            await remittance.ClearReviewAsync(run, cancellationToken);
 
             // Bonuses paid on this run go back to Scheduled, so the next run for their period can pay them.
             var returnedBonuses = await db.IncentiveBonuses
@@ -392,7 +377,7 @@ public sealed class PayrollRunService(
             await db.SaveChangesAsync(cancellationToken);
         }
 
-        return await GetRunAsync(shops, runId, cancellationToken);
+        return (await GetRunAsync(shops, runId, cancellationToken), null);
     }
 
     /// <summary>

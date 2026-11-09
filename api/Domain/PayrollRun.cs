@@ -25,5 +25,18 @@ public sealed class PayrollRun
     public DateTime? VoidedAtUtc { get; set; }
     public Guid? VoidedByStaffId { get; set; }
     public Staff? VoidedByStaff { get; set; }
+
+    /// <summary>
+    /// When the employer shares on this run were confirmed. Null until then.
+    /// Mapped only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on.
+    /// </summary>
+    public DateTime? EmployerSharesReviewedAtUtc { get; set; }
+
+    /// <summary>
+    /// Staff who last confirmed the employer shares. Mapped only when the remittance flag is on.
+    /// </summary>
+    public Guid? EmployerSharesReviewedBy { get; set; }
+
+    public Staff? EmployerSharesReviewedByStaff { get; set; }
     public ICollection<PayrollRunLine> Lines { get; set; } = [];
 }

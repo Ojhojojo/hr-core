@@ -270,6 +270,13 @@ public sealed class PayrollEmployerShareTests
         Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerSss)));
         Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerPhilHealth)));
         Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerPagIbig)));
+        var run = db.Model.FindEntityType(typeof(PayrollRun));
+        Assert.NotNull(run);
+        Assert.Null(run.FindProperty(nameof(PayrollRun.EmployerSharesReviewedAtUtc)));
+        Assert.Null(run.FindProperty(nameof(PayrollRun.EmployerSharesReviewedBy)));
+        Assert.DoesNotContain(
+            typeof(BranchRemittanceExport),
+            db.Model.GetEntityTypes().Select(entity => entity.ClrType));
         Assert.DoesNotContain(
             typeof(BranchRemittanceSetting),
             db.Model.GetEntityTypes().Select(entity => entity.ClrType));

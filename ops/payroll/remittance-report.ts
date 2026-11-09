@@ -12,8 +12,12 @@ import { MatSlideToggle } from '@angular/material/slide-toggle';
 import { MatTableModule } from '@angular/material/table';
 import { PayrollApi } from './payroll.api';
 import { formatCutoffMonth, shiftMonth } from './payroll-cutoff.format';
-import { type RemittanceReport as RemittanceReportBody } from './payroll.models';
-import { remittanceCsv } from './remittance-report.format';
+import { formatDayRange } from '../hr-dates';
+import {
+  type RemittanceReport as RemittanceReportBody,
+  type RemittanceRunRef,
+} from './payroll.models';
+import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
   selector: 'app-ops-remittance-report',
@@ -49,6 +53,9 @@ export class RemittanceReport {
   private readonly api = inject(PayrollApi);
 
   protected readonly formatMonth = formatCutoffMonth;
+  protected readonly formatRange = formatDayRange;
+  protected readonly blockingRuns = signal<RemittanceRunRef[]>([]);
+  protected readonly exportError = signal('');
   protected readonly formatPhp = formatPhp;
   protected readonly columns = ['agency', 'employee', 'employer', 'total'];
   protected readonly loading = signal(false);
@@ -106,17 +113,34 @@ export class RemittanceReport {
     if (!report?.enabled || report.emptyMessage) {
       return;
     }
-    const csv = remittanceCsv(report);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const fileName = `payroll-remittance-${report.month}.csv`;
-    if (typeof window !== 'undefined' && typeof window.URL?.createObjectURL === 'function') {
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.click();
-      setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
-    }
+    this.exportError.set('');
+    this.blockingRuns.set([]);
+    this.api.exportRemittance(report.month).subscribe({
+      next: (response) => {
+        const blob = response.body;
+        if (!blob) {
+          return;
+        }
+        const fileName = `payroll-remittance-${report.month}.csv`;
+        if (typeof window !== 'undefined' && typeof window.URL?.createObjectURL === 'function') {
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+        }
+      },
+      error: (err: unknown) => {
+        void this.showExportError(err);
+      },
+    });
+  }
+
+  private async showExportError(err: unknown): Promise<void> {
+    const body = await exportErrorBody(err);
+    this.exportError.set(body.error || 'Could not export the remittance report.');
+    this.blockingRuns.set(body.blockingRuns ?? []);
   }
 
   private show(body: RemittanceReportBody): void {
@@ -126,4 +150,33 @@ export class RemittanceReport {
     this.ready.set(true);
     this.loading.set(false);
   }
+}
+
+async function exportErrorBody(
+  err: unknown,
+): Promise<{ error?: string; blockingRuns?: RemittanceRunRef[] }> {
+  if (!(err instanceof HttpErrorResponse)) {
+    return {};
+  }
+  const payload = err.error;
+  if (payload instanceof Blob) {
+    const text = await blobText(payload);
+    return text ? (JSON.parse(text) as { error?: string; blockingRuns?: RemittanceRunRef[] }) : {};
+  }
+  if (typeof payload === 'string' && payload) {
+    return JSON.parse(payload) as { error?: string; blockingRuns?: RemittanceRunRef[] };
+  }
+  return (payload ?? {}) as { error?: string; blockingRuns?: RemittanceRunRef[] };
+}
+
+function blobText(blob: Blob): Promise<string> {
+  if (typeof blob.text === 'function') {
+    return blob.text();
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(blob);
+  });
 }

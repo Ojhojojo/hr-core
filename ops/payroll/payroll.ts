@@ -10,6 +10,7 @@ import {
   fitDialogToHandset,
   ShopApiService,
   AuthService,
+  canReviewEmployerShares,
   canViewRemittance,
   BannerComponent,
   CardComponent,
@@ -81,9 +82,12 @@ import { PayrollCutoffSettings } from './payroll-cutoff-settings';
 import { DeductionSchedule } from './deduction-schedule';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { RemittanceReport } from './remittance-report';
+import { EmployerShareReviewPanel } from './employer-share-review';
 import {
+  HR_CAN_REVIEW_EMPLOYER_SHARES,
   HR_CAN_VIEW_REMITTANCE,
   HR_EMPLOYER_REMITTANCE,
+  mayReviewEmployerShares,
   mayViewRemittance,
 } from './payroll-remittance';
 
@@ -120,6 +124,7 @@ import {
     PayrollCutoffSettings,
     DeductionSchedule,
     RemittanceReport,
+    EmployerShareReviewPanel,
   ],
   templateUrl: './payroll.html',
   styles: `
@@ -328,6 +333,15 @@ export class PayrollPage {
     () =>
       this.employerRemittance &&
       mayViewRemittance(this.auth.me()?.staffRole, this.remittanceAccess),
+  );
+  private readonly shareReviewAccess =
+    inject(HR_CAN_REVIEW_EMPLOYER_SHARES, { optional: true }) ?? canReviewEmployerShares;
+  /** The review panel is on a locked run, and only when the host capability allows it. */
+  protected readonly showEmployerShareReview = computed(
+    () =>
+      this.employerRemittance &&
+      this.isLocked() &&
+      mayReviewEmployerShares(this.auth.me()?.staffRole, this.shareReviewAccess),
   );
 
   protected readonly from = signal('');

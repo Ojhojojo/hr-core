@@ -195,8 +195,76 @@ describe('Remittance report screen', () => {
       return createObjectUrl.call(URL, blob);
     };
     host.querySelector<HTMLButtonElement>('[name="exportRemittance"]')?.click();
+    const exported = http.expectOne(
+      (r) => r.method === 'GET' && r.url.includes('/api/ops/payroll/remittance/export'),
+    );
+    exported.flush(new Blob([novemberCsv], { type: 'text/csv' }));
+    fixture.detectChanges();
+    await fixture.whenStable();
     expect(blobs.length).toBe(1);
     expect(await blobText(blobs[0])).toBe(novemberCsv);
+    http.verify();
+  });
+
+  it('lists the runs that block export', async () => {
+    const { fixture, http, host } = await mount();
+    http.expectOne((r) => r.url.includes('/api/ops/payroll/remittance')).flush(november);
+    fixture.detectChanges();
+
+    host.querySelector<HTMLButtonElement>('[name="exportRemittance"]')?.click();
+    const exported = http.expectOne(
+      (r) => r.method === 'GET' && r.url.includes('/api/ops/payroll/remittance/export'),
+    );
+    exported.flush(
+      new Blob(
+        [
+          JSON.stringify({
+            error: 'Review every locked run in this month before exporting.',
+            blockingRuns: [
+              {
+                runId: 'run-1',
+                from: '2026-11-01',
+                to: '2026-11-15',
+                name: 'North Desk',
+                status: 'Not reviewed',
+              },
+            ],
+          }),
+        ],
+        { type: 'application/json' },
+      ),
+      { status: 409, statusText: 'Conflict' },
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    fixture.detectChanges();
+    const list = host.querySelector('[data-remittance-blocking]');
+    expect(list?.textContent).toContain('North Desk');
+    expect(list?.textContent).toContain('Nov');
+    http.verify();
+  });
+
+  it('shows unreviewed locked runs as Not reviewed', async () => {
+    const { fixture, http, host } = await mount();
+    http
+      .expectOne((r) => r.url.includes('/api/ops/payroll/remittance'))
+      .flush({
+        ...november,
+        unreviewedRuns: [
+          {
+            runId: 'run-2',
+            from: '2026-11-16',
+            to: '2026-11-30',
+            name: 'North Desk',
+            status: 'Not reviewed',
+          },
+        ],
+      });
+    fixture.detectChanges();
+    const row = host.querySelector('[data-remittance-unreviewed]');
+    expect(row?.textContent).toContain('Not reviewed');
+    expect(row?.textContent).toContain('North Desk');
     http.verify();
   });
 

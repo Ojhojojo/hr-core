@@ -27,7 +27,27 @@ public static class PayrollRemittanceEndpoints
             .WithSummary("Monthly remittance CSV")
             .WithDescription(
                 "Same month and shop as the remittance report. CSV totals match the report. " +
+                "409 when a locked run in that month is not reviewed, with those runs listed by period and name. " +
+                "A later export of an exported month returns the same figures. " +
                 "403 problem details when the host capability refuses the caller.");
+
+        api.MapGet("/runs/{id:guid}", GetReview)
+            .WithName("PayrollEmployerShareReview")
+            .WithSummary("Suggested employer shares for one locked run")
+            .WithDescription(
+                "The host's review capability. Suggested shares come from the single shares calculation. " +
+                "Stored shares are null until confirm. readOnly is true after the run's month is exported. " +
+                "403 when the capability refuses the caller. 404 when the run is outside the shop or is not locked.");
+
+        api.MapPut("/runs/{id:guid}", ConfirmReview)
+            .WithName("PayrollEmployerShareConfirm")
+            .WithSummary("Confirm employer shares for one locked run")
+            .WithDescription(
+                "The host's review capability. Body: lines, one per person on the run, each with employerSss, " +
+                "employerPhilHealth, and employerPagIbig of zero or more. Stores those figures and sets " +
+                "EmployerSharesReviewedAtUtc and EmployerSharesReviewedBy. A later confirm before export " +
+                "replaces the figures and updates both review fields. 409 when the month has been exported. " +
+                "403 when the capability refuses the caller. 404 when the run is outside the shop or is not locked.");
 
         api.MapPut("/", SaveSetting)
             .WithName("PayrollRemittanceSave")
@@ -110,21 +130,18 @@ public static class PayrollRemittanceEndpoints
             branches,
             async (shops, currentId, ct) =>
             {
-                var report = await remittance.GetAsync(shops, currentId, year, monthNumber, ct);
-                if (report is null)
+                var (file, blocking, error) = await remittance.ExportAsync(
+                    shops, currentId, year, monthNumber, http.ActorStaffId(), ct);
+                if (error is not null)
                 {
-                    return Results.NotFound(new { error = "That shop is not on your payroll scope." });
+                    return Results.Json(
+                        new { error, blockingRuns = blocking },
+                        statusCode: StatusCodes.Status409Conflict);
                 }
 
-                var agencies = report.Agencies
-                    .Select(agency => new PayrollRemittance.Agency(
-                        agency.Key,
-                        agency.Label,
-                        agency.EmployeeShare,
-                        agency.EmployerShare))
-                    .ToList();
-                var file = PayrollRemittance.File(year, monthNumber, agencies);
-                return Results.File(file.Bytes, "text/csv; charset=utf-8", file.FileName);
+                return file is null
+                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    : Results.File(file.Bytes, "text/csv; charset=utf-8", file.FileName);
             },
             cancellationToken);
     }
@@ -161,6 +178,89 @@ public static class PayrollRemittanceEndpoints
             },
             cancellationToken);
     }
+
+    private static Task<IResult> GetReview(
+        Guid id,
+        HttpContext http,
+        BranchResolver branches,
+        PayrollRemittanceService remittance,
+        IHrEmployerShareReview review,
+        CancellationToken cancellationToken)
+    {
+        var denied = DenyUnlessCanReview(http, review);
+        if (denied is not null)
+        {
+            return Task.FromResult(denied);
+        }
+
+        return OpsReportScope.MapAsync(
+            http,
+            branches,
+            async (shops, _, ct) =>
+            {
+                var body = await remittance.GetReviewAsync(shops, id, IncludeUnscopedOwners(http), ct);
+                return body is null
+                    ? Results.NotFound(new { error = "That payroll run is not on this shop scope." })
+                    : Results.Ok(body);
+            },
+            cancellationToken);
+    }
+
+    private static Task<IResult> ConfirmReview(
+        Guid id,
+        ConfirmEmployerSharesRequest? body,
+        HttpContext http,
+        BranchResolver branches,
+        PayrollRemittanceService remittance,
+        IHrEmployerShareReview review,
+        CancellationToken cancellationToken)
+    {
+        var denied = DenyUnlessCanReview(http, review);
+        if (denied is not null)
+        {
+            return Task.FromResult(denied);
+        }
+
+        return OpsReportScope.MapAsync(
+            http,
+            branches,
+            async (shops, _, ct) =>
+            {
+                var (saved, errors, conflict) = await remittance.ConfirmAsync(
+                    shops, id, body, http.ActorStaffId(), IncludeUnscopedOwners(http), ct);
+                if (conflict is not null)
+                {
+                    return Results.Json(new { error = conflict }, statusCode: StatusCodes.Status409Conflict);
+                }
+
+                if (errors is not null)
+                {
+                    return Results.ValidationProblem(errors);
+                }
+
+                return saved is null
+                    ? Results.NotFound(new { error = "That payroll run is not on this shop scope." })
+                    : Results.Ok(saved);
+            },
+            cancellationToken);
+    }
+
+    private static IResult? DenyUnlessCanReview(HttpContext http, IHrEmployerShareReview review)
+    {
+        var staff = http.GetStaff();
+        if (staff is not null && review.CanReview(staff.Role))
+        {
+            return null;
+        }
+
+        return Results.Problem(
+            title: "Forbidden",
+            detail: "This screen is not available for your role.",
+            statusCode: StatusCodes.Status403Forbidden);
+    }
+
+    private static bool IncludeUnscopedOwners(HttpContext http) =>
+        http.GetStaff().IsHqOwner();
 
     internal static bool TryParseMonth(string? month, out int year, out int monthNumber)
     {

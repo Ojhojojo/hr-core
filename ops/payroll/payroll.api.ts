@@ -28,6 +28,8 @@ import {
   UpdateDeductionSchedule,
   PayrollCatchUp,
   SavePayrollCatchUp,
+  ConfirmEmployerShareLine,
+  EmployerShareReview,
   RemittanceReport,
   RemittanceSetting,
   UpdateRemittanceSetting,
@@ -290,6 +292,22 @@ export class PayrollApi {
 
   saveRemittance(body: UpdateRemittanceSetting): Observable<RemittanceSetting> {
     return this.http.put<RemittanceSetting>(`${this.base}/api/ops/payroll/remittance`, body);
+  }
+
+  getEmployerShareReview(runId: string): Observable<EmployerShareReview> {
+    return this.http.get<EmployerShareReview>(
+      `${this.base}/api/ops/payroll/remittance/runs/${runId}`,
+    );
+  }
+
+  confirmEmployerShares(
+    runId: string,
+    lines: ConfirmEmployerShareLine[],
+  ): Observable<EmployerShareReview> {
+    return this.http.put<EmployerShareReview>(
+      `${this.base}/api/ops/payroll/remittance/runs/${runId}`,
+      { lines },
+    );
   }
 
   exportRemittance(month: string): Observable<HttpResponse<Blob>> {

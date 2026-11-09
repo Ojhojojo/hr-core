@@ -52,6 +52,7 @@ public static class HrCoreSetup
         services.AddScoped<Bir2316Service>();
         services.TryAddScoped<IStaffWorkHooks, NoStaffWorkHooks>();
         services.TryAddSingleton<IHrRemittanceAccess, OwnerAdminRemittanceAccess>();
+        services.TryAddSingleton<IHrEmployerShareReview, ClosedEmployerShareReview>();
         return services;
     }
 

@@ -16,3 +16,18 @@ public sealed class OwnerAdminRemittanceAccess : IHrRemittanceAccess
 {
     public bool CanView(StaffRole role) => StaffRoleFilter.OwnerOrAdmin.Allows(role);
 }
+
+/// <summary>
+/// Who may confirm employer shares. The host supplies this before <c>AddHrCore</c>.
+/// The default refuses every caller. hr-core does not name a role for this.
+/// </summary>
+public interface IHrEmployerShareReview
+{
+    bool CanReview(StaffRole role);
+}
+
+/// <summary>Default until the host supplies its own answer.</summary>
+public sealed class ClosedEmployerShareReview : IHrEmployerShareReview
+{
+    public bool CanReview(StaffRole role) => false;
+}

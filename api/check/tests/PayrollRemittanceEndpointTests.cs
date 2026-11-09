@@ -31,6 +31,10 @@ public class RemittanceApp : IAsyncLifetime
     {
     }
 
+    protected virtual void ConfigureReview(IServiceCollection services)
+    {
+    }
+
     public async Task InitializeAsync()
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -46,6 +50,7 @@ public class RemittanceApp : IAsyncLifetime
         builder.Services.AddDbContext<TestHrDb>(options =>
             options.UseInMemoryDatabase(databaseName, databaseRoot).UseHrCoreFeatures(features));
         ConfigureAccess(builder.Services);
+        ConfigureReview(builder.Services);
         builder.Services.AddHrCore<TestHrDb>(features);
         builder.Services.AddSingleton(new DemoBranchOptions { Enabled = false });
         builder.Services.AddSingleton<IStaffInvite, NoStaffInvite>();
@@ -108,7 +113,8 @@ public class RemittanceApp : IAsyncLifetime
         decimal pagIbig,
         decimal? employerSss,
         decimal? employerPhilHealth,
-        decimal? employerPagIbig)
+        decimal? employerPagIbig,
+        bool reviewed = true)
     {
         var runId = Guid.NewGuid();
         await MutateAsync(db =>
@@ -124,7 +130,11 @@ public class RemittanceApp : IAsyncLifetime
                 TotalDeductions = sss + philHealth + pagIbig,
                 TotalNet = 20_000m - sss - philHealth - pagIbig,
                 CreatedAtUtc = new DateTime(2026, 11, 28, 0, 0, 0, DateTimeKind.Utc),
-                LockedAtUtc = new DateTime(2026, 11, 28, 0, 0, 0, DateTimeKind.Utc)
+                LockedAtUtc = new DateTime(2026, 11, 28, 0, 0, 0, DateTimeKind.Utc),
+                EmployerSharesReviewedAtUtc = reviewed
+                    ? new DateTime(2026, 11, 28, 1, 0, 0, DateTimeKind.Utc)
+                    : null,
+                EmployerSharesReviewedBy = reviewed ? WorkerStaffId : null
             });
             db.PayrollRunLines.Add(new PayrollRunLine
             {
@@ -479,7 +489,7 @@ public sealed class PayrollRemittanceEndpointTests(RemittanceApp app) : IClassFi
         Assert.Equal(total, agency.GetProperty("total").GetDecimal());
     }
 
-    private static async Task<JsonElement> ReadOk(HttpResponseMessage response)
+    internal static async Task<JsonElement> ReadOk(HttpResponseMessage response)
     {
         var text = await response.Content.ReadAsStringAsync();
         Assert.True(
@@ -500,6 +510,84 @@ public sealed class PayrollRemittanceEndpointTests(RemittanceApp app) : IClassFi
 }
 
 /// <summary>Host capability that refuses every role. Neutral: it does not name a host role.</summary>
+public sealed class OpenReviewRemittanceApp : RemittanceApp
+{
+    protected override void ConfigureReview(IServiceCollection services)
+    {
+        services.AddSingleton<IHrEmployerShareReview>(new AllowReview());
+    }
+
+    /// <summary>Neutral stub: every caller may review. It does not name a host role.</summary>
+    private sealed class AllowReview : IHrEmployerShareReview
+    {
+        public bool CanReview(StaffRole role) => true;
+    }
+}
+
+public sealed class EmployerShareReviewTests(OpenReviewRemittanceApp app) : IClassFixture<OpenReviewRemittanceApp>
+{
+    [Fact]
+    public async Task The_default_capability_refuses_confirm()
+    {
+        await using var closed = new RemittanceApp();
+        await closed.InitializeAsync();
+        try
+        {
+            var response = await closed.SendAsync(
+                RemittanceApp.OwnerId,
+                HttpMethod.Put,
+                "/api/ops/payroll/remittance/runs/" + Guid.NewGuid(),
+                new { lines = Array.Empty<object>() });
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            response.Dispose();
+        }
+        finally
+        {
+            await closed.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task An_allowed_caller_can_confirm_edited_shares()
+    {
+        await app.ResetAsync();
+        await app.SendAsync(
+            RemittanceApp.OwnerId, HttpMethod.Put, "/api/ops/payroll/remittance", new { enabled = true });
+        var runId = await app.SeedRunAsync(
+            PayrollRunStatus.Locked,
+            new DateOnly(2026, 11, 1),
+            new DateOnly(2026, 11, 30),
+            1_000m, 500m, 200m, null, null, null, reviewed: false);
+
+        var review = await PayrollRemittanceEndpointTests.ReadOk(await app.SendAsync(
+            RemittanceApp.OwnerId,
+            HttpMethod.Get,
+            "/api/ops/payroll/remittance/runs/" + runId));
+        Assert.False(review.GetProperty("readOnly").GetBoolean());
+        Assert.False(review.TryGetProperty("reviewedAtUtc", out _));
+
+        var saved = await PayrollRemittanceEndpointTests.ReadOk(await app.SendAsync(
+            RemittanceApp.OwnerId,
+            HttpMethod.Put,
+            "/api/ops/payroll/remittance/runs/" + runId,
+            new
+            {
+                lines = new[]
+                {
+                    new
+                    {
+                        staffId = RemittanceApp.WorkerStaffId,
+                        employerSss = 2_030m,
+                        employerPhilHealth = 500m,
+                        employerPagIbig = 200m
+                    }
+                }
+            }));
+        Assert.True(saved.TryGetProperty("reviewedAtUtc", out _));
+        Assert.Equal(2_030m, saved.GetProperty("lines")[0].GetProperty("employerSss").GetDecimal());
+    }
+}
+
 public sealed class DeniedRemittanceApp : RemittanceApp
 {
     protected override void ConfigureAccess(IServiceCollection services)

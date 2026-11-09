@@ -300,6 +300,18 @@ public static class HrModel
                 .OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.VoidedByStaff).WithMany().HasForeignKey(x => x.VoidedByStaffId)
                 .OnDelete(DeleteBehavior.SetNull);
+            if (features.EmployerRemittance)
+            {
+                e.HasOne(x => x.EmployerSharesReviewedByStaff).WithMany()
+                    .HasForeignKey(x => x.EmployerSharesReviewedBy)
+                    .OnDelete(DeleteBehavior.SetNull);
+            }
+            else
+            {
+                e.Ignore(x => x.EmployerSharesReviewedAtUtc);
+                e.Ignore(x => x.EmployerSharesReviewedBy);
+                e.Ignore(x => x.EmployerSharesReviewedByStaff);
+            }
         });
 
         modelBuilder.Entity<PayrollRunLine>(e =>
@@ -650,6 +662,21 @@ public static class HrModel
             e.HasIndex(x => x.BranchId).IsUnique();
             e.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BranchRemittanceExport>(e =>
+        {
+            e.ToTable("BranchRemittanceExports", t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_BranchRemittanceExports_Month",
+                    "\"Month\" >= 1 AND \"Month\" <= 12");
+            });
+            e.HasIndex(x => new { x.BranchId, x.Year, x.Month }).IsUnique();
+            e.HasOne(x => x.Branch).WithMany().HasForeignKey(x => x.BranchId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.ExportedByStaff).WithMany().HasForeignKey(x => x.ExportedBy)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 

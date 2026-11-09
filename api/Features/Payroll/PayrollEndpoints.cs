@@ -111,6 +111,8 @@ public static class PayrollEndpoints
             .WithDescription(
                 "Owner only. Sets the run to void, keeps every row and line, and reverses loan instalments " +
                 "recorded on that run so the balance goes back up. Repeating the call changes nothing. " +
+                "With employer remittance on, voiding clears a review and sets employer shares back to null. " +
+                "409 when that month has already been exported. With the flag off, void is unchanged. " +
                 "404 when the run is outside the shop scope.");
 
         api.MapGet("/rates/{staffId:guid}", GetRates)
@@ -620,7 +622,12 @@ public static class PayrollEndpoints
             branches,
             async (shops, _, ct) =>
             {
-                var run = await runs.VoidAsync(shops, id, http.GetStaff()?.Id, ct);
+                var (run, error) = await runs.VoidAsync(shops, id, http.GetStaff()?.Id, ct);
+                if (error is not null)
+                {
+                    return Results.Json(new { error }, statusCode: StatusCodes.Status409Conflict);
+                }
+
                 return run is null
                     ? Results.NotFound(new { error = "That payroll run is not on this shop scope." })
                     : Results.Ok(run);

@@ -43,6 +43,30 @@
             </button>
           }
         </div>
+        @if (current.unreviewedRuns?.length) {
+          <ul data-remittance-unreviewed>
+            @for (run of current.unreviewedRuns; track run.runId) {
+              <li>
+                {{ formatRange(run.from, run.to) }}
+                {{ run.name }}
+                <span data-remittance-unreviewed-status>{{ run.status }}</span>
+              </li>
+            }
+          </ul>
+        }
+        @if (exportError()) {
+          <ops-banner tone="danger" role="alert" [message]="exportError()" />
+        }
+        @if (blockingRuns().length) {
+          <ul data-remittance-blocking>
+            @for (run of blockingRuns(); track run.runId) {
+              <li>
+                {{ formatRange(run.from, run.to) }}
+                {{ run.name }}
+              </li>
+            }
+          </ul>
+        }
         @if (current.emptyMessage) {
           <ops-empty-state
             data-remittance-empty
