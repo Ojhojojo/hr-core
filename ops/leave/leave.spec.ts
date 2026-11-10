@@ -303,4 +303,22 @@ describe('Leave', () => {
 
     expect(host.querySelector('[data-balance="vacation"]')?.textContent).toContain('Allotted: 10');
   });
+
+  it('shows the date parse message for a bad typed leave start date', async () => {
+    const { fixture, host } = await mount('technician');
+
+    (host.querySelector('button[name="requestLeaveOpen"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const dialog = document.body.querySelector('mat-dialog-container') as HTMLElement;
+    const startInput = dialog.querySelector('input[name="startDate"]') as HTMLInputElement;
+    startInput.value = '13/25/2026';
+    startInput.dispatchEvent(new Event('input'));
+    startInput.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(dialog.textContent).toContain('Enter a date as MM/DD/YYYY.');
+  });
 });

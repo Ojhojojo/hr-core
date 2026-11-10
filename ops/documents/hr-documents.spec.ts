@@ -111,6 +111,20 @@ describe('HrDocumentDialog', () => {
     expect(save.disabled).toBe(true);
     http.verify();
   });
+
+  it('shows the MM/DD/YYYY error for a typed date that is not a real day', async () => {
+    const { fixture } = await mountDialog('quitclaim');
+    const separation = document.body.querySelector(
+      'input[name="separationDate"]',
+    ) as HTMLInputElement;
+    separation.value = '13/25/2026';
+    separation.dispatchEvent(new Event('input'));
+    separation.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(document.body.textContent).toContain('Enter a date as MM/DD/YYYY.');
+  });
 });
 
 function personAuth(role: AuthMe['staffRole']): AuthMe {

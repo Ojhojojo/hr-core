@@ -1,8 +1,8 @@
 import { Component, ViewEncapsulation, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgModel } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { jsPDF } from 'jspdf';
 import { ShopInfo, apiErrorMessage, manilaToday, OpsDateModule } from '@hr-host';
@@ -208,6 +208,7 @@ export function employmentLetterPdfFile(draft: EmploymentLetterDraft): File {
     MatButton,
     MatFormField,
     MatLabel,
+    MatError,
     MatInput,
     OpsDateModule,
   ],
@@ -235,9 +236,13 @@ export function employmentLetterPdfFile(draft: EmploymentLetterDraft): File {
             name="letterStart"
             placeholder="MM/DD/YYYY"
             [(ngModel)]="draft.startDate"
+            #letterStartModel="ngModel"
           />
           <mat-datepicker-toggle matIconSuffix [for]="letterStartPicker" />
           <mat-datepicker #letterStartPicker />
+          @if (letterStartModel.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+          }
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Pay basis</mat-label>
@@ -284,7 +289,7 @@ export function employmentLetterPdfFile(draft: EmploymentLetterDraft): File {
         type="button"
         name="saveLetter"
         [disabled]="saving()"
-        (click)="save()"
+        (click)="save(letterStartModel)"
       >
         {{ saving() ? 'Saving…' : 'Save to employment docs' }}
       </button>
@@ -420,7 +425,13 @@ export class EmploymentLetterDialog {
     }
   }
 
-  protected save(): void {
+  protected save(startModel: NgModel): void {
+    // A typed date that is not a real day (#583) reaches the draft as null. Do not save it blank.
+    if (startModel.hasError('matDatepickerParse')) {
+      startModel.control.markAsTouched();
+      return;
+    }
+
     let file: File;
     try {
       file = employmentLetterPdfFile(this.draft);

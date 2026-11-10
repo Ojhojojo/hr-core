@@ -3,10 +3,12 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { provideRouter } from '@angular/router';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AuthMe, AuthService } from '@hr-host';
 import { AttendancePage, manilaWeekRange } from './attendance';
+import { PunchForDialog } from './attendance-dialogs';
 import { AttendanceRegisterResponse, OvertimeListResponse } from './attendance.models';
 
 const ownerMe: AuthMe = {
@@ -324,5 +326,32 @@ describe('AttendancePage', () => {
     );
     expect(mineOtReq.request.method).toBe('GET');
     mineOtReq.flush(emptyOvertime('2026-09-13', '2026-09-19'));
+  });
+
+  it('punch-for dialog shows the MM/DD/YYYY error for a typed clock-in date that is not a real day', async () => {
+    await TestBed.configureTestingModule({
+      imports: [PunchForDialog],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideNoopAnimations(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MAT_DIALOG_DATA, useValue: { staff: [] } },
+        { provide: MatDialogRef, useValue: { close: () => undefined } },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(PunchForDialog);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const inDate = document.body.querySelector('input[name="inDate"]') as HTMLInputElement;
+    inDate.value = '13/25/2026';
+    inDate.dispatchEvent(new Event('input'));
+    inDate.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(document.body.textContent).toContain('Enter a date as MM/DD/YYYY.');
   });
 });

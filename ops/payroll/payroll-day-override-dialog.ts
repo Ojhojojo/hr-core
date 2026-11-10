@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgModel } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
@@ -41,7 +41,7 @@ export interface DayPayOverrideDialogResult {
   ],
   template: `
     <ops-dialog title="Day pay override" [subtitle]="data.staffName">
-      <form id="day-pay-override" (ngSubmit)="save()">
+      <form id="day-pay-override" (ngSubmit)="save(workDateModel)">
         @if (error()) {
           <ops-banner tone="danger" role="alert" [message]="error()" />
         }
@@ -54,10 +54,14 @@ export interface DayPayOverrideDialogResult {
               name="workDate"
               placeholder="MM/DD/YYYY"
               [(ngModel)]="workDate"
+              #workDateModel="ngModel"
               required
             />
             <mat-datepicker-toggle matIconSuffix [for]="workDatePicker" />
             <mat-datepicker #workDatePicker />
+            @if (workDateModel.hasError('matDatepickerParse')) {
+              <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Mode</mat-label>
@@ -125,7 +129,11 @@ export class DayPayOverrideDialog {
     this.ref.close(undefined);
   }
 
-  protected save(): void {
+  protected save(workDateModel: NgModel): void {
+    if (workDateModel.hasError('matDatepickerParse')) {
+      workDateModel.control.markAsTouched();
+      return;
+    }
     const reason = this.reason.trim();
     if (!reason) {
       this.error.set('A reason is required.');

@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgModel } from '@angular/forms';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -57,7 +57,7 @@ export interface LoanOverrideDialogResult {
   ],
   template: `
     <ops-dialog [title]="data.loan ? 'Edit loan' : 'Add loan'">
-      <form id="loan-form" (ngSubmit)="save()">
+      <form id="loan-form" (ngSubmit)="save(startPeriodModel)">
         @if (error()) {
           <ops-banner tone="danger" role="alert" [message]="error()" />
         }
@@ -114,10 +114,14 @@ export interface LoanOverrideDialogResult {
               name="startPeriod"
               placeholder="MM/DD/YYYY"
               [(ngModel)]="startPeriod"
+              #startPeriodModel="ngModel"
               required
             />
             <mat-datepicker-toggle matIconSuffix [for]="startPeriodPicker" />
             <mat-datepicker #startPeriodPicker />
+            @if (startPeriodModel.hasError('matDatepickerParse')) {
+              <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+            }
             <mat-hint
               >Instalments start in the first period that ends on or after this date.</mat-hint
             >
@@ -170,7 +174,11 @@ export class StaffLoanDialog {
     this.ref.close(undefined);
   }
 
-  protected save(): void {
+  protected save(startPeriodModel: NgModel): void {
+    if (startPeriodModel.hasError('matDatepickerParse')) {
+      startPeriodModel.control.markAsTouched();
+      return;
+    }
     const kind = this.kind.trim();
     if (!kind || kind.length > 80) {
       this.error.set('Kind is required and must be 80 characters or fewer.');

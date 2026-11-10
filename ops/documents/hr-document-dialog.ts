@@ -1,8 +1,8 @@
-import { Component, ViewEncapsulation, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, ViewEncapsulation, inject, signal, viewChildren } from '@angular/core';
+import { FormsModule, NgModel } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
+import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatOption, MatSelect } from '@angular/material/select';
 import {
@@ -49,6 +49,7 @@ export interface HrDocumentDialogData {
     MatFormField,
     MatLabel,
     MatHint,
+    MatError,
     MatInput,
     MatSelect,
     MatOption,
@@ -147,6 +148,8 @@ export class HrDocumentDialog {
   protected readonly loadingStaff = signal(true);
   protected readonly saving = signal(false);
   protected readonly error = signal('');
+  /** Every ngModel in the sheet, including the date fields that only some document kinds show. */
+  private readonly fieldModels = viewChildren(NgModel);
   protected staffId = this.data.person?.id ?? '';
   protected readonly draft: HrDocumentDraft = emptyHrDraft(
     this.data.kind,
@@ -245,6 +248,13 @@ export class HrDocumentDialog {
   }
 
   protected save(): void {
+    // A typed date that is not a real day (#583) reaches the draft as null. Do not save it blank.
+    const badDate = this.fieldModels().find((model) => model.hasError('matDatepickerParse'));
+    if (badDate) {
+      badDate.control.markAsTouched();
+      return;
+    }
+
     if (!this.staffId) {
       this.error.set('Pick a staff member before saving.');
       return;

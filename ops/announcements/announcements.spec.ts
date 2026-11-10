@@ -78,4 +78,22 @@ describe('AnnouncementsPage', () => {
     const reloadReq = http.expectOne('/api/announcements');
     reloadReq.flush([]);
   });
+
+  it('shows the date parse message for a bad typed announcement date', async () => {
+    const { fixture } = await mount();
+
+    fixture.componentInstance.openPost();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const dialog = document.body.querySelector('mat-dialog-container') as HTMLElement;
+    const startInput = dialog.querySelector('input[name="startDate"]') as HTMLInputElement;
+    startInput.value = '13/25/2026';
+    startInput.dispatchEvent(new Event('input'));
+    startInput.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(dialog.textContent).toContain('Enter a date as MM/DD/YYYY.');
+  });
 });

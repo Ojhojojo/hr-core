@@ -1,11 +1,25 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
+import { DateAdapter, ErrorStateMatcher } from '@angular/material/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { BannerComponent, DialogComponent, OpsDateModule, OpsToneDirective } from '@hr-host';
 import { AttendanceStaffOption } from './attendance.models';
+
+/**
+ * Typed text that is not a real day, such as 13/25/2026 (#583). Blank is left to the
+ * required checks. These date inputs have no ngModel, so the check runs on each input event.
+ */
+function isBadTypedDate(raw: string, dates: DateAdapter<unknown>): boolean {
+  const text = raw.trim();
+  if (!text) {
+    return false;
+  }
+  const parsed = dates.parse(text, 'MM/DD/YYYY');
+  return parsed == null || !dates.isValid(parsed);
+}
 
 export interface PunchForDialogData {
   staff: AttendanceStaffOption[];
@@ -48,6 +62,7 @@ export interface ReviewPunchDialogResult {
   imports: [
     FormsModule,
     MatButton,
+    MatError,
     MatFormField,
     MatLabel,
     MatInput,
@@ -83,15 +98,20 @@ export interface ReviewPunchDialogResult {
             <mat-label>Clock in date (Manila)</mat-label>
             <input
               matInput
+              #inDateText
+              #inDateCtrl="matInput"
               [matDatepicker]="inDatePicker"
               name="inDate"
               placeholder="MM/DD/YYYY"
               [value]="inDate()"
-              (dateChange)="inDate.set($event.value ?? '')"
+              [errorStateMatcher]="inDateMatcher"
+              (input)="onInDateInput(inDateText.value, inDateCtrl)"
+              (dateChange)="setInDate($event.value)"
               required
             />
             <mat-datepicker-toggle matIconSuffix [for]="inDatePicker" />
             <mat-datepicker #inDatePicker />
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Clock in time</mat-label>
@@ -110,14 +130,19 @@ export interface ReviewPunchDialogResult {
             <mat-label>Clock out date (Manila, optional)</mat-label>
             <input
               matInput
+              #outDateText
+              #outDateCtrl="matInput"
               [matDatepicker]="outDatePicker"
               name="outDate"
               placeholder="MM/DD/YYYY"
               [value]="outDate()"
-              (dateChange)="outDate.set($event.value ?? '')"
+              [errorStateMatcher]="outDateMatcher"
+              (input)="onOutDateInput(outDateText.value, outDateCtrl)"
+              (dateChange)="setOutDate($event.value)"
             />
             <mat-datepicker-toggle matIconSuffix [for]="outDatePicker" />
             <mat-datepicker #outDatePicker />
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Clock out time (Manila, optional)</mat-label>
@@ -166,6 +191,15 @@ export class PunchForDialog {
   protected readonly outDate = signal('');
   protected readonly outTime = signal('');
   protected readonly error = signal('');
+  private readonly dates = inject(DateAdapter);
+  protected readonly inDateBad = signal(false);
+  protected readonly outDateBad = signal(false);
+  protected readonly inDateMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.inDateBad(),
+  };
+  protected readonly outDateMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.outDateBad(),
+  };
 
   protected setStaff(event: Event): void {
     this.staffId.set((event.target as HTMLSelectElement).value);
@@ -179,7 +213,34 @@ export class PunchForDialog {
     this.outTime.set((event.target as HTMLInputElement).value);
   }
 
+  protected onInDateInput(raw: string, field: MatInput): void {
+    this.inDateBad.set(isBadTypedDate(raw, this.dates));
+    field.updateErrorState();
+  }
+
+  protected onOutDateInput(raw: string, field: MatInput): void {
+    this.outDateBad.set(isBadTypedDate(raw, this.dates));
+    field.updateErrorState();
+  }
+
+  /** A blur with bad text reports null. Keep the typed text rather than clearing it (#583). */
+  protected setInDate(value: string | null): void {
+    if (value || !this.inDateBad()) {
+      this.inDate.set(value ?? '');
+    }
+  }
+
+  protected setOutDate(value: string | null): void {
+    if (value || !this.outDateBad()) {
+      this.outDate.set(value ?? '');
+    }
+  }
+
   protected save(): void {
+    if (this.inDateBad() || this.outDateBad()) {
+      return;
+    }
+
     if (!this.staffId()) {
       this.error.set('Choose someone who uses the time clock.');
       return;
@@ -208,6 +269,7 @@ export class PunchForDialog {
   imports: [
     FormsModule,
     MatButton,
+    MatError,
     MatFormField,
     MatLabel,
     MatInput,
@@ -226,15 +288,20 @@ export class PunchForDialog {
             <mat-label>Clock out date (Manila)</mat-label>
             <input
               matInput
+              #closeOutText
+              #closeOutCtrl="matInput"
               [matDatepicker]="closeOutPicker"
               name="outDate"
               placeholder="MM/DD/YYYY"
               [value]="outDate()"
-              (dateChange)="outDate.set($event.value ?? '')"
+              [errorStateMatcher]="outDateMatcher"
+              (input)="onOutDateInput(closeOutText.value, closeOutCtrl)"
+              (dateChange)="setOutDate($event.value)"
               required
             />
             <mat-datepicker-toggle matIconSuffix [for]="closeOutPicker" />
             <mat-datepicker #closeOutPicker />
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Clock out time</mat-label>
@@ -286,6 +353,11 @@ export class ClosePunchDialog {
   protected readonly outTime = signal('');
   protected readonly reason = signal('');
   protected readonly error = signal('');
+  private readonly dates = inject(DateAdapter);
+  protected readonly outDateBad = signal(false);
+  protected readonly outDateMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.outDateBad(),
+  };
 
   protected setOutTime(event: Event): void {
     this.outTime.set((event.target as HTMLInputElement).value);
@@ -295,7 +367,23 @@ export class ClosePunchDialog {
     this.reason.set((event.target as HTMLInputElement).value);
   }
 
+  protected onOutDateInput(raw: string, field: MatInput): void {
+    this.outDateBad.set(isBadTypedDate(raw, this.dates));
+    field.updateErrorState();
+  }
+
+  /** A blur with bad text reports null. Keep the typed text rather than clearing it (#583). */
+  protected setOutDate(value: string | null): void {
+    if (value || !this.outDateBad()) {
+      this.outDate.set(value ?? '');
+    }
+  }
+
   protected save(): void {
+    if (this.outDateBad()) {
+      return;
+    }
+
     const reason = this.reason().trim();
     if (!this.outDate() || !this.outTime()) {
       this.error.set('Enter a clock-out date and time.');
@@ -443,6 +531,7 @@ export interface OvertimeDecisionDialogResult {
   imports: [
     FormsModule,
     MatButton,
+    MatError,
     MatFormField,
     MatLabel,
     MatInput,
@@ -462,16 +551,21 @@ export interface OvertimeDecisionDialogResult {
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Date</mat-label>
           <input
+            #workDateText
+            #workDateCtrl="matInput"
             matInput
             [matDatepicker]="otDatePicker"
             name="workDate"
             placeholder="MM/DD/YYYY"
             [value]="workDate()"
-            (dateChange)="workDate.set($event.value ?? '')"
+            [errorStateMatcher]="workDateMatcher"
+            (input)="onWorkDateInput(workDateText.value, workDateCtrl)"
+            (dateChange)="setWorkDate($event.value)"
             required
           />
           <mat-datepicker-toggle matIconSuffix [for]="otDatePicker" />
           <mat-datepicker #otDatePicker />
+          <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Hours</mat-label>
@@ -519,6 +613,11 @@ export class OvertimeRequestDialog {
   protected readonly workDate = signal('');
   protected readonly hours = signal('2');
   protected readonly reason = signal('');
+  private readonly dates = inject(DateAdapter);
+  protected readonly workDateBad = signal(false);
+  protected readonly workDateMatcher: ErrorStateMatcher = {
+    isErrorState: () => this.workDateBad(),
+  };
 
   protected setDate(event: Event): void {
     this.workDate.set((event.target as HTMLInputElement).value);
@@ -532,7 +631,23 @@ export class OvertimeRequestDialog {
     this.reason.set((event.target as HTMLInputElement).value);
   }
 
+  protected onWorkDateInput(raw: string, field: MatInput): void {
+    this.workDateBad.set(isBadTypedDate(raw, this.dates));
+    field.updateErrorState();
+  }
+
+  /** A blur with bad text reports null. Keep the typed text rather than clearing it (#583). */
+  protected setWorkDate(value: string | null): void {
+    if (value || !this.workDateBad()) {
+      this.workDate.set(value ?? '');
+    }
+  }
+
   protected save(): void {
+    if (this.workDateBad()) {
+      return;
+    }
+
     const hours = Number(this.hours());
     const reason = this.reason().trim();
     if (!this.workDate() || !Number.isFinite(hours) || hours <= 0 || hours > 24 || !reason) {

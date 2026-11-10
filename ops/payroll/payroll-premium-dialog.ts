@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgModel } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
@@ -47,7 +47,7 @@ export interface PremiumDialogResult {
   ],
   template: `
     <ops-dialog [title]="data.holiday ? 'Edit holiday' : 'Add holiday'">
-      <form id="holiday-form" (ngSubmit)="save()">
+      <form id="holiday-form" (ngSubmit)="save(dateModel)">
         @if (error()) {
           <ops-banner tone="danger" role="alert" [message]="error()" />
         }
@@ -60,11 +60,16 @@ export interface PremiumDialogResult {
               name="date"
               placeholder="MM/DD/YYYY"
               [(ngModel)]="date"
+              #dateModel="ngModel"
               required
             />
             <mat-datepicker-toggle matIconSuffix [for]="holidayDatePicker" />
             <mat-datepicker #holidayDatePicker />
-            <mat-error>Date is required.</mat-error>
+            @if (dateModel.hasError('matDatepickerParse')) {
+              <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+            } @else {
+              <mat-error>Date is required.</mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Name</mat-label>
@@ -111,7 +116,11 @@ export class HolidayDialog {
     this.ref.close(undefined);
   }
 
-  protected save(): void {
+  protected save(dateModel: NgModel): void {
+    if (dateModel.hasError('matDatepickerParse')) {
+      dateModel.control.markAsTouched();
+      return;
+    }
     const name = this.name.trim();
     if (!this.date || !name) {
       this.error.set('Date and name are required.');

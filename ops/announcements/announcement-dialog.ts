@@ -1,9 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgModel } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import {
   apiErrorMessage,
@@ -24,6 +24,7 @@ export interface AnnouncementDialogData {
   imports: [
     FormsModule,
     MatButton,
+    MatError,
     MatFormField,
     MatLabel,
     MatInput,
@@ -37,7 +38,11 @@ export interface AnnouncementDialogData {
       @if (error()) {
         <ops-banner tone="danger" role="alert" [message]="error()" />
       }
-      <form id="announcement-form" class="announcement-form" (ngSubmit)="save()">
+      <form
+        id="announcement-form"
+        class="announcement-form"
+        (ngSubmit)="save(startModel, endModel)"
+      >
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Title</mat-label>
           <input matInput name="title" [(ngModel)]="title" maxlength="160" required />
@@ -62,10 +67,14 @@ export interface AnnouncementDialogData {
               name="startDate"
               placeholder="MM/DD/YYYY"
               [(ngModel)]="startDate"
+              #startModel="ngModel"
               required
             />
             <mat-datepicker-toggle matIconSuffix [for]="startPicker" />
             <mat-datepicker #startPicker />
+            @if (startModel.hasError('matDatepickerParse')) {
+              <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>End date</mat-label>
@@ -75,10 +84,14 @@ export interface AnnouncementDialogData {
               name="endDate"
               placeholder="MM/DD/YYYY"
               [(ngModel)]="endDate"
+              #endModel="ngModel"
               required
             />
             <mat-datepicker-toggle matIconSuffix [for]="endPicker" />
             <mat-datepicker #endPicker />
+            @if (endModel.hasError('matDatepickerParse')) {
+              <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+            }
           </mat-form-field>
           <mat-checkbox name="active" [(ngModel)]="active">Active</mat-checkbox>
         </div>
@@ -126,7 +139,12 @@ export class AnnouncementDialog {
   protected readonly saving = signal(false);
   protected readonly error = signal('');
 
-  protected save(): void {
+  protected save(startModel: NgModel, endModel: NgModel): void {
+    if (startModel.hasError('matDatepickerParse') || endModel.hasError('matDatepickerParse')) {
+      startModel.control.markAsTouched();
+      endModel.control.markAsTouched();
+      return;
+    }
     if (!this.title.trim() || !this.body.trim()) {
       this.error.set('Title and body are required.');
       return;

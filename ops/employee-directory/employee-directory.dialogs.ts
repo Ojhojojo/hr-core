@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgForm } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -82,7 +82,7 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
         data.mode === 'add' ? 'Add person' : 'Edit ' + (data.person?.displayName ?? 'person')
       "
     >
-      <form id="directory-person" (ngSubmit)="save()">
+      <form id="directory-person" #directoryForm="ngForm" (ngSubmit)="save(directoryForm)">
         <div class="dir-form">
           @if (error()) {
             <ops-banner tone="danger" role="alert" [message]="error()" />
@@ -181,9 +181,13 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
                     name="birthDate"
                     placeholder="MM/DD/YYYY"
                     [(ngModel)]="birthDate"
+                    #birthModel="ngModel"
                   />
                   <mat-datepicker-toggle matIconSuffix [for]="birthPicker" />
                   <mat-datepicker #birthPicker />
+                  @if (birthModel.hasError('matDatepickerParse')) {
+                    <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+                  }
                 </mat-form-field>
               </div>
             </section>
@@ -286,11 +290,16 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
                   name="hireDate"
                   placeholder="MM/DD/YYYY"
                   [(ngModel)]="hireDate"
+                  #hireModel="ngModel"
                   [required]="data.mode === 'add'"
                 />
                 <mat-datepicker-toggle matIconSuffix [for]="hirePicker" />
                 <mat-datepicker #hirePicker />
-                <mat-error>Hire date is required.</mat-error>
+                @if (hireModel.hasError('matDatepickerParse')) {
+                  <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+                } @else {
+                  <mat-error>Hire date is required.</mat-error>
+                }
               </mat-form-field>
               <mat-form-field appearance="outline">
                 <mat-label>PhilHealth</mat-label>
@@ -323,10 +332,14 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
                     name="separationDate"
                     placeholder="MM/DD/YYYY"
                     [(ngModel)]="separationDate"
+                    #separationModel="ngModel"
                   />
                   <mat-datepicker-toggle matIconSuffix [for]="separationPicker" />
                   <mat-datepicker #separationPicker />
                   <mat-hint>When the worker left. Drives the final pay estimate.</mat-hint>
+                  @if (separationModel.hasError('matDatepickerParse')) {
+                    <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+                  }
                 </mat-form-field>
                 <mat-form-field appearance="outline">
                   <mat-label>Separation reason</mat-label>
@@ -679,7 +692,27 @@ export class DirectoryPersonDialog {
     this.ref.close(false);
   }
 
-  protected save(): void {
+  /**
+   * A typed date that is not a real day (#583) makes its ngModel value null, which would save
+   * as blank. Stop the save and mark the field so its error shows.
+   */
+  private hasBadDateText(form: NgForm): boolean {
+    let bad = false;
+    for (const name of ['birthDate', 'hireDate', 'separationDate']) {
+      const control = form.controls[name];
+      if (control?.hasError('matDatepickerParse')) {
+        control.markAsTouched();
+        bad = true;
+      }
+    }
+    return bad;
+  }
+
+  protected save(form: NgForm): void {
+    if (this.hasBadDateText(form)) {
+      return;
+    }
+
     const displayName = this.displayName.trim();
     if (!displayName) {
       this.error.set('Name is required.');
