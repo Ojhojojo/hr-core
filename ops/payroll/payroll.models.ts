@@ -425,6 +425,7 @@ export interface StaffLoan {
   paid: number;
   balance: number;
   status: StaffLoanStatus;
+  loanKindId?: string | null;
 }
 
 export interface StaffLoanPayment {
@@ -455,6 +456,25 @@ export interface SaveStaffLoan {
   perPeriodAmount: number;
   startPeriod: string;
   note?: string | null;
+  loanKindId?: string | null;
+}
+
+/** One row on the loan kind list. cutoffOrdinal null means every period. */
+export interface LoanKind {
+  id: string;
+  name: string;
+  active: boolean;
+  cutoffOrdinal: number | null;
+}
+
+export interface LoanKindList {
+  kinds: LoanKind[];
+}
+
+export interface SaveLoanKind {
+  name: string;
+  active: boolean;
+  cutoffOrdinal: number | null;
 }
 
 export interface UpdateStaffLoan {
@@ -463,6 +483,7 @@ export interface UpdateStaffLoan {
   startPeriod: string;
   principal?: number | null;
   note?: string | null;
+  loanKindId?: string | null;
 }
 
 export type HolidayKind = 'regular' | 'special';

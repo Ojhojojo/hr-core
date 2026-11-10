@@ -673,7 +673,8 @@ public sealed record StaffLoanDto(
     string? CancelReason,
     decimal Paid,
     decimal Balance,
-    StaffLoanStatus Status);
+    StaffLoanStatus Status,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? LoanKindId = null);
 
 public sealed record StaffLoanPaymentDto(
     Guid Id,
@@ -700,7 +701,8 @@ public sealed record StaffLoanDetailDto(
     decimal Paid,
     decimal Balance,
     StaffLoanStatus Status,
-    IReadOnlyList<StaffLoanPaymentDto> Payments);
+    IReadOnlyList<StaffLoanPaymentDto> Payments,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? LoanKindId = null);
 
 public sealed record StaffLoanListResponse(
     IReadOnlyList<StaffLoanDto> Loans,
@@ -712,14 +714,49 @@ public sealed record SaveStaffLoanRequest(
     decimal Principal,
     decimal PerPeriodAmount,
     DateOnly StartPeriod,
-    string? Note = null);
+    string? Note = null,
+    Guid? LoanKindId = null);
 
 public sealed record UpdateStaffLoanRequest(
     string? Kind,
     decimal PerPeriodAmount,
     DateOnly StartPeriod,
     decimal? Principal = null,
-    string? Note = null);
+    string? Note = null,
+    Guid? LoanKindId = null);
+
+public sealed record LoanKindDto(Guid Id, string Name, bool Active, int? CutoffOrdinal);
+
+public sealed record LoanKindListResponse(IReadOnlyList<LoanKindDto> Kinds);
+
+/// <summary>Active defaults to true when omitted. CutoffOrdinal null means every period.</summary>
+public sealed record SaveLoanKindRequest(string? Name, bool? Active = null, int? CutoffOrdinal = null);
+
+public sealed record LoanKindWriteResult(
+    LoanKindDto? Saved,
+    Dictionary<string, string[]>? Errors,
+    string? Detail,
+    int Status)
+{
+    public static LoanKindWriteResult Ok(LoanKindDto saved) => new(saved, null, null, StatusCodes.Status200OK);
+
+    public static LoanKindWriteResult Bad(Dictionary<string, string[]> errors) =>
+        new(null, errors, null, StatusCodes.Status400BadRequest);
+
+    public static LoanKindWriteResult Conflict(string detail) =>
+        new(null, null, detail, StatusCodes.Status409Conflict);
+
+    public static LoanKindWriteResult NotFound() => new(null, null, null, StatusCodes.Status404NotFound);
+}
+
+public sealed record LoanKindDeleteResult(bool Deleted, string? Detail, int Status)
+{
+    public static LoanKindDeleteResult NotFound() => new(false, null, StatusCodes.Status404NotFound);
+
+    public static LoanKindDeleteResult Conflict(string detail) => new(false, detail, StatusCodes.Status409Conflict);
+
+    public static LoanKindDeleteResult Ok() => new(true, null, StatusCodes.Status204NoContent);
+}
 
 public sealed record CancelStaffLoanRequest(string? Reason);
 

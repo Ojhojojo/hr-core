@@ -11,6 +11,7 @@ public sealed partial class PayrollService
         public required Dictionary<Guid, IReadOnlyList<PayrollLoanSchedule.LoanInput>> ByStaff { get; init; }
         public required Dictionary<Guid, Dictionary<Guid, decimal>> OverridesByStaff { get; init; }
         public Dictionary<Guid, LoanSchedulePlan> PlansByBranch { get; init; } = [];
+        public Dictionary<Guid, int?> OrdinalsByBranch { get; init; } = [];
     }
 
     private sealed class LoanSchedulePlan
@@ -37,19 +38,13 @@ public sealed partial class PayrollService
                 .ToListAsync(cancellationToken);
         var loanIds = loans.Select(row => row.Id).ToList();
         var paid = await UnreversedPaidByLoanAsync(loanIds, cancellationToken);
+        var kinds = await LoadLinkedLoanKindsAsync(loans, cancellationToken);
         var byStaff = loans
             .GroupBy(row => row.StaffId)
             .ToDictionary(
                 group => group.Key,
                 group => (IReadOnlyList<PayrollLoanSchedule.LoanInput>)group
-                    .Select(row => new PayrollLoanSchedule.LoanInput(
-                        row.Id,
-                        row.Kind,
-                        RoundMoney(row.Principal - paid.GetValueOrDefault(row.Id)),
-                        row.PerPeriodAmount,
-                        row.StartPeriod,
-                        row.CreatedAtUtc,
-                        row.CancelledAtUtc is not null))
+                    .Select(row => ToLoanInput(row, paid, kinds))
                     .ToList());
 
         var overrideRows = staffIds.Count == 0
@@ -78,11 +73,13 @@ public sealed partial class PayrollService
         }
 
         var plans = await LoadLoanSchedulePlansAsync(start, end, cancellationToken);
+        var ordinals = await LoadKindOrdinalsAsync(start, end, cancellationToken);
         return new LoanContext
         {
             ByStaff = byStaff,
             OverridesByStaff = overridesByStaff,
-            PlansByBranch = plans
+            PlansByBranch = plans,
+            OrdinalsByBranch = ordinals
         };
     }
 
@@ -142,6 +139,7 @@ public sealed partial class PayrollService
         Guid? branchId = null)
     {
         var mine = context.ByStaff.GetValueOrDefault(staffId) ?? [];
+        mine = ApplyKindCutoff(mine, branchId, context);
         mine = ApplyLoanSchedule(mine, branchId, context);
         var overrides = context.OverridesByStaff.GetValueOrDefault(staffId)
             ?? new Dictionary<Guid, decimal>();
@@ -183,6 +181,12 @@ public sealed partial class PayrollService
         var kept = new List<PayrollLoanSchedule.LoanInput>(loans.Count);
         foreach (var loan in loans)
         {
+            if (loan.UsesKindRule)
+            {
+                kept.Add(loan);
+                continue;
+            }
+
             var key = PayrollStatutoryAllocation.LoanKey(loan.Kind);
             if (!plan.Rules.TryGetValue(key, out var rule))
             {
@@ -359,7 +363,8 @@ public sealed partial class PayrollService
                 payment.PeriodTo,
                 payment.Amount,
                 payment.CreatedAtUtc,
-                payment.ReversedAtUtc)).ToList());
+                payment.ReversedAtUtc)).ToList(),
+            dto.LoanKindId);
     }
 
     public async Task<LoanWriteResult> CreateLoanAsync(
@@ -372,6 +377,17 @@ public sealed partial class PayrollService
         if (!TryNormalizeLoan(request.Kind, request.PerPeriodAmount, request.Note, out var kind, out var perPeriod, out var note, out var error))
         {
             return LoanWriteResult.Bad(error!);
+        }
+
+        var (linked, linkError) = await ResolveLoanLinkAsync(request.LoanKindId, null, creating: true, cancellationToken);
+        if (linkError is not null)
+        {
+            return linkError;
+        }
+
+        if (linked is not null)
+        {
+            kind = linked.Name;
         }
 
         var principal = RoundMoney(request.Principal);
@@ -392,6 +408,7 @@ public sealed partial class PayrollService
             Id = Guid.NewGuid(),
             StaffId = staff.Id,
             Kind = kind,
+            LoanKindId = features.LoanKinds ? linked?.Id : null,
             Principal = principal,
             PerPeriodAmount = perPeriod,
             StartPeriod = request.StartPeriod,
@@ -429,6 +446,31 @@ public sealed partial class PayrollService
         if (row is null || !await StaffInScopeAsync(shops, row.StaffId, includeUnscopedOwners, cancellationToken))
         {
             return LoanWriteResult.NotFound();
+        }
+
+        var (linked, linkError) = await ResolveLoanLinkAsync(
+            request.LoanKindId,
+            features.LoanKinds ? row.LoanKindId : null,
+            creating: false,
+            cancellationToken);
+        if (linkError is not null)
+        {
+            return linkError;
+        }
+
+        if (linked is not null)
+        {
+            kind = linked.Name;
+            row.LoanKindId = linked.Id;
+        }
+        else if (features.LoanKinds && row.LoanKindId is Guid existingKindId)
+        {
+            var existingKind = await db.LoanKinds().AsNoTracking()
+                .FirstOrDefaultAsync(item => item.Id == existingKindId, cancellationToken);
+            if (existingKind is not null)
+            {
+                kind = existingKind.Name;
+            }
         }
 
         var before = LoanLogValue(row.Kind, row.Principal, row.PerPeriodAmount, row.StartPeriod);
@@ -649,7 +691,7 @@ public sealed partial class PayrollService
         return balance <= 0m ? StaffLoanStatus.Paid : StaffLoanStatus.Active;
     }
 
-    private static StaffLoanDto ToLoanDto(StaffLoan row, IReadOnlyDictionary<Guid, decimal> paid)
+    private StaffLoanDto ToLoanDto(StaffLoan row, IReadOnlyDictionary<Guid, decimal> paid)
     {
         var paidAmount = RoundMoney(paid.GetValueOrDefault(row.Id));
         var balance = RoundMoney(row.Principal - paidAmount);
@@ -666,6 +708,7 @@ public sealed partial class PayrollService
             row.CancelReason,
             paidAmount,
             balance,
-            LoanStatus(row, balance));
+            LoanStatus(row, balance),
+            features.LoanKinds ? row.LoanKindId : null);
     }
 }

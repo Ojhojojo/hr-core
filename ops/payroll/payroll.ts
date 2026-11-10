@@ -78,6 +78,8 @@ import { formatDay, formatDayRange } from '../hr-dates';
 import { alignCutoffPeriod, formatCutoffMonth, shiftMonth } from './payroll-cutoff.format';
 import { PayrollCutoffSettings } from './payroll-cutoff-settings';
 import { DeductionSchedule } from './deduction-schedule';
+import { LoanKindSettings } from './loan-kinds';
+import { HR_LOAN_KINDS } from './payroll-loan-kinds';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { RemittanceReport } from './remittance-report';
 import { EmployerShareReviewPanel } from './employer-share-review';
@@ -119,6 +121,7 @@ import {
     StatusBadgeComponent,
     PayrollCutoffSettings,
     DeductionSchedule,
+    LoanKindSettings,
     RemittanceReport,
     EmployerShareReviewPanel,
   ],
@@ -322,6 +325,8 @@ export class PayrollPage {
   /** Host flag. Absent means off, so the remittance panel and its calls stay hidden. */
   protected readonly employerRemittance =
     inject(HR_EMPLOYER_REMITTANCE, { optional: true }) ?? false;
+  /** Host flag. Absent means off, so the loan kind list stays hidden and loans stay free text. */
+  protected readonly loanKinds = inject(HR_LOAN_KINDS, { optional: true }) ?? false;
   private readonly remittanceAccess = inject(HR_REMITTANCE_ACCESS);
   /** Hidden until the host provides a capability that allows this caller. */
   protected readonly showRemittance = computed(

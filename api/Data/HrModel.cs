@@ -9,6 +9,7 @@ namespace HrCore.Data;
 /// The optional <see cref="HrCoreFeatures"/> argument defaults to every flag off.
 /// <see cref="HrCoreFeatures.PayrollSchedules"/> adds the cut-off, deduction schedule, and catch-up tables.
 /// <see cref="HrCoreFeatures.EmployerRemittance"/> adds <c>BranchRemittanceSetting</c>.
+/// <see cref="HrCoreFeatures.LoanKinds"/> adds <c>LoanKind</c> and <c>StaffLoan.LoanKindId</c>.
 /// </summary>
 public static class HrModel
 {
@@ -96,6 +97,11 @@ public static class HrModel
         if (features.EmployerRemittance)
         {
             ConfigureEmployerRemittance(modelBuilder);
+        }
+
+        if (features.LoanKinds)
+        {
+            ConfigureLoanKinds(modelBuilder);
         }
 
         modelBuilder.Entity<Profile>(e =>
@@ -462,6 +468,17 @@ public static class HrModel
                 .OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.CreatedByStaff).WithMany().HasForeignKey(x => x.CreatedByStaffId)
                 .OnDelete(DeleteBehavior.SetNull);
+            if (features.LoanKinds)
+            {
+                e.HasIndex(x => x.LoanKindId);
+                e.HasOne(x => x.LoanKind).WithMany().HasForeignKey(x => x.LoanKindId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            }
+            else
+            {
+                e.Ignore(x => x.LoanKindId);
+                e.Ignore(x => x.LoanKind);
+            }
         });
 
         modelBuilder.Entity<StaffLoanPayment>(e =>
@@ -651,6 +668,28 @@ public static class HrModel
     }
 
     /// <summary>
+    /// Loan kind list. Called only when <see cref="HrCoreFeatures.LoanKinds"/> is on, so a host
+    /// that leaves the flag off does not discover this entity. The nullable loan column is ignored
+    /// in <see cref="Configure"/> when the flag is off.
+    /// </summary>
+    private static void ConfigureLoanKinds(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<LoanKind>(e =>
+        {
+            e.ToTable("LoanKinds", t =>
+            {
+                t.HasCheckConstraint("CK_LoanKinds_Name", "\"Name\" <> ''");
+                t.HasCheckConstraint(
+                    "CK_LoanKinds_CutoffOrdinal",
+                    "\"CutoffOrdinal\" IS NULL OR \"CutoffOrdinal\" >= 1");
+            });
+            e.Property(x => x.Name).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Active).HasDefaultValue(true);
+            e.HasIndex(x => x.Name).IsUnique();
+        });
+    }
+
+    /// <summary>
     /// Per-branch remittance switch. Called only when <see cref="HrCoreFeatures.EmployerRemittance"/>
     /// is on, so a host that leaves the flag off does not discover this entity.
     /// </summary>
@@ -712,7 +751,7 @@ public static class HrModel
         typeof(LeaveAllotment), typeof(LeaveRequest), typeof(AttendancePunch), typeof(OvertimeEntry),
         typeof(PayrollDeduction), typeof(PayrollThirteenthOverride), typeof(PayrollRun), typeof(PayrollRunLine),
         typeof(ShopHoliday), typeof(PayrollAmountOverride), typeof(PayrollDayPayOverride), typeof(StaffAllowance),
-        typeof(StaffLoan), typeof(StaffLoanPayment), typeof(PayrollRunLineItem), typeof(StaffPayRate),
+        typeof(StaffLoan), typeof(StaffLoanPayment), typeof(LoanKind), typeof(PayrollRunLineItem), typeof(StaffPayRate),
         typeof(HrChangeLog), typeof(SettingsChangeLog), typeof(Announcement), typeof(IncentiveBonus)
     ];
 }

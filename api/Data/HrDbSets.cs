@@ -7,6 +7,7 @@ namespace HrCore.Data;
 /// The host DbContext already is the <see cref="IHrDb"/>, so this does not add a member the host must implement.
 /// The schedule sets exist only when <see cref="HrCoreFeatures.PayrollSchedules"/> is on.
 /// <see cref="BranchRemittanceSettings"/> exists only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on.
+/// <see cref="LoanKinds"/> exists only when <see cref="HrCoreFeatures.LoanKinds"/> is on.
 /// Calling one while the flag is off throws, because the type is not in the model.
 /// </summary>
 public static class HrDbSets
@@ -33,4 +34,11 @@ public static class HrDbSets
     /// </summary>
     public static DbSet<BranchRemittanceExport> BranchRemittanceExports(this IHrDb db) =>
         ((DbContext)db).Set<BranchRemittanceExport>();
+
+    /// <summary>
+    /// Exists only when <see cref="HrCoreFeatures.LoanKinds"/> is on.
+    /// Calling it while the flag is off throws, because the type is not in the model.
+    /// </summary>
+    public static DbSet<LoanKind> LoanKinds(this IHrDb db) =>
+        ((DbContext)db).Set<LoanKind>();
 }

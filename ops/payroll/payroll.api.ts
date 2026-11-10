@@ -28,6 +28,9 @@ import {
   UpdateDeductionSchedule,
   PayrollCatchUp,
   SavePayrollCatchUp,
+  LoanKind,
+  LoanKindList,
+  SaveLoanKind,
   ConfirmEmployerShareLine,
   EmployerShareReview,
   RemittanceReport,
@@ -422,6 +425,22 @@ export class PayrollApi {
 
   deleteLoan(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/api/ops/payroll/loans/${id}`);
+  }
+
+  listLoanKinds(): Observable<LoanKindList> {
+    return this.http.get<LoanKindList>(`${this.base}/api/ops/payroll/loan-kinds`);
+  }
+
+  createLoanKind(body: SaveLoanKind): Observable<LoanKind> {
+    return this.http.post<LoanKind>(`${this.base}/api/ops/payroll/loan-kinds`, body);
+  }
+
+  updateLoanKind(id: string, body: SaveLoanKind): Observable<LoanKind> {
+    return this.http.put<LoanKind>(`${this.base}/api/ops/payroll/loan-kinds/${id}`, body);
+  }
+
+  deleteLoanKind(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/api/ops/payroll/loan-kinds/${id}`);
   }
 }
 
