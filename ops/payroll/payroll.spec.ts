@@ -12,6 +12,7 @@ import { AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
 import { specUser, type SpecUser } from '../host-spec-fixtures';
 import { PayrollPage } from './payroll';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
+import { HR_LOAN_KINDS } from './payroll-loan-kinds';
 import {
   HR_EMPLOYER_REMITTANCE,
   HR_REMITTANCE_ACCESS,
@@ -183,6 +184,7 @@ async function mountPayroll(
   payrollSchedules = false,
   employerRemittance = false,
   canView: ((user: HrCapabilityUser | null | undefined) => boolean) | null = null,
+  loanKinds = false,
 ) {
   const confirm = confirmStub();
   await TestBed.configureTestingModule({
@@ -199,6 +201,7 @@ async function mountPayroll(
       ...(payrollSchedules ? [{ provide: HR_PAYROLL_SCHEDULES, useValue: true }] : []),
       ...(employerRemittance ? [{ provide: HR_EMPLOYER_REMITTANCE, useValue: true }] : []),
       ...(canView ? [{ provide: HR_REMITTANCE_ACCESS, useValue: { canView } }] : []),
+      ...(loanKinds ? [{ provide: HR_LOAN_KINDS, useValue: true }] : []),
     ],
   }).compileComponents();
 
@@ -344,6 +347,51 @@ describe('monthly payslip', () => {
       { label: 'Loan balance', amount: '₱3,000.00' },
     ]);
     expect(view.net).toBe('₱13,900.00');
+  });
+
+  it('shows each loan kind on its own line, separate from SSS, PhilHealth, and Pag-IBIG', () => {
+    const view = buildPayslipView(
+      {
+        staffId: 'office-1',
+        staffName: 'Mina Office',
+        role: 'admin',
+        basis: 'monthly',
+        ratePhp: 30000,
+        regularHours: 0,
+        otHours: 0,
+        daysPaid: 15,
+        amount: 15000,
+        loanDeductions: 700,
+        loanItems: [
+          {
+            loanId: 'l1',
+            kind: 'SSS loan',
+            suggested: 200,
+            amount: 200,
+            balanceBefore: 800,
+            balanceAfter: 600,
+            capped: false,
+          },
+          {
+            loanId: 'l2',
+            kind: 'Pag-IBIG loan',
+            suggested: 500,
+            amount: 500,
+            balanceBefore: 2000,
+            balanceAfter: 1500,
+            capped: false,
+          },
+        ],
+      },
+      { sss: 100, philHealth: 50, pagIbig: 25, wht: 0, other: 0 },
+    );
+    expect(view.lines.map((line) => line.label)).toEqual(['SSS', 'PhilHealth', 'Pag-IBIG']);
+    expect(view.loanLines.map((line) => line.label)).toEqual([
+      'SSS loan',
+      'Loan balance',
+      'Pag-IBIG loan',
+      'Loan balance',
+    ]);
   });
 });
 
@@ -1521,6 +1569,26 @@ describe('Payroll schedules flag', () => {
     expect(
       http.match((r) => /cutoff-schedule|deduction-schedule|catch-ups/.test(r.url)).length,
     ).toBe(0);
+    http.verify();
+  });
+});
+
+describe('Loan kinds flag', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('hides the loan kind panel and does not call it when the flag is off', async () => {
+    const { host, http } = await mountPayroll();
+    expect(host.querySelector('app-ops-loan-kinds')).toBeNull();
+    expect(host.textContent).not.toContain('Loan kinds');
+    expect(http.match((r) => r.url.includes('/loan-kinds')).length).toBe(0);
+    http.verify();
+  });
+
+  it('shows the panel when the host turns the flag on, without calling it yet', async () => {
+    const { host, http } = await mountPayroll(ownerMe, mockPayrollData, false, false, null, true);
+    expect(host.querySelector('app-ops-loan-kinds')).toBeTruthy();
+    expect(host.textContent).toContain('Loan kinds');
+    expect(http.match((r) => r.url.includes('/loan-kinds')).length).toBe(0);
     http.verify();
   });
 });

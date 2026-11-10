@@ -74,11 +74,13 @@ public sealed class HrCoreFeaturesExtension : IDbContextOptionsExtension
 
         public override string LogFragment =>
             (extension.Features.PayrollSchedules ? "PayrollSchedules " : "")
-            + (extension.Features.EmployerRemittance ? "EmployerRemittance " : "");
+            + (extension.Features.EmployerRemittance ? "EmployerRemittance " : "")
+            + (extension.Features.LoanKinds ? "LoanKinds " : "");
 
         public override int GetServiceProviderHashCode() =>
             (extension.Features.PayrollSchedules ? 1 : 0)
-            + (extension.Features.EmployerRemittance ? 2 : 0);
+            + (extension.Features.EmployerRemittance ? 2 : 0)
+            + (extension.Features.LoanKinds ? 4 : 0);
 
         public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) =>
             other is ExtensionInfo otherInfo
@@ -88,6 +90,7 @@ public sealed class HrCoreFeaturesExtension : IDbContextOptionsExtension
         {
             debugInfo["HrCore:PayrollSchedules"] = extension.Features.PayrollSchedules.ToString();
             debugInfo["HrCore:EmployerRemittance"] = extension.Features.EmployerRemittance.ToString();
+            debugInfo["HrCore:LoanKinds"] = extension.Features.LoanKinds.ToString();
         }
     }
 }

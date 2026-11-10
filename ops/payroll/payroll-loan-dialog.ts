@@ -9,7 +9,9 @@ import { MatOption, MatSelect } from '@angular/material/select';
 import { BannerComponent, DialogComponent, OpsDateModule } from '@hr-host';
 import { toIsoDate } from '../hr-dates';
 import { loanKindSuggestions } from './payroll-loans.format';
-import { StaffLoan } from './payroll.models';
+import { HR_LOAN_KINDS } from './payroll-loan-kinds';
+import { PayrollApi } from './payroll.api';
+import { LoanKind, StaffLoan } from './payroll.models';
 
 export interface LoanDialogData {
   loan: StaffLoan | null;
@@ -22,6 +24,7 @@ export interface LoanDialogResult {
   perPeriodAmount: number;
   startPeriod: string;
   note: string | null;
+  loanKindId?: string | null;
 }
 
 export interface LoanOverrideChoice {
@@ -52,6 +55,8 @@ export interface LoanOverrideDialogResult {
     MatHint,
     MatError,
     MatInput,
+    MatSelect,
+    MatOption,
     OpsDateModule,
     DialogComponent,
     BannerComponent,
@@ -63,24 +68,42 @@ export interface LoanOverrideDialogResult {
           <ops-banner tone="danger" role="alert" [message]="error()" />
         }
         <div class="loan-dialog-fields">
-          <mat-form-field appearance="outline">
-            <mat-label>Kind</mat-label>
-            <input
-              matInput
-              name="kind"
-              [(ngModel)]="kind"
-              [matAutocomplete]="kindAuto"
-              required
-              maxlength="80"
-              autocomplete="off"
-            />
-            <mat-autocomplete #kindAuto="matAutocomplete">
-              @for (option of filteredKinds(); track option) {
-                <mat-option [value]="option">{{ option }}</mat-option>
+          @if (pickFromList()) {
+            <mat-form-field appearance="outline">
+              <mat-label>Kind</mat-label>
+              <mat-select name="loanKindId" [(ngModel)]="loanKindId" required>
+                @for (option of kindOptions(); track option.id) {
+                  <mat-option [value]="option.id">{{ option.name }}</mat-option>
+                }
+              </mat-select>
+              @if (catalog().length === 0 && !catalogError()) {
+                <mat-hint>Add a loan kind on the payroll screen first.</mat-hint>
               }
-            </mat-autocomplete>
-            <mat-error>Kind is required.</mat-error>
-          </mat-form-field>
+              <mat-error>Pick a loan kind.</mat-error>
+            </mat-form-field>
+            @if (catalogError()) {
+              <ops-banner tone="danger" role="alert" [message]="catalogError()" />
+            }
+          } @else {
+            <mat-form-field appearance="outline">
+              <mat-label>Kind</mat-label>
+              <input
+                matInput
+                name="kind"
+                [(ngModel)]="kind"
+                [matAutocomplete]="kindAuto"
+                required
+                maxlength="80"
+                autocomplete="off"
+              />
+              <mat-autocomplete #kindAuto="matAutocomplete">
+                @for (option of filteredKinds(); track option) {
+                  <mat-option [value]="option">{{ option }}</mat-option>
+                }
+              </mat-autocomplete>
+              <mat-error>Kind is required.</mat-error>
+            </mat-form-field>
+          }
           <mat-form-field appearance="outline">
             <mat-label>Principal</mat-label>
             <input
@@ -149,15 +172,41 @@ export interface LoanOverrideDialogResult {
 export class StaffLoanDialog {
   protected readonly data = inject<LoanDialogData>(MAT_DIALOG_DATA);
   private readonly ref = inject(MatDialogRef<StaffLoanDialog, LoanDialogResult | undefined>);
+  private readonly loanKindsOn = inject(HR_LOAN_KINDS, { optional: true }) ?? false;
+  private readonly api = inject(PayrollApi);
 
   protected readonly error = signal('');
+  protected readonly catalog = signal<LoanKind[]>([]);
+  protected readonly catalogError = signal('');
   protected kind = this.data.loan?.kind ?? '';
+  protected loanKindId = this.data.loan?.loanKindId ?? '';
   protected principal: string | number | null = this.data.loan?.principal ?? '';
   protected perPeriodAmount: string | number | null = this.data.loan?.perPeriodAmount ?? '';
   protected startPeriod = this.data.loan?.startPeriod?.slice(0, 10) ?? '';
   protected note = this.data.loan?.note ?? '';
 
   private readonly suggestions = loanKindSuggestions(this.data.suggestedKinds);
+
+  constructor() {
+    if (this.pickFromList()) {
+      this.api.listLoanKinds().subscribe({
+        next: (body) => this.catalog.set(body.kinds ?? []),
+        error: () => this.catalogError.set('Could not load loan kinds.'),
+      });
+    }
+  }
+
+  protected pickFromList(): boolean {
+    if (!this.loanKindsOn) {
+      return false;
+    }
+    return this.data.loan == null || !!this.data.loan.loanKindId;
+  }
+
+  protected kindOptions(): LoanKind[] {
+    const current = this.loanKindId;
+    return this.catalog().filter((row) => row.active || row.id === current);
+  }
 
   protected filteredKinds(): string[] {
     const query = this.kind.trim().toLowerCase();
@@ -172,8 +221,17 @@ export class StaffLoanDialog {
   }
 
   protected save(): void {
-    const kind = this.kind.trim();
-    if (!kind || kind.length > 80) {
+    let kind = this.kind.trim();
+    let loanKindId: string | null = null;
+    if (this.pickFromList()) {
+      const selected = this.catalog().find((row) => row.id === this.loanKindId);
+      if (!selected) {
+        this.error.set('Pick a loan kind.');
+        return;
+      }
+      kind = selected.name;
+      loanKindId = selected.id;
+    } else if (!kind || kind.length > 80) {
       this.error.set('Kind is required and must be 80 characters or fewer.');
       return;
     }
@@ -203,6 +261,7 @@ export class StaffLoanDialog {
       perPeriodAmount,
       startPeriod,
       note: note || null,
+      ...(loanKindId ? { loanKindId } : {}),
     });
   }
 }

@@ -338,6 +338,11 @@ public static class PayrollEndpoints
             app.MapRemittanceApi();
         }
 
+        if (features.LoanKinds)
+        {
+            app.MapLoanKindApi();
+        }
+
         return app;
     }
 

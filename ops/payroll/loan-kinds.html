@@ -1,0 +1,88 @@
+<div class="ops-cutoff-settings" data-loan-kinds>
+  @if (loading()) {
+    <ops-skeleton data-loan-kinds-loading [rows]="3" label="Loading loan kinds" />
+  } @else if (loadError()) {
+    <ops-banner tone="danger" role="alert" [message]="loadError()" />
+    <button matButton="outlined" type="button" name="retryLoanKinds" (click)="load()">Retry</button>
+  } @else if (ready()) {
+    @if (notice()) {
+      <ops-banner tone="ok" [message]="notice()" />
+    }
+    @if (saveError()) {
+      <ops-banner tone="danger" role="alert" [message]="saveError()" />
+    }
+    <p>
+      Kinds are shared. Cut-off 1 is the first cut-off on the worker's shop. Leave the cut-off empty
+      and the instalment is taken every period. A loan typed as free text, with no kind, stays on
+      every period.
+    </p>
+    <div class="loan-kind-rows">
+      @for (row of rows(); track $index) {
+        <div class="loan-kind-row">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Name</mat-label>
+            <input
+              matInput
+              [name]="'loanKindName' + $index"
+              [ngModel]="row.name"
+              (ngModelChange)="setName($index, $event)"
+              maxlength="80"
+            />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>When</mat-label>
+            <mat-select
+              [name]="'loanKindRule' + $index"
+              [ngModel]="row.cutoffOnly ? 'cutoff' : 'every'"
+              (ngModelChange)="setRule($index, $event)"
+            >
+              <mat-option value="every">Every period</mat-option>
+              <mat-option value="cutoff">Cut-off only</mat-option>
+            </mat-select>
+          </mat-form-field>
+          @if (row.cutoffOnly) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Cut-off</mat-label>
+              <input
+                matInput
+                type="number"
+                min="1"
+                step="1"
+                [name]="'loanKindOrdinal' + $index"
+                [ngModel]="row.cutoffOrdinal"
+                (ngModelChange)="setOrdinal($index, $event)"
+              />
+            </mat-form-field>
+          }
+          <mat-checkbox
+            [name]="'loanKindActive' + $index"
+            [ngModel]="row.active"
+            (ngModelChange)="setActive($index, $event)"
+          >
+            Active
+          </mat-checkbox>
+          <button
+            matButton="outlined"
+            type="button"
+            [name]="'deleteLoanKind' + $index"
+            (click)="remove($index)"
+          >
+            Delete
+          </button>
+        </div>
+      }
+    </div>
+    <button matButton="outlined" type="button" name="addLoanKind" (click)="addKind()">
+      Add loan kind
+    </button>
+    <button
+      matButton="filled"
+      type="button"
+      name="saveLoanKinds"
+      [disabled]="saving()"
+      (click)="save()"
+    >
+      {{ saving() ? 'Saving…' : 'Save loan kinds' }}
+    </button>
+  }
+</div>

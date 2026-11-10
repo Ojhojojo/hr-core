@@ -246,6 +246,20 @@
   </mat-expansion-panel>
 }
 
+@if (loanKinds) {
+  <mat-expansion-panel class="ops-premium-panel" (opened)="loanKindPanel.load()">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        Loan kinds
+        <ops-info-tip
+          text="Pick a kind for each loan. Cut-off 1 is the first cut-off on the worker's shop. A free-text loan is deducted every period."
+        />
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    <app-ops-loan-kinds #loanKindPanel />
+  </mat-expansion-panel>
+}
+
 @if (showRemittance()) {
   <mat-expansion-panel class="ops-premium-panel" (opened)="remittance.load()">
     <mat-expansion-panel-header>

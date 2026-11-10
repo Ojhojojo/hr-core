@@ -36,6 +36,10 @@ public sealed class PayrollSchedulesFlagTests
         Assert.DoesNotContain(typeof(PayrollCatchUp), types);
         Assert.DoesNotContain(typeof(BranchRemittanceSetting), types);
         Assert.DoesNotContain(typeof(BranchRemittanceExport), types);
+        Assert.DoesNotContain(typeof(LoanKind), types);
+        var loan = db.Model.FindEntityType(typeof(StaffLoan));
+        Assert.NotNull(loan);
+        Assert.Null(loan.FindProperty(nameof(StaffLoan.LoanKindId)));
         Assert.Contains(typeof(Staff), types);
     }
 
@@ -63,6 +67,34 @@ public sealed class PayrollSchedulesFlagTests
         Assert.NotNull(run);
         Assert.Null(run.FindProperty(nameof(PayrollRun.EmployerSharesReviewedAtUtc)));
         Assert.DoesNotContain(typeof(BranchRemittanceExport), types);
+        Assert.DoesNotContain(typeof(LoanKind), types);
+        var loan = db.Model.FindEntityType(typeof(StaffLoan));
+        Assert.NotNull(loan);
+        Assert.Null(loan.FindProperty(nameof(StaffLoan.LoanKindId)));
+    }
+
+    [Fact]
+    public void Loan_kinds_flag_on_maps_the_table_and_a_nullable_fk()
+    {
+        var built = new DbContextOptionsBuilder<TestHrDb>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseHrCoreFeatures(new HrCoreFeatures { LoanKinds = true });
+        using var db = new TestHrDb((DbContextOptions<TestHrDb>)built.Options);
+        var types = db.Model.GetEntityTypes().Select(entity => entity.ClrType).ToHashSet();
+
+        Assert.Contains(typeof(LoanKind), types);
+        Assert.DoesNotContain(typeof(BranchPayrollCutoff), types);
+        var kind = db.Model.FindEntityType(typeof(LoanKind));
+        Assert.NotNull(kind);
+        Assert.Equal(80, kind.FindProperty(nameof(LoanKind.Name))!.GetMaxLength());
+        Assert.True(kind.FindProperty(nameof(LoanKind.CutoffOrdinal))!.IsNullable);
+        var loan = db.Model.FindEntityType(typeof(StaffLoan));
+        Assert.NotNull(loan);
+        var link = loan.FindProperty(nameof(StaffLoan.LoanKindId));
+        Assert.NotNull(link);
+        Assert.True(link.IsNullable);
+        Assert.Equal(12, loan.FindProperty(nameof(StaffLoan.Principal))!.GetPrecision());
+        Assert.Equal(2, loan.FindProperty(nameof(StaffLoan.Principal))!.GetScale());
     }
 
     [Fact]
@@ -146,6 +178,10 @@ public sealed class PayrollSchedulesFlagTests
         yield return (HttpMethod.Get, "/api/ops/payroll/deduction-schedule");
         yield return (HttpMethod.Put, "/api/ops/payroll/deduction-schedule");
         yield return (HttpMethod.Put, "/api/ops/payroll/catch-ups");
+        yield return (HttpMethod.Get, "/api/ops/payroll/loan-kinds");
+        yield return (HttpMethod.Post, "/api/ops/payroll/loan-kinds");
+        yield return (HttpMethod.Put, "/api/ops/payroll/loan-kinds/" + Guid.Empty);
+        yield return (HttpMethod.Delete, "/api/ops/payroll/loan-kinds/" + Guid.Empty);
     }
 
     private sealed class FlagApp : IAsyncDisposable

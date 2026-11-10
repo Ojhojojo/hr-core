@@ -25,4 +25,13 @@ public sealed class HrCoreFeatures
     /// them after review. Export records the month and then the shares are read-only.
     /// </summary>
     public bool EmployerRemittance { get; set; }
+
+    /// <summary>
+    /// Loan kinds as a list (<c>LoanKind</c>) and the optional link on <c>StaffLoan</c>.
+    /// Off: that table is not in the EF model, <c>StaffLoan.LoanKindId</c> is ignored,
+    /// the loan-kind routes are not mapped, and payroll does not query them. Free-text
+    /// loans keep deducting every period. On: each kind has a name, an active flag, and
+    /// a cut-off rule. A loan that points at a kind follows that rule.
+    /// </summary>
+    public bool LoanKinds { get; set; }
 }

@@ -23,6 +23,10 @@ public static class PayrollLoanSchedule
         "Company loan"
     ];
 
+    /// <summary>
+    /// <paramref name="UsesKindRule"/> is set when the loan points at a loan kind.
+    /// <paramref name="KindCutoffOrdinal"/> null then means every period. A number means that cut-off only.
+    /// </summary>
     public sealed record LoanInput(
         Guid LoanId,
         string Kind,
@@ -30,7 +34,9 @@ public static class PayrollLoanSchedule
         decimal PerPeriodAmount,
         DateOnly StartPeriod,
         DateTime CreatedAtUtc,
-        bool Cancelled);
+        bool Cancelled,
+        bool UsesKindRule = false,
+        int? KindCutoffOrdinal = null);
 
     public sealed record Item(
         Guid LoanId,
