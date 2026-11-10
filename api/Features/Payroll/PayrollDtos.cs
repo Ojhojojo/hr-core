@@ -48,7 +48,11 @@ public sealed record PayrollStaffRowDto(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     DateOnly? ReleasedOn = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? ReleasedByName = null);
+    string? ReleasedByName = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? DepositedAmount = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? Discrepancy = null);
 
 /// <summary>#390: one calendar day's pay override shown on the draft register.</summary>
 public sealed record PayrollDayPayOverrideDto(
@@ -273,11 +277,28 @@ public sealed record PayrollRunLineDto(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     DateOnly? ReleasedOn = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? ReleasedByName = null);
+    string? ReleasedByName = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? DepositedAmount = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? Discrepancy = null);
+
+/// <summary>
+/// One locked line whose deposited amount does not match net. Not a stored column.
+/// <see cref="Discrepancy"/> is net minus the deposited amount: positive is short, negative is over.
+/// </summary>
+public sealed record PayrollDepositDiscrepancyDto(
+    Guid StaffId,
+    string StaffName,
+    decimal Net,
+    decimal DepositedAmount,
+    decimal Discrepancy);
 
 public sealed record PayrollRunDetailDto(
     PayrollRunSummaryDto Run,
-    IReadOnlyList<PayrollRunLineDto> Lines);
+    IReadOnlyList<PayrollRunLineDto> Lines,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyList<PayrollDepositDiscrepancyDto>? Discrepancies = null);
 
 /// <summary>One row of the caller's own payslip history: locked runs only, newest period first.</summary>
 public sealed record MyPayslipSummaryDto(

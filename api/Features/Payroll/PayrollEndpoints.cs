@@ -93,6 +93,9 @@ public static class PayrollEndpoints
             .WithSummary("One payroll run with its frozen lines")
             .WithDescription(
                 "Locked run detail: totals plus one line per worker as locked. " +
+                "With deposits on, a line may include depositedAmount and discrepancy (net minus deposited). " +
+                "discrepancies lists lines whose discrepancy is not zero. " +
+                "With the flag off, or when no deposit is entered, those fields are omitted. " +
                 "404 when the run is outside the shop scope.");
 
         api.MapPost("/runs", LockRun)
@@ -346,6 +349,11 @@ public static class PayrollEndpoints
         if (features.PayoutHold)
         {
             app.MapPayoutHoldApi();
+        }
+
+        if (features.Deposits)
+        {
+            app.MapPayrollDepositApi();
         }
 
         return app;

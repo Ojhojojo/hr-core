@@ -11,6 +11,7 @@ namespace HrCore.Data;
 /// <see cref="HrCoreFeatures.EmployerRemittance"/> adds <c>BranchRemittanceSetting</c>.
 /// <see cref="HrCoreFeatures.LoanKinds"/> adds <c>LoanKind</c> and <c>StaffLoan.LoanKindId</c>.
 /// <see cref="HrCoreFeatures.PayoutHold"/> adds <c>StaffPayoutHold</c> and the hold columns on <c>PayrollRunLine</c>.
+/// <see cref="HrCoreFeatures.Deposits"/> adds <c>PayrollRunLine.DepositedAmount</c>.
 /// </summary>
 public static class HrModel
 {
@@ -360,6 +361,13 @@ public static class HrModel
                         "OR (\"PayoutStatus\" = 'held' AND \"ReleasedOn\" IS NULL AND \"ReleasedByStaffId\" IS NULL AND \"HoldReason\" <> '') " +
                         "OR (\"PayoutStatus\" = 'released' AND \"ReleasedOn\" IS NOT NULL AND \"ReleasedByStaffId\" IS NOT NULL)");
                 }
+
+                if (features.Deposits)
+                {
+                    t.HasCheckConstraint(
+                        "CK_PayrollRunLines_Deposit",
+                        "\"DepositedAmount\" IS NULL OR \"DepositedAmount\" >= 0");
+                }
             });
             e.Property(x => x.StaffName).HasMaxLength(200).IsRequired();
             e.Property(x => x.RatePhp).HasPrecision(12, 2);
@@ -410,6 +418,17 @@ public static class HrModel
                 e.Ignore(x => x.ReleasedOn);
                 e.Ignore(x => x.ReleasedByStaffId);
                 e.Ignore(x => x.ReleasedByStaff);
+            }
+
+            if (features.Deposits)
+            {
+                // No database default. Null means nobody has recorded a deposit, and EF must
+                // store that null. A default of 0 would fill 0 when EF omits the column.
+                e.Property(x => x.DepositedAmount).HasPrecision(14, 2);
+            }
+            else
+            {
+                e.Ignore(x => x.DepositedAmount);
             }
 
             e.HasIndex(x => new { x.RunId, x.StaffId }).IsUnique();

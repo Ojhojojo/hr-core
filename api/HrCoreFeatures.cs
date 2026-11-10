@@ -45,4 +45,12 @@ public sealed class HrCoreFeatures
     /// HR change log.
     /// </summary>
     public bool PayoutHold { get; set; }
+
+    /// <summary>
+    /// Deposited amount on a locked <c>PayrollRunLine</c>.
+    /// Off: the column is ignored, the deposit route is not mapped, and payroll does not
+    /// read or write it. On: an owner or admin can record what was deposited after lock.
+    /// Discrepancy is net minus that amount. The locked line values stay as they are.
+    /// </summary>
+    public bool Deposits { get; set; }
 }

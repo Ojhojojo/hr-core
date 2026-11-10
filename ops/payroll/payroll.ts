@@ -82,6 +82,8 @@ import { LoanKindSettings } from './loan-kinds';
 import { HR_LOAN_KINDS } from './payroll-loan-kinds';
 import { PayoutHoldSettings } from './payout-holds';
 import { HR_PAYOUT_HOLD } from './payroll-payout-hold';
+import { PayrollDepositSettings } from './deposits';
+import { HR_PAYROLL_DEPOSITS } from './payroll-deposits';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { RemittanceReport } from './remittance-report';
 import { EmployerShareReviewPanel } from './employer-share-review';
@@ -125,6 +127,7 @@ import {
     DeductionSchedule,
     LoanKindSettings,
     PayoutHoldSettings,
+    PayrollDepositSettings,
     RemittanceReport,
     EmployerShareReviewPanel,
   ],
@@ -332,6 +335,8 @@ export class PayrollPage {
   protected readonly loanKinds = inject(HR_LOAN_KINDS, { optional: true }) ?? false;
   /** Host flag. Absent means off, so the payout hold panel and its calls stay hidden. */
   protected readonly payoutHold = inject(HR_PAYOUT_HOLD, { optional: true }) ?? false;
+  /** Host flag. Absent means off, so the deposit panel and its calls stay hidden. */
+  protected readonly deposits = inject(HR_PAYROLL_DEPOSITS, { optional: true }) ?? false;
   private readonly remittanceAccess = inject(HR_REMITTANCE_ACCESS);
   /** Hidden until the host provides a capability that allows this caller. */
   protected readonly showRemittance = computed(
@@ -1106,6 +1111,14 @@ export class PayrollPage {
           this.savingId.set(null);
         },
       });
+  }
+
+  depositDiscrepancyLabel(row: PayrollStaffRow): string {
+    const value = Number(row.discrepancy);
+    if (value < 0) {
+      return `Discrepancy −${this.formatMoney(Math.abs(value))}`;
+    }
+    return `Discrepancy ${this.formatMoney(value)}`;
   }
 
   payoutHoldLabel(row: PayrollStaffRow): string {
