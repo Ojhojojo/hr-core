@@ -1,0 +1,58 @@
+@if (loadError()) {
+  <ops-banner tone="danger" [message]="loadError()" />
+}
+@if (loading() && !ready()) {
+  <ops-skeleton />
+} @else if (ready()) {
+  @if (saveError()) {
+    <ops-banner tone="danger" [message]="saveError()" />
+  }
+  @if (notice()) {
+    <ops-banner tone="ok" [message]="notice()" />
+  }
+  <form class="payout-hold-form" (submit)="$event.preventDefault(); hold()">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Person</mat-label>
+      <mat-select
+        name="payoutHoldStaff"
+        [ngModel]="staffId()"
+        (ngModelChange)="staffId.set($event)"
+      >
+        @for (person of staff(); track person.staffId) {
+          <mat-option [value]="person.staffId">{{ person.staffName }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Reason</mat-label>
+      <input
+        matInput
+        name="payoutHoldReason"
+        [ngModel]="reason()"
+        (ngModelChange)="reason.set($event)"
+      />
+    </mat-form-field>
+    <button matButton="filled" type="submit" name="holdPayout" [disabled]="saving()">
+      {{ saving() ? 'Saving…' : 'Hold payout' }}
+    </button>
+  </form>
+  <div class="payout-hold-rows">
+    @for (hold of holds(); track hold.id) {
+      <div class="payout-hold-row" [attr.data-staff]="hold.staffId">
+        <strong>{{ hold.staffName }}</strong>
+        <span>{{ hold.reason }}</span>
+        <button
+          matButton="outlined"
+          type="button"
+          name="releasePayout"
+          [disabled]="saving()"
+          (click)="release(hold)"
+        >
+          Release
+        </button>
+      </div>
+    } @empty {
+      <p>No payouts are on hold.</p>
+    }
+  </div>
+}

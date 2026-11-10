@@ -40,6 +40,13 @@ public sealed class PayrollSchedulesFlagTests
         var loan = db.Model.FindEntityType(typeof(StaffLoan));
         Assert.NotNull(loan);
         Assert.Null(loan.FindProperty(nameof(StaffLoan.LoanKindId)));
+        Assert.DoesNotContain(typeof(StaffPayoutHold), types);
+        var line = db.Model.FindEntityType(typeof(PayrollRunLine));
+        Assert.NotNull(line);
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.PayoutStatus)));
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.HoldReason)));
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.ReleasedOn)));
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.ReleasedByStaffId)));
         Assert.Contains(typeof(Staff), types);
     }
 
@@ -71,6 +78,33 @@ public sealed class PayrollSchedulesFlagTests
         var loan = db.Model.FindEntityType(typeof(StaffLoan));
         Assert.NotNull(loan);
         Assert.Null(loan.FindProperty(nameof(StaffLoan.LoanKindId)));
+        Assert.Null(db.Model.FindEntityType(typeof(PayrollRunLine))!
+            .FindProperty(nameof(PayrollRunLine.PayoutStatus)));
+    }
+
+    [Fact]
+    public void Payout_hold_flag_on_maps_the_hold_table_and_line_columns()
+    {
+        var built = new DbContextOptionsBuilder<TestHrDb>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseHrCoreFeatures(new HrCoreFeatures { PayoutHold = true });
+        using var db = new TestHrDb((DbContextOptions<TestHrDb>)built.Options);
+        var types = db.Model.GetEntityTypes().Select(entity => entity.ClrType).ToHashSet();
+
+        Assert.Contains(typeof(StaffPayoutHold), types);
+        Assert.DoesNotContain(typeof(LoanKind), types);
+        Assert.DoesNotContain(typeof(BranchPayrollCutoff), types);
+        var hold = db.Model.FindEntityType(typeof(StaffPayoutHold));
+        Assert.NotNull(hold);
+        Assert.Equal(StaffPayoutHold.ReasonMaxLength, hold.FindProperty(nameof(StaffPayoutHold.Reason))!.GetMaxLength());
+        Assert.True(hold.FindProperty(nameof(StaffPayoutHold.ReleasedOn))!.IsNullable);
+        var line = db.Model.FindEntityType(typeof(PayrollRunLine));
+        Assert.NotNull(line);
+        Assert.NotNull(line.FindProperty(nameof(PayrollRunLine.PayoutStatus)));
+        Assert.True(line.FindProperty(nameof(PayrollRunLine.PayoutStatus))!.IsNullable);
+        Assert.True(line.FindProperty(nameof(PayrollRunLine.HoldReason))!.IsNullable);
+        Assert.True(line.FindProperty(nameof(PayrollRunLine.ReleasedOn))!.IsNullable);
+        Assert.Null(line.FindProperty(nameof(PayrollRunLine.EmployerSss)));
     }
 
     [Fact]
@@ -182,6 +216,9 @@ public sealed class PayrollSchedulesFlagTests
         yield return (HttpMethod.Post, "/api/ops/payroll/loan-kinds");
         yield return (HttpMethod.Put, "/api/ops/payroll/loan-kinds/" + Guid.Empty);
         yield return (HttpMethod.Delete, "/api/ops/payroll/loan-kinds/" + Guid.Empty);
+        yield return (HttpMethod.Get, "/api/ops/payroll/payout-holds");
+        yield return (HttpMethod.Post, "/api/ops/payroll/payout-holds");
+        yield return (HttpMethod.Post, "/api/ops/payroll/payout-holds/" + Guid.Empty + "/release");
     }
 
     private sealed class FlagApp : IAsyncDisposable

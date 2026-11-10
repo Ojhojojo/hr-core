@@ -59,4 +59,29 @@ public sealed class PayrollRunLine
     /// Mapped only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on.
     /// </summary>
     public decimal? EmployerPagIbig { get; set; }
+
+    /// <summary>
+    /// <c>held</c> or <c>released</c>. Null when this payout was not held.
+    /// Mapped only when <see cref="HrCoreFeatures.PayoutHold"/> is on. No database default,
+    /// so null stays null. Ignored when the flag is off.
+    /// </summary>
+    public string? PayoutStatus { get; set; }
+
+    /// <summary>
+    /// Reason copied from the staff hold at lock. Mapped only when the payout-hold flag is on.
+    /// </summary>
+    public string? HoldReason { get; set; }
+
+    /// <summary>
+    /// Manila date (<c>yyyy-MM-dd</c>) the held payout was released. Null while held.
+    /// Mapped only when the payout-hold flag is on.
+    /// </summary>
+    public DateOnly? ReleasedOn { get; set; }
+
+    /// <summary>
+    /// Staff who released the hold. Mapped only when the payout-hold flag is on.
+    /// </summary>
+    public Guid? ReleasedByStaffId { get; set; }
+
+    public Staff? ReleasedByStaff { get; set; }
 }

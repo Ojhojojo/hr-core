@@ -13,6 +13,7 @@ import { specUser, type SpecUser } from '../host-spec-fixtures';
 import { PayrollPage } from './payroll';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { HR_LOAN_KINDS } from './payroll-loan-kinds';
+import { HR_PAYOUT_HOLD } from './payroll-payout-hold';
 import {
   HR_EMPLOYER_REMITTANCE,
   HR_REMITTANCE_ACCESS,
@@ -185,6 +186,7 @@ async function mountPayroll(
   employerRemittance = false,
   canView: ((user: HrCapabilityUser | null | undefined) => boolean) | null = null,
   loanKinds = false,
+  payoutHold = false,
 ) {
   const confirm = confirmStub();
   await TestBed.configureTestingModule({
@@ -202,6 +204,7 @@ async function mountPayroll(
       ...(employerRemittance ? [{ provide: HR_EMPLOYER_REMITTANCE, useValue: true }] : []),
       ...(canView ? [{ provide: HR_REMITTANCE_ACCESS, useValue: { canView } }] : []),
       ...(loanKinds ? [{ provide: HR_LOAN_KINDS, useValue: true }] : []),
+      ...(payoutHold ? [{ provide: HR_PAYOUT_HOLD, useValue: true }] : []),
     ],
   }).compileComponents();
 
@@ -1589,6 +1592,51 @@ describe('Loan kinds flag', () => {
     expect(host.querySelector('app-ops-loan-kinds')).toBeTruthy();
     expect(host.textContent).toContain('Loan kinds');
     expect(http.match((r) => r.url.includes('/loan-kinds')).length).toBe(0);
+    http.verify();
+  });
+});
+
+describe('Payout hold flag', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('hides the payout hold panel and does not call it when the flag is off', async () => {
+    const { host, http } = await mountPayroll();
+    expect(host.querySelector('app-ops-payout-holds')).toBeNull();
+    expect(host.textContent).not.toContain('Payout hold');
+    expect(http.match((r) => r.url.includes('/payout-holds')).length).toBe(0);
+    http.verify();
+  });
+
+  it('shows the panel when the host turns the flag on, without calling it yet', async () => {
+    const { host, http } = await mountPayroll(
+      ownerMe,
+      mockPayrollData,
+      false,
+      false,
+      null,
+      false,
+      true,
+    );
+    expect(host.querySelector('app-ops-payout-holds')).toBeTruthy();
+    expect(host.textContent).toContain('Payout hold');
+    expect(http.match((r) => r.url.includes('/payout-holds')).length).toBe(0);
+    http.verify();
+  });
+
+  it('shows the held total and the held row from the register', async () => {
+    const register: PayrollRegisterResponse = {
+      ...mockPayrollData,
+      totalHeld: 1200,
+      rows: mockPayrollData.rows.map((row, index) =>
+        index === 0 ? { ...row, payoutStatus: 'held', holdReason: 'Clearance pending' } : row,
+      ),
+    };
+    const { host, http } = await mountPayroll(ownerMe, register);
+    expect(host.querySelector('[data-held-total]')?.textContent).toContain('1,200.00');
+    expect(host.querySelector('[data-payout-status="held"]')?.textContent).toContain(
+      'Clearance pending',
+    );
+    expect(http.match((r) => r.url.includes('/payout-holds')).length).toBe(0);
     http.verify();
   });
 });

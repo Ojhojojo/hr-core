@@ -50,8 +50,13 @@ public sealed class PayrollRunService(
             .OrderByDescending(run => run.PeriodFrom)
             .ThenBy(run => run.Branch!.Name)
             .ToListAsync(cancellationToken);
-        var lineCounts = await LineCountsAsync(runs.Select(run => run.Id).ToList(), cancellationToken);
-        return runs.Select(run => ToSummary(run, lineCounts.GetValueOrDefault(run.Id))).ToList();
+        var runIds = runs.Select(run => run.Id).ToList();
+        var lineCounts = await LineCountsAsync(runIds, cancellationToken);
+        var heldTotals = await payroll.PayoutHeldTotalsAsync(runIds, cancellationToken);
+        return runs.Select(run => ToSummary(
+            run,
+            lineCounts.GetValueOrDefault(run.Id),
+            heldTotals.TryGetValue(run.Id, out var held) ? held : null)).ToList();
     }
 
     /// <summary>One run with its frozen lines, or null when it is outside the shop scope.</summary>
@@ -73,12 +78,26 @@ public sealed class PayrollRunService(
         var lineIds = lines.Select(line => line.Id).ToList();
         var allowanceItems = await PayrollService.LoadLockedAllowanceItemsAsync(db, lineIds, cancellationToken);
         var loanItems = await PayrollService.LoadLockedLoanItemsAsync(db, lineIds, cancellationToken);
+        var releasedBy = await ReleasedByNamesAsync(lines, cancellationToken);
+        decimal? totalHeld = null;
+        foreach (var line in lines)
+        {
+            if (line.PayoutStatus == PayoutHoldStatus.Held)
+            {
+                totalHeld = (totalHeld ?? 0m) + line.Net;
+            }
+        }
+
         return new PayrollRunDetailDto(
-            ToSummary(run, lines.Count),
+            ToSummary(run, lines.Count, totalHeld),
             lines.Select(line => ToLineDto(
                 line,
                 allowanceItems.GetValueOrDefault(line.Id),
-                loanItems.GetValueOrDefault(line.Id))).ToList());
+                loanItems.GetValueOrDefault(line.Id),
+                line.ReleasedByStaffId is Guid releasedById
+                    && releasedBy.TryGetValue(releasedById, out var releasedByName)
+                        ? releasedByName
+                        : null)).ToList());
     }
 
     /// <summary>
@@ -128,9 +147,17 @@ public sealed class PayrollRunService(
             return (null, null);
         }
 
-        await db.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT 1 FROM \"Branches\" WHERE \"Id\" = {branchId} FOR UPDATE",
-            cancellationToken);
+        // The row lock is Postgres. A host database is Postgres, so the lock still runs there.
+        // The in-memory check host has no FOR UPDATE.
+        if (string.Equals(
+            db.Database.ProviderName,
+            "Npgsql.EntityFrameworkCore.PostgreSQL",
+            StringComparison.Ordinal))
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT 1 FROM \"Branches\" WHERE \"Id\" = {branchId} FOR UPDATE",
+                cancellationToken);
+        }
 
         if (note is { Length: > MaxNoteLength })
         {
@@ -181,10 +208,11 @@ public sealed class PayrollRunService(
         };
         db.PayrollRuns.Add(run);
 
+        var lockedLines = new List<PayrollRunLine>();
         foreach (var row in register.Rows)
         {
             var lineId = Guid.NewGuid();
-            db.PayrollRunLines.Add(new PayrollRunLine
+            var line = new PayrollRunLine
             {
                 Id = lineId,
                 RunId = run.Id,
@@ -212,7 +240,9 @@ public sealed class PayrollRunService(
                 PremiumPay = row.PremiumPay,
                 Allowances = row.Allowances,
                 LoanDeductions = row.LoanDeductions
-            });
+            };
+            db.PayrollRunLines.Add(line);
+            lockedLines.Add(line);
             if (row.AllowanceItems is { Count: > 0 } items)
             {
                 foreach (var item in items)
@@ -262,6 +292,8 @@ public sealed class PayrollRunService(
                 }
             }
         }
+
+        await payroll.StampPayoutHoldsAsync(lockedLines, cancellationToken);
 
         // Every bonus paid on this run goes Paid in the same transaction as the lock. Only bonuses that
         // were scheduled for exactly this period and are in the frozen register are marked.
@@ -512,6 +544,15 @@ public sealed class PayrollRunService(
                 item.BalanceAfter))
             .ToListAsync(cancellationToken);
 
+        string? releasedByName = null;
+        if (line.ReleasedByStaffId is Guid releasedById)
+        {
+            releasedByName = await db.Staff.AsNoTracking()
+                .Where(staff => staff.Id == releasedById)
+                .Select(staff => staff.Profile.DisplayName)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         var run = line.Run;
         return MyPayslipLookup.Ok(new MyPayslipDetailDto(
             run.Id,
@@ -544,7 +585,11 @@ public sealed class PayrollRunService(
             line.PremiumPay,
             line.Allowances,
             line.LoanDeductions,
-            items));
+            items,
+            line.PayoutStatus,
+            line.HoldReason,
+            line.ReleasedOn,
+            releasedByName));
     }
 
     internal static string Period(DateOnly from, DateOnly to) =>
@@ -576,7 +621,7 @@ public sealed class PayrollRunService(
             .ToDictionaryAsync(row => row.RunId, row => row.Count, cancellationToken);
     }
 
-    private static PayrollRunSummaryDto ToSummary(PayrollRun run, int lineCount) =>
+    private static PayrollRunSummaryDto ToSummary(PayrollRun run, int lineCount, decimal? totalHeld = null) =>
         new(
             run.Id,
             run.BranchId,
@@ -594,12 +639,14 @@ public sealed class PayrollRunService(
             run.LockedAtUtc,
             run.LockedByStaff?.Profile.DisplayName,
             run.VoidedAtUtc,
-            run.VoidedByStaff?.Profile.DisplayName);
+            run.VoidedByStaff?.Profile.DisplayName,
+            totalHeld);
 
     private static PayrollRunLineDto ToLineDto(
         PayrollRunLine line,
         IReadOnlyList<PayrollAllowanceItemDto>? allowanceItems,
-        IReadOnlyList<PayrollLoanItemDto>? loanItems) =>
+        IReadOnlyList<PayrollLoanItemDto>? loanItems,
+        string? releasedByName = null) =>
         new(
             line.StaffId,
             line.StaffName,
@@ -629,7 +676,27 @@ public sealed class PayrollRunService(
             line.OtPay,
             line.EmployerSss,
             line.EmployerPhilHealth,
-            line.EmployerPagIbig);
+            line.EmployerPagIbig,
+            line.PayoutStatus,
+            line.HoldReason,
+            line.ReleasedOn,
+            releasedByName);
+
+    private async Task<Dictionary<Guid, string>> ReleasedByNamesAsync(
+        IReadOnlyList<PayrollRunLine> lines,
+        CancellationToken cancellationToken)
+    {
+        var ids = lines.Select(line => line.ReleasedByStaffId).OfType<Guid>().Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        return await db.Staff.AsNoTracking()
+            .Where(staff => ids.Contains(staff.Id))
+            .Select(staff => new { staff.Id, staff.Profile.DisplayName })
+            .ToDictionaryAsync(row => row.Id, row => row.DisplayName, cancellationToken);
+    }
 
     private static string? BlankToNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

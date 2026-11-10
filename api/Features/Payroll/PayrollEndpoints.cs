@@ -343,6 +343,11 @@ public static class PayrollEndpoints
             app.MapLoanKindApi();
         }
 
+        if (features.PayoutHold)
+        {
+            app.MapPayoutHoldApi();
+        }
+
         return app;
     }
 

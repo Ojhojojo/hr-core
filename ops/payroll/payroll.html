@@ -260,6 +260,20 @@
   </mat-expansion-panel>
 }
 
+@if (payoutHold) {
+  <mat-expansion-panel class="ops-premium-panel" (opened)="payoutHoldPanel.load()">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        Payout hold
+        <ops-info-tip
+          text="Hold a departing person's pay until clearance. The run still computes their earnings. Release records the date and who approved it."
+        />
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    <app-ops-payout-holds #payoutHoldPanel [staff]="rows()" (changed)="load()" />
+  </mat-expansion-panel>
+}
+
 @if (showRemittance()) {
   <mat-expansion-panel class="ops-premium-panel" (opened)="remittance.load()">
     <mat-expansion-panel-header>
@@ -618,6 +632,11 @@
             @if (row.notes) {
               <span class="ops-cell-sub">{{ row.notes }}</span>
             }
+            @if (row.payoutStatus === 'held' || row.payoutStatus === 'released') {
+              <span class="ops-cell-sub" [attr.data-payout-status]="row.payoutStatus">
+                {{ payoutHoldLabel(row) }}
+              </span>
+            }
           </td>
         </ng-container>
         <ng-container matColumnDef="hours">
@@ -899,6 +918,9 @@
         · Loans / CA {{ formatMoney(loanTotal()) }}
       }
       · Deductions {{ formatMoney(totalDeductions()) }} · Net {{ formatMoney(totalNet()) }}
+      @if (heldTotal() != null) {
+        · Held <span data-held-total>{{ formatMoney(heldTotal()) }}</span>
+      }
     </p>
   }
 </ops-card>

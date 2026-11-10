@@ -44,6 +44,7 @@ public static class HrChangeField
     public const string PayrollDayOverride = "payroll.day_override";
     public const string PayrollAllowance = "payroll.allowance";
     public const string PayrollLoan = "payroll.loan";
+    public const string PayrollPayoutHold = "payroll.payout_hold";
     public const string StaffRestDays = "staff.rest_days";
     public const string OvertimeRequest = "overtime.request";
     public const string OvertimeDecision = "overtime.decision";

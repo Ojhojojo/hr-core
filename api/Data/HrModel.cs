@@ -10,6 +10,7 @@ namespace HrCore.Data;
 /// <see cref="HrCoreFeatures.PayrollSchedules"/> adds the cut-off, deduction schedule, and catch-up tables.
 /// <see cref="HrCoreFeatures.EmployerRemittance"/> adds <c>BranchRemittanceSetting</c>.
 /// <see cref="HrCoreFeatures.LoanKinds"/> adds <c>LoanKind</c> and <c>StaffLoan.LoanKindId</c>.
+/// <see cref="HrCoreFeatures.PayoutHold"/> adds <c>StaffPayoutHold</c> and the hold columns on <c>PayrollRunLine</c>.
 /// </summary>
 public static class HrModel
 {
@@ -102,6 +103,11 @@ public static class HrModel
         if (features.LoanKinds)
         {
             ConfigureLoanKinds(modelBuilder);
+        }
+
+        if (features.PayoutHold)
+        {
+            ConfigurePayoutHolds(modelBuilder);
         }
 
         modelBuilder.Entity<Profile>(e =>
@@ -345,6 +351,15 @@ public static class HrModel
                         "AND (\"EmployerPhilHealth\" IS NULL OR \"EmployerPhilHealth\" >= 0) " +
                         "AND (\"EmployerPagIbig\" IS NULL OR \"EmployerPagIbig\" >= 0)");
                 }
+
+                if (features.PayoutHold)
+                {
+                    t.HasCheckConstraint(
+                        "CK_PayrollRunLines_PayoutHold",
+                        "(\"PayoutStatus\" IS NULL AND \"ReleasedOn\" IS NULL AND \"ReleasedByStaffId\" IS NULL) " +
+                        "OR (\"PayoutStatus\" = 'held' AND \"ReleasedOn\" IS NULL AND \"ReleasedByStaffId\" IS NULL AND \"HoldReason\" <> '') " +
+                        "OR (\"PayoutStatus\" = 'released' AND \"ReleasedOn\" IS NOT NULL AND \"ReleasedByStaffId\" IS NOT NULL)");
+                }
             });
             e.Property(x => x.StaffName).HasMaxLength(200).IsRequired();
             e.Property(x => x.RatePhp).HasPrecision(12, 2);
@@ -379,6 +394,22 @@ public static class HrModel
                 e.Ignore(x => x.EmployerSss);
                 e.Ignore(x => x.EmployerPhilHealth);
                 e.Ignore(x => x.EmployerPagIbig);
+            }
+
+            if (features.PayoutHold)
+            {
+                e.Property(x => x.PayoutStatus).HasMaxLength(16);
+                e.Property(x => x.HoldReason).HasMaxLength(StaffPayoutHold.ReasonMaxLength);
+                e.HasOne(x => x.ReleasedByStaff).WithMany().HasForeignKey(x => x.ReleasedByStaffId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            }
+            else
+            {
+                e.Ignore(x => x.PayoutStatus);
+                e.Ignore(x => x.HoldReason);
+                e.Ignore(x => x.ReleasedOn);
+                e.Ignore(x => x.ReleasedByStaffId);
+                e.Ignore(x => x.ReleasedByStaff);
             }
 
             e.HasIndex(x => new { x.RunId, x.StaffId }).IsUnique();
@@ -668,6 +699,34 @@ public static class HrModel
     }
 
     /// <summary>
+    /// Per-staff payout hold. Called only when <see cref="HrCoreFeatures.PayoutHold"/> is on, so a
+    /// host that leaves the flag off does not discover this entity. The line columns are ignored
+    /// in <see cref="Configure"/> when the flag is off.
+    /// </summary>
+    private static void ConfigurePayoutHolds(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<StaffPayoutHold>(e =>
+        {
+            e.ToTable("StaffPayoutHolds", t =>
+            {
+                t.HasCheckConstraint("CK_StaffPayoutHolds_Reason", "\"Reason\" <> ''");
+                t.HasCheckConstraint(
+                    "CK_StaffPayoutHolds_Release",
+                    "(\"ReleasedOn\" IS NULL AND \"ReleasedByStaffId\" IS NULL) " +
+                    "OR (\"ReleasedOn\" IS NOT NULL AND \"ReleasedByStaffId\" IS NOT NULL)");
+            });
+            e.Property(x => x.Reason).HasMaxLength(StaffPayoutHold.ReasonMaxLength).IsRequired();
+            e.HasIndex(x => x.StaffId).IsUnique();
+            e.HasOne(x => x.Staff).WithMany().HasForeignKey(x => x.StaffId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.HeldByStaff).WithMany().HasForeignKey(x => x.HeldByStaffId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ReleasedByStaff).WithMany().HasForeignKey(x => x.ReleasedByStaffId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+    }
+
+    /// <summary>
     /// Loan kind list. Called only when <see cref="HrCoreFeatures.LoanKinds"/> is on, so a host
     /// that leaves the flag off does not discover this entity. The nullable loan column is ignored
     /// in <see cref="Configure"/> when the flag is off.
@@ -751,7 +810,8 @@ public static class HrModel
         typeof(LeaveAllotment), typeof(LeaveRequest), typeof(AttendancePunch), typeof(OvertimeEntry),
         typeof(PayrollDeduction), typeof(PayrollThirteenthOverride), typeof(PayrollRun), typeof(PayrollRunLine),
         typeof(ShopHoliday), typeof(PayrollAmountOverride), typeof(PayrollDayPayOverride), typeof(StaffAllowance),
-        typeof(StaffLoan), typeof(StaffLoanPayment), typeof(LoanKind), typeof(PayrollRunLineItem), typeof(StaffPayRate),
+        typeof(StaffLoan), typeof(StaffLoanPayment), typeof(LoanKind), typeof(StaffPayoutHold),
+        typeof(PayrollRunLineItem), typeof(StaffPayRate),
         typeof(HrChangeLog), typeof(SettingsChangeLog), typeof(Announcement), typeof(IncentiveBonus)
     ];
 }
