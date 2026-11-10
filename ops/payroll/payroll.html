@@ -274,6 +274,20 @@
   </mat-expansion-panel>
 }
 
+@if (deposits && isLocked() && runId(); as depositRunId) {
+  <mat-expansion-panel class="ops-premium-panel" (opened)="depositPanel.load()">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        Deposits
+        <ops-info-tip
+          text="Record what was actually deposited after lock. The difference from net pay is listed here. Locked amounts stay as they are."
+        />
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    <app-ops-payroll-deposits #depositPanel [runId]="depositRunId" (changed)="load()" />
+  </mat-expansion-panel>
+}
+
 @if (showRemittance()) {
   <mat-expansion-panel class="ops-premium-panel" (opened)="remittance.load()">
     <mat-expansion-panel-header>
@@ -698,6 +712,11 @@
           <th mat-header-cell *matHeaderCellDef class="num">Net</th>
           <td mat-cell *matCellDef="let row" data-label="Net" class="num">
             <strong>{{ formatMoney(rowNet(row)) }}</strong>
+            @if (row.discrepancy != null) {
+              <span class="ops-cell-sub" data-deposit-discrepancy>
+                {{ depositDiscrepancyLabel(row) }}
+              </span>
+            }
           </td>
         </ng-container>
         <ng-container matColumnDef="actions">

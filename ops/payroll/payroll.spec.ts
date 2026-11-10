@@ -14,6 +14,7 @@ import { PayrollPage } from './payroll';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { HR_LOAN_KINDS } from './payroll-loan-kinds';
 import { HR_PAYOUT_HOLD } from './payroll-payout-hold';
+import { HR_PAYROLL_DEPOSITS } from './payroll-deposits';
 import {
   HR_EMPLOYER_REMITTANCE,
   HR_REMITTANCE_ACCESS,
@@ -187,6 +188,7 @@ async function mountPayroll(
   canView: ((user: HrCapabilityUser | null | undefined) => boolean) | null = null,
   loanKinds = false,
   payoutHold = false,
+  deposits = false,
 ) {
   const confirm = confirmStub();
   await TestBed.configureTestingModule({
@@ -205,6 +207,7 @@ async function mountPayroll(
       ...(canView ? [{ provide: HR_REMITTANCE_ACCESS, useValue: { canView } }] : []),
       ...(loanKinds ? [{ provide: HR_LOAN_KINDS, useValue: true }] : []),
       ...(payoutHold ? [{ provide: HR_PAYOUT_HOLD, useValue: true }] : []),
+      ...(deposits ? [{ provide: HR_PAYROLL_DEPOSITS, useValue: true }] : []),
     ],
   }).compileComponents();
 
@@ -1637,6 +1640,76 @@ describe('Payout hold flag', () => {
       'Clearance pending',
     );
     expect(http.match((r) => r.url.includes('/payout-holds')).length).toBe(0);
+    http.verify();
+  });
+});
+
+describe('Deposits flag', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('hides the deposit panel and does not call it when the flag is off', async () => {
+    const { host, http } = await mountPayroll(ownerMe, lockedRegister);
+    expect(host.querySelector('app-ops-payroll-deposits')).toBeNull();
+    expect(host.textContent).not.toContain('Deposits');
+    expect(http.match((r) => r.url.includes('/deposit')).length).toBe(0);
+    http.verify();
+  });
+
+  it('hides the panel on a live period even when the host turns the flag on', async () => {
+    const { host, http } = await mountPayroll(
+      ownerMe,
+      mockPayrollData,
+      false,
+      false,
+      null,
+      false,
+      false,
+      true,
+    );
+    expect(host.querySelector('app-ops-payroll-deposits')).toBeNull();
+    expect(http.match((r) => r.url.includes('/deposit')).length).toBe(0);
+    http.verify();
+  });
+
+  it('shows the panel on a locked period without calling it until opened', async () => {
+    const { host, http, fixture } = await mountPayroll(
+      ownerMe,
+      lockedRegister,
+      false,
+      false,
+      null,
+      false,
+      false,
+      true,
+    );
+    expect(host.querySelector('app-ops-payroll-deposits')).toBeTruthy();
+    expect(host.textContent).toContain('Deposits');
+    expect(http.match((r) => r.url.includes('/runs/run-1')).length).toBe(0);
+
+    const header = [...host.querySelectorAll('mat-expansion-panel-header')].find((item) =>
+      item.textContent?.includes('Deposits'),
+    ) as HTMLElement;
+    header.click();
+    fixture.detectChanges();
+    const run = http.expectOne((r) => r.method === 'GET' && r.url.endsWith('/api/ops/payroll/runs/run-1'));
+    run.flush({ run: { id: 'run-1' }, lines: [] });
+    fixture.detectChanges();
+    expect(host.textContent).toContain('No lines with a difference');
+    http.verify();
+  });
+
+  it('shows the discrepancy on the net cell from the register', async () => {
+    const register: PayrollRegisterResponse = {
+      ...lockedRegister,
+      rows: lockedRegister.rows.map((row, index) =>
+        index === 0 ? { ...row, net: 10050, depositedAmount: 10000, discrepancy: 50 } : row,
+      ),
+    };
+    const { host, http } = await mountPayroll(ownerMe, register);
+    expect(host.querySelector('[data-deposit-discrepancy]')?.textContent).toContain('Discrepancy');
+    expect(host.querySelector('[data-deposit-discrepancy]')?.textContent).toContain('50.00');
+    expect(host.querySelector('app-ops-payroll-deposits')).toBeNull();
+    expect(http.match((r) => r.url.includes('/deposit')).length).toBe(0);
     http.verify();
   });
 });

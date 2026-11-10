@@ -338,7 +338,9 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
                     ReleasedByName: line.ReleasedByStaffId is Guid releasedById
                         && releasedBy.TryGetValue(releasedById, out var releasedByName)
                             ? releasedByName
-                            : null);
+                            : null,
+                    DepositedAmount: line.DepositedAmount,
+                    Discrepancy: PayrollDepositMath.Discrepancy(line.Net, line.DepositedAmount));
             })
             .ToList();
 

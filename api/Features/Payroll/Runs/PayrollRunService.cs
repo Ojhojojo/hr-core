@@ -97,7 +97,8 @@ public sealed class PayrollRunService(
                 line.ReleasedByStaffId is Guid releasedById
                     && releasedBy.TryGetValue(releasedById, out var releasedByName)
                         ? releasedByName
-                        : null)).ToList());
+                        : null)).ToList(),
+            PayrollDepositMath.NonZero(lines));
     }
 
     /// <summary>
@@ -680,7 +681,9 @@ public sealed class PayrollRunService(
             line.PayoutStatus,
             line.HoldReason,
             line.ReleasedOn,
-            releasedByName);
+            releasedByName,
+            line.DepositedAmount,
+            PayrollDepositMath.Discrepancy(line.Net, line.DepositedAmount));
 
     private async Task<Dictionary<Guid, string>> ReleasedByNamesAsync(
         IReadOnlyList<PayrollRunLine> lines,

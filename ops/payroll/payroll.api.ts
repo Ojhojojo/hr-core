@@ -12,7 +12,10 @@ import {
   PayrollQuery,
   PayrollRatesResponse,
   PayrollRegisterResponse,
+  PayrollDepositSaved,
+  PayrollRunDetail,
   PayrollRunSummary,
+  RecordPayrollDeposit,
   SavePayrollDeductions,
   SaveThirteenthOverride,
   SetPayrollRate,
@@ -172,6 +175,17 @@ export class PayrollApi {
     return this.http.post<PayrollRunSummary>(
       `${this.base}/api/ops/payroll/runs/${runId}/void`,
       null,
+    );
+  }
+
+  getRun(runId: string): Observable<PayrollRunDetail> {
+    return this.http.get<PayrollRunDetail>(`${this.base}/api/ops/payroll/runs/${runId}`);
+  }
+
+  recordDeposit(runId: string, body: RecordPayrollDeposit): Observable<PayrollDepositSaved> {
+    return this.http.put<PayrollDepositSaved>(
+      `${this.base}/api/ops/payroll/runs/${runId}/deposit`,
+      body,
     );
   }
 

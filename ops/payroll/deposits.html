@@ -1,0 +1,53 @@
+@if (loadError()) {
+  <ops-banner tone="danger" [message]="loadError()" />
+}
+@if (loading() && !ready()) {
+  <ops-skeleton />
+} @else if (ready()) {
+  @if (saveError()) {
+    <ops-banner tone="danger" [message]="saveError()" />
+  }
+  @if (notice()) {
+    <ops-banner tone="ok" [message]="notice()" />
+  }
+  @if (discrepancies().length > 0) {
+    <ul class="deposit-list" data-deposit-discrepancies>
+      @for (row of discrepancies(); track row.staffId) {
+        <li [attr.data-staff]="row.staffId">
+          {{ row.staffName }} · discrepancy {{ formatDepositAmount(row.discrepancy) }}
+        </li>
+      }
+    </ul>
+  } @else {
+    <p data-deposit-clear>No lines with a difference.</p>
+  }
+  <div class="deposit-rows">
+    @for (line of lines(); track line.staffId) {
+      <form class="deposit-row" [attr.data-staff]="line.staffId" (submit)="$event.preventDefault(); save(line)">
+        <strong>{{ line.staffName }}</strong>
+        <span>Net {{ formatDepositAmount(line.net) }}</span>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Deposited</mat-label>
+          <input
+            matInput
+            type="number"
+            min="0"
+            step="0.01"
+            [name]="'deposit-' + line.staffId"
+            [attr.aria-label]="'Deposited amount for ' + line.staffName"
+            [ngModel]="amount(line.staffId)"
+            (ngModelChange)="setAmount(line.staffId, $event)"
+          />
+        </mat-form-field>
+        <span data-line-discrepancy>
+          @if (line.discrepancy != null) {
+            Discrepancy {{ formatDepositAmount(line.discrepancy) }}
+          }
+        </span>
+        <button matButton="filled" type="submit" name="saveDeposit" [disabled]="saving()">
+          {{ saving() ? 'Saving…' : 'Save' }}
+        </button>
+      </form>
+    }
+  </div>
+}

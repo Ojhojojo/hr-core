@@ -60,6 +60,10 @@ export interface PayrollStaffRow {
   /** Manila date `yyyy-MM-dd` once the hold is released. */
   releasedOn?: string | null;
   releasedByName?: string | null;
+  /** What was deposited. Omitted until someone records it. */
+  depositedAmount?: number | null;
+  /** Net minus deposited. Positive is short, negative is over. Omitted until a deposit is recorded. */
+  discrepancy?: number | null;
 }
 
 export type PayrollDayPayMode = 'full' | 'half' | 'none' | 'custom';
@@ -174,6 +178,45 @@ export interface PayrollRunSummary {
   voidedByName?: string | null;
   /** Net of lines still marked held. Omitted when none are. */
   totalHeld?: number | null;
+}
+
+/** A locked line on the run detail, including a deposit when one was recorded. */
+export interface PayrollRunLine {
+  staffId: string;
+  staffName: string;
+  net: number;
+  depositedAmount?: number | null;
+  discrepancy?: number | null;
+}
+
+/** A locked line whose deposit does not match net. */
+export interface PayrollDepositDiscrepancy {
+  staffId: string;
+  staffName: string;
+  net: number;
+  depositedAmount: number;
+  discrepancy: number;
+}
+
+export interface PayrollRunDetail {
+  run: PayrollRunSummary;
+  lines: PayrollRunLine[];
+  /** Lines with a non-zero discrepancy. Omitted when there are none. */
+  discrepancies?: PayrollDepositDiscrepancy[] | null;
+}
+
+export interface RecordPayrollDeposit {
+  staffId: string;
+  depositedAmount: number | null;
+}
+
+export interface PayrollDepositSaved {
+  runId: string;
+  staffId: string;
+  staffName: string;
+  net: number;
+  depositedAmount: number;
+  discrepancy: number;
 }
 
 export interface PayoutHold {

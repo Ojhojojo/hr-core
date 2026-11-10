@@ -84,4 +84,12 @@ public sealed class PayrollRunLine
     public Guid? ReleasedByStaffId { get; set; }
 
     public Staff? ReleasedByStaff { get; set; }
+
+    /// <summary>
+    /// What was actually deposited for this locked line, in PHP. Null until someone records it.
+    /// Mapped only when <see cref="HrCoreFeatures.Deposits"/> is on: nullable
+    /// <c>numeric(14,2)</c> with no database default, so null stays null. Ignored when the flag is off.
+    /// Recording it does not change <see cref="Gross"/>, <see cref="Deductions"/>, or <see cref="Net"/>.
+    /// </summary>
+    public decimal? DepositedAmount { get; set; }
 }
