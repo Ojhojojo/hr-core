@@ -8,6 +8,7 @@ namespace HrCore.Data;
 /// The schedule sets exist only when <see cref="HrCoreFeatures.PayrollSchedules"/> is on.
 /// <see cref="BranchRemittanceSettings"/> exists only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on.
 /// <see cref="LoanKinds"/> exists only when <see cref="HrCoreFeatures.LoanKinds"/> is on.
+/// <see cref="StaffPayoutHolds"/> exists only when <see cref="HrCoreFeatures.PayoutHold"/> is on.
 /// Calling one while the flag is off throws, because the type is not in the model.
 /// </summary>
 public static class HrDbSets
@@ -41,4 +42,11 @@ public static class HrDbSets
     /// </summary>
     public static DbSet<LoanKind> LoanKinds(this IHrDb db) =>
         ((DbContext)db).Set<LoanKind>();
+
+    /// <summary>
+    /// Exists only when <see cref="HrCoreFeatures.PayoutHold"/> is on.
+    /// Calling it while the flag is off throws, because the type is not in the model.
+    /// </summary>
+    public static DbSet<StaffPayoutHold> StaffPayoutHolds(this IHrDb db) =>
+        ((DbContext)db).Set<StaffPayoutHold>();
 }

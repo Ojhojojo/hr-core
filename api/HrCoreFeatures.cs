@@ -34,4 +34,15 @@ public sealed class HrCoreFeatures
     /// a cut-off rule. A loan that points at a kind follows that rule.
     /// </summary>
     public bool LoanKinds { get; set; }
+
+    /// <summary>
+    /// Per-staff payout hold (<c>StaffPayoutHold</c>) and the hold columns on <c>PayrollRunLine</c>.
+    /// Off: that table is not in the EF model, those columns are ignored, the hold routes are not
+    /// mapped, and payroll does not query them. Lock, the register, and payslips stay as they are.
+    /// On: an owner or admin can hold a person's payout with a reason. Lock still computes the line
+    /// and marks it <c>held</c>. The run reports that net as <c>totalHeld</c>, separate from
+    /// <c>totalNet</c>. Release records the Manila date and who released it, on the line and the
+    /// HR change log.
+    /// </summary>
+    public bool PayoutHold { get; set; }
 }

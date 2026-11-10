@@ -80,6 +80,8 @@ import { PayrollCutoffSettings } from './payroll-cutoff-settings';
 import { DeductionSchedule } from './deduction-schedule';
 import { LoanKindSettings } from './loan-kinds';
 import { HR_LOAN_KINDS } from './payroll-loan-kinds';
+import { PayoutHoldSettings } from './payout-holds';
+import { HR_PAYOUT_HOLD } from './payroll-payout-hold';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { RemittanceReport } from './remittance-report';
 import { EmployerShareReviewPanel } from './employer-share-review';
@@ -122,6 +124,7 @@ import {
     PayrollCutoffSettings,
     DeductionSchedule,
     LoanKindSettings,
+    PayoutHoldSettings,
     RemittanceReport,
     EmployerShareReviewPanel,
   ],
@@ -327,6 +330,8 @@ export class PayrollPage {
     inject(HR_EMPLOYER_REMITTANCE, { optional: true }) ?? false;
   /** Host flag. Absent means off, so the loan kind list stays hidden and loans stay free text. */
   protected readonly loanKinds = inject(HR_LOAN_KINDS, { optional: true }) ?? false;
+  /** Host flag. Absent means off, so the payout hold panel and its calls stay hidden. */
+  protected readonly payoutHold = inject(HR_PAYOUT_HOLD, { optional: true }) ?? false;
   private readonly remittanceAccess = inject(HR_REMITTANCE_ACCESS);
   /** Hidden until the host provides a capability that allows this caller. */
   protected readonly showRemittance = computed(
@@ -374,6 +379,8 @@ export class PayrollPage {
   protected readonly runId = signal<string | null>(null);
   protected readonly lockedAtUtc = signal<string | null>(null);
   protected readonly lockedByName = signal<string | null>(null);
+  /** Net still computed but not released. Null when the register omits it. */
+  protected readonly heldTotal = signal<number | null>(null);
   protected readonly locking = signal(false);
   protected readonly voiding = signal(false);
   protected readonly lockBranchChoice = signal<string | null>(null);
@@ -580,6 +587,7 @@ export class PayrollPage {
           this.runId.set(body.runId ?? null);
           this.lockedAtUtc.set(body.lockedAtUtc ?? null);
           this.lockedByName.set(body.lockedByName ?? null);
+          this.heldTotal.set(body.totalHeld == null ? null : Number(body.totalHeld));
           this.pendingOtCount.set(body.pendingOvertimeClaimsCount ?? 0);
           this.unpaidBonuses.set(body.unpaidBonuses ?? []);
           this.rememberDrafts(nextRows);
@@ -670,7 +678,9 @@ export class PayrollPage {
         message:
           `Lock ${this.lockBranchName()} for ${this.from()} to ${this.to()}? ` +
           `Total gross ${this.formatMoney(this.totalAmount())}, deductions ${this.formatMoney(this.totalDeductions())}, ` +
-          `net ${this.formatMoney(this.totalNet())}. Locking freezes this period; later corrections go in the next period.${warningLine}`,
+          `net ${this.formatMoney(this.totalNet())}.` +
+          (this.heldTotal() == null ? '' : ` Held ${this.formatMoney(this.heldTotal())}.`) +
+          ` Locking freezes this period; later corrections go in the next period.${warningLine}`,
         confirmLabel: 'Lock period',
       })
       .subscribe((result) => {
@@ -1096,6 +1106,14 @@ export class PayrollPage {
           this.savingId.set(null);
         },
       });
+  }
+
+  payoutHoldLabel(row: PayrollStaffRow): string {
+    if (row.payoutStatus === 'released') {
+      const who = row.releasedByName ? ` by ${row.releasedByName}` : '';
+      return `Released ${row.releasedOn ?? ''}${who}`.trim();
+    }
+    return row.holdReason ? `Held · ${row.holdReason}` : 'Held';
   }
 
   formatMoney(amount: number | null | undefined): string {

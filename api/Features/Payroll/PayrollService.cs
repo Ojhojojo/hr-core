@@ -92,6 +92,7 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
         var loanContext = await LoadLoanContextAsync(staffIds, start, end, cancellationToken);
         var dayPayOverridesByStaff = await LoadDayPayOverridesByStaffAsync(staffIds, start, end, cancellationToken);
 
+        var holdReasons = await ActivePayoutHoldReasonsAsync(staffIds, cancellationToken);
         var rows = new List<PayrollStaffRowDto>();
 
         foreach (var staff in staffList)
@@ -206,7 +207,11 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
                 AllowancesOverridden: allowance.Overridden,
                 LoanDeductions: loan.LoanDeductions,
                 LoanItems: loan.Items,
-                DayPayOverrides: staffDayOverrides?.Select(ToDayPayOverrideDto).ToList()));
+                DayPayOverrides: staffDayOverrides?.Select(ToDayPayOverrideDto).ToList(),
+                PayoutStatus: holdReasons.GetValueOrDefault(staff.Id) is null
+                    ? null
+                    : PayoutHoldStatus.Held,
+                HoldReason: holdReasons.GetValueOrDefault(staff.Id)));
         }
 
         var grandTotal = rows.Sum(r => r.Amount);
@@ -218,7 +223,8 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
             rows,
             totalNet,
             PendingOvertimeClaimsCount: pendingOvertimeClaimsCount,
-            UnpaidBonuses: await LoadUnpaidBonusesAsync(staffIds, cancellationToken));
+            UnpaidBonuses: await LoadUnpaidBonusesAsync(staffIds, cancellationToken),
+            TotalHeld: SumHeldNet(rows));
     }
 
     /// <summary>
@@ -268,6 +274,9 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
             : await db.PayrollDeductions.AsNoTracking()
                 .Where(d => staffIds.Contains(d.StaffId) && d.PeriodFrom == start && d.PeriodTo == end)
                 .ToDictionaryAsync(d => d.StaffId, cancellationToken);
+        var releasedBy = await PayoutReleasedByNamesAsync(
+            lines.Select(line => line.ReleasedByStaffId),
+            cancellationToken);
 
         var rows = lines
             .OrderBy(line => line.StaffName)
@@ -322,7 +331,14 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
                     AllowancesOverridden: allowancesOverridden.Contains(line.StaffId),
                     LoanDeductions: line.LoanDeductions,
                     LoanItems: loans is { Count: > 0 } ? loans : null,
-                    OtPay: line.OtPay ?? 0m);
+                    OtPay: line.OtPay ?? 0m,
+                    PayoutStatus: line.PayoutStatus,
+                    HoldReason: line.HoldReason,
+                    ReleasedOn: line.ReleasedOn,
+                    ReleasedByName: line.ReleasedByStaffId is Guid releasedById
+                        && releasedBy.TryGetValue(releasedById, out var releasedByName)
+                            ? releasedByName
+                            : null);
             })
             .ToList();
 
@@ -337,7 +353,8 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
             run.Id,
             run.LockedAtUtc,
             lockedBy,
-            UnpaidBonuses: await LoadUnpaidBonusesAsync(staffIds, cancellationToken));
+            UnpaidBonuses: await LoadUnpaidBonusesAsync(staffIds, cancellationToken),
+            TotalHeld: SumHeldNet(rows));
     }
 
     public async Task<PayrollDeductionSaveResult> SaveDeductionsAsync(

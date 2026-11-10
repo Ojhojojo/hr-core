@@ -54,6 +54,12 @@ export interface PayrollStaffRow {
   loanDeductions?: number | null;
   loanItems?: PayrollLoanItem[] | null;
   dayPayOverrides?: PayrollDayPayOverride[] | null;
+  /** `held` or `released`. Omitted when this payout was not held. */
+  payoutStatus?: 'held' | 'released' | null;
+  holdReason?: string | null;
+  /** Manila date `yyyy-MM-dd` once the hold is released. */
+  releasedOn?: string | null;
+  releasedByName?: string | null;
 }
 
 export type PayrollDayPayMode = 'full' | 'half' | 'none' | 'custom';
@@ -126,6 +132,8 @@ export interface PayrollRegisterResponse {
   cutoffMode?: 'free' | 'schedule' | null;
   /** Cut-offs for every end month from `from` through `to`. Empty or omitted in free mode. Dates are yyyy-MM-dd. */
   cutoffPeriods?: PayrollCutoffPeriod[] | null;
+  /** Net still computed but not released. Omitted when nobody is held. */
+  totalHeld?: number | null;
 }
 
 /** One sales bonus that is past its pay period and still not paid. */
@@ -164,6 +172,29 @@ export interface PayrollRunSummary {
   lockedByName?: string | null;
   voidedAtUtc?: string | null;
   voidedByName?: string | null;
+  /** Net of lines still marked held. Omitted when none are. */
+  totalHeld?: number | null;
+}
+
+export interface PayoutHold {
+  id: string;
+  staffId: string;
+  staffName: string;
+  reason: string;
+  heldAtUtc: string;
+  heldByName?: string | null;
+  releasedOn?: string | null;
+  releasedByName?: string | null;
+  active: boolean;
+}
+
+export interface PayoutHoldList {
+  holds: PayoutHold[];
+}
+
+export interface SetPayoutHold {
+  staffId: string;
+  reason: string;
 }
 
 export interface PayrollRateHistoryRow {

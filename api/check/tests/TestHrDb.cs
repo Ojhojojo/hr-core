@@ -10,8 +10,9 @@ namespace HrCore.Tests;
 /// Stand-in host context. It calls <see cref="HrModel.Configure"/> the way Rakkii and Qurio do.
 /// Payroll schedule tables are included only when the options carry
 /// <see cref="HrCoreFeatures.PayrollSchedules"/>. The remittance setting is included only when
-/// <see cref="HrCoreFeatures.EmployerRemittance"/> is on. There is no <c>DbSet</c> for those types,
-/// so a flag-off context does not discover them.
+/// <see cref="HrCoreFeatures.EmployerRemittance"/> is on. <see cref="HrCoreFeatures.PayoutHold"/>
+/// adds the hold table. There is no <c>DbSet</c> for those types, so a flag-off context does not
+/// discover them.
 /// </summary>
 public sealed class TestHrDb(DbContextOptions<TestHrDb> options) : DbContext(options), IHrDb
 {
@@ -75,12 +76,14 @@ public sealed class HrCoreFeaturesExtension : IDbContextOptionsExtension
         public override string LogFragment =>
             (extension.Features.PayrollSchedules ? "PayrollSchedules " : "")
             + (extension.Features.EmployerRemittance ? "EmployerRemittance " : "")
-            + (extension.Features.LoanKinds ? "LoanKinds " : "");
+            + (extension.Features.LoanKinds ? "LoanKinds " : "")
+            + (extension.Features.PayoutHold ? "PayoutHold " : "");
 
         public override int GetServiceProviderHashCode() =>
             (extension.Features.PayrollSchedules ? 1 : 0)
             + (extension.Features.EmployerRemittance ? 2 : 0)
-            + (extension.Features.LoanKinds ? 4 : 0);
+            + (extension.Features.LoanKinds ? 4 : 0)
+            + (extension.Features.PayoutHold ? 8 : 0);
 
         public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) =>
             other is ExtensionInfo otherInfo
@@ -91,6 +94,7 @@ public sealed class HrCoreFeaturesExtension : IDbContextOptionsExtension
             debugInfo["HrCore:PayrollSchedules"] = extension.Features.PayrollSchedules.ToString();
             debugInfo["HrCore:EmployerRemittance"] = extension.Features.EmployerRemittance.ToString();
             debugInfo["HrCore:LoanKinds"] = extension.Features.LoanKinds.ToString();
+            debugInfo["HrCore:PayoutHold"] = extension.Features.PayoutHold.ToString();
         }
     }
 }

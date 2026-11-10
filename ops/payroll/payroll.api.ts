@@ -31,6 +31,9 @@ import {
   LoanKind,
   LoanKindList,
   SaveLoanKind,
+  PayoutHold,
+  PayoutHoldList,
+  SetPayoutHold,
   ConfirmEmployerShareLine,
   EmployerShareReview,
   RemittanceReport,
@@ -144,6 +147,21 @@ export class PayrollApi {
       observe: 'response',
       responseType: 'blob',
     });
+  }
+
+  listPayoutHolds(): Observable<PayoutHoldList> {
+    return this.http.get<PayoutHoldList>(`${this.base}/api/ops/payroll/payout-holds`);
+  }
+
+  setPayoutHold(body: SetPayoutHold): Observable<PayoutHold> {
+    return this.http.post<PayoutHold>(`${this.base}/api/ops/payroll/payout-holds`, body);
+  }
+
+  releasePayoutHold(staffId: string): Observable<PayoutHold> {
+    return this.http.post<PayoutHold>(
+      `${this.base}/api/ops/payroll/payout-holds/${staffId}/release`,
+      null,
+    );
   }
 
   lockRun(body: LockPayrollRun): Observable<PayrollRunSummary> {

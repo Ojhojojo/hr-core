@@ -40,7 +40,15 @@ public sealed record PayrollStaffRowDto(
     IReadOnlyList<PayrollLoanItemDto>? LoanItems = null,
     decimal OtPay = 0,
     decimal LeaveDaysPaid = 0m,
-    IReadOnlyList<PayrollDayPayOverrideDto>? DayPayOverrides = null);
+    IReadOnlyList<PayrollDayPayOverrideDto>? DayPayOverrides = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? PayoutStatus = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? HoldReason = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    DateOnly? ReleasedOn = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? ReleasedByName = null);
 
 /// <summary>#390: one calendar day's pay override shown on the draft register.</summary>
 public sealed record PayrollDayPayOverrideDto(
@@ -134,7 +142,9 @@ public sealed record PayrollRegisterResponse(
     int PendingOvertimeClaimsCount = 0,
     IReadOnlyList<UnpaidBonusDto>? UnpaidBonuses = null,
     string CutoffMode = PayrollCutoffMode.Free,
-    IReadOnlyList<PayrollCutoffPeriodDto>? CutoffPeriods = null);
+    IReadOnlyList<PayrollCutoffPeriodDto>? CutoffPeriods = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? TotalHeld = null);
 
 /// <summary>A sales bonus still Scheduled whose pay period has ended. No locked run has paid it.</summary>
 public sealed record UnpaidBonusDto(
@@ -218,7 +228,9 @@ public sealed record PayrollRunSummaryDto(
     DateTime? LockedAtUtc,
     string? LockedByName,
     DateTime? VoidedAtUtc,
-    string? VoidedByName);
+    string? VoidedByName,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? TotalHeld = null);
 
 /// <summary>One frozen register row inside a locked run.</summary>
 public sealed record PayrollRunLineDto(
@@ -253,7 +265,15 @@ public sealed record PayrollRunLineDto(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     decimal? EmployerPhilHealth = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    decimal? EmployerPagIbig = null);
+    decimal? EmployerPagIbig = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? PayoutStatus = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? HoldReason = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    DateOnly? ReleasedOn = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? ReleasedByName = null);
 
 public sealed record PayrollRunDetailDto(
     PayrollRunSummaryDto Run,
@@ -315,7 +335,15 @@ public sealed record MyPayslipDetailDto(
     decimal? PremiumPay = null,
     decimal? Allowances = null,
     decimal? LoanDeductions = null,
-    IReadOnlyList<PayrollRunLineItemDto>? Items = null);
+    IReadOnlyList<PayrollRunLineItemDto>? Items = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? PayoutStatus = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? HoldReason = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    DateOnly? ReleasedOn = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? ReleasedByName = null);
 
 /// <summary>One frozen piece of a saved payslip line. Kind "allowance" is an allowance slice; loans reuse the row.</summary>
 public sealed record PayrollRunLineItemDto(
@@ -409,7 +437,15 @@ public sealed record PayslipResponse(
     IReadOnlyList<PayslipLoanItemDto>? LoanItems = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     IReadOnlyList<string>? Warnings = null,
-    decimal OtPay = 0);
+    decimal OtPay = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? PayoutStatus = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? HoldReason = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    DateOnly? ReleasedOn = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? ReleasedByName = null);
 
 /// <summary>One allowance line on a register row. Per is null on a locked snapshot.</summary>
 public sealed record PayrollAllowanceItemDto(

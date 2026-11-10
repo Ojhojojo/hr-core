@@ -15,7 +15,8 @@ public sealed class TestHrDbFactory : IDesignTimeDbContextFactory<TestHrDb>
         {
             PayrollSchedules = On("HR_PAYROLL_SCHEDULES"),
             EmployerRemittance = On("HR_REMITTANCE"),
-            LoanKinds = On("HR_LOAN_KINDS")
+            LoanKinds = On("HR_LOAN_KINDS"),
+            PayoutHold = On("HR_PAYOUT_HOLD")
         };
         var built = new DbContextOptionsBuilder<TestHrDb>()
             .UseNpgsql("Host=127.0.0.1;Database=hr_design;Username=hr;Password=hr")
