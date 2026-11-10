@@ -39,10 +39,14 @@
         name="issuedOn"
         placeholder="MM/DD/YYYY"
         [(ngModel)]="draft.issuedOn"
+        #issuedOnModel="ngModel"
         (ngModelChange)="touch()"
       />
       <mat-datepicker-toggle matIconSuffix [for]="issuedOnPicker" />
       <mat-datepicker #issuedOnPicker />
+      @if (issuedOnModel.hasError('matDatepickerParse')) {
+        <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+      }
     </mat-form-field>
     <mat-form-field appearance="outline">
       <mat-label>TIN</mat-label>
@@ -71,10 +75,14 @@
             name="incidentDate"
             placeholder="MM/DD/YYYY"
             [(ngModel)]="draft.incidentDate"
+            #nteIncidentModel="ngModel"
             (ngModelChange)="touch()"
           />
           <mat-datepicker-toggle matIconSuffix [for]="nteIncidentPicker" />
           <mat-datepicker #nteIncidentPicker />
+          @if (nteIncidentModel.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+          }
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Incident place</mat-label>
@@ -119,10 +127,14 @@
             name="hearingDate"
             placeholder="MM/DD/YYYY"
             [(ngModel)]="draft.hearingDate"
+            #hearingDateModel="ngModel"
             (ngModelChange)="touch()"
           />
           <mat-datepicker-toggle matIconSuffix [for]="hearingDatePicker" />
           <mat-datepicker #hearingDatePicker />
+          @if (hearingDateModel.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+          }
         </mat-form-field>
         <mat-form-field appearance="outline" class="hr-doc-span">
           <mat-label>Hearing venue</mat-label>
@@ -164,10 +176,14 @@
             name="effectiveDate"
             placeholder="MM/DD/YYYY"
             [(ngModel)]="draft.effectiveDate"
+            #nodEffectiveModel="ngModel"
             (ngModelChange)="touch()"
           />
           <mat-datepicker-toggle matIconSuffix [for]="nodEffectivePicker" />
           <mat-datepicker #nodEffectivePicker />
+          @if (nodEffectiveModel.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+          }
         </mat-form-field>
         <mat-form-field appearance="outline" class="hr-doc-span">
           <mat-label>Decision summary</mat-label>
@@ -201,10 +217,14 @@
             name="incidentDate"
             placeholder="MM/DD/YYYY"
             [(ngModel)]="draft.incidentDate"
+            #warningIncidentModel="ngModel"
             (ngModelChange)="touch()"
           />
           <mat-datepicker-toggle matIconSuffix [for]="warningIncidentPicker" />
           <mat-datepicker #warningIncidentPicker />
+          @if (warningIncidentModel.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+          }
         </mat-form-field>
         <mat-form-field appearance="outline" class="hr-doc-span">
           <mat-label>Rule or policy violated</mat-label>
@@ -285,10 +305,14 @@
             name="separationDate"
             placeholder="MM/DD/YYYY"
             [(ngModel)]="draft.separationDate"
+            #quitclaimSeparationModel="ngModel"
             (ngModelChange)="touch()"
           />
           <mat-datepicker-toggle matIconSuffix [for]="quitclaimSeparationPicker" />
           <mat-datepicker #quitclaimSeparationPicker />
+          @if (quitclaimSeparationModel.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+          }
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Final pay (PHP)</mat-label>

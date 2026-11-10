@@ -121,6 +121,42 @@ describe('EmploymentLetterDialog', () => {
     await fixture.whenStable();
     expect(close).toHaveBeenCalledWith(true);
   });
+
+  it('shows the MM/DD/YYYY error for a typed start date that is not a real day', async () => {
+    await TestBed.configureTestingModule({
+      imports: [EmploymentLetterDialog],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideNoopAnimations(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: MAT_DIALOG_DATA,
+          useValue: {
+            kind: 'coe',
+            person,
+            shop,
+            payBasis: 'daily',
+            ratePhp: 750,
+          },
+        },
+        { provide: MatDialogRef, useValue: { close: vi.fn() } },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(EmploymentLetterDialog);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const start = document.body.querySelector('input[name="letterStart"]') as HTMLInputElement;
+    start.value = '13/25/2026';
+    start.dispatchEvent(new Event('input'));
+    start.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(document.body.textContent).toContain('Enter a date as MM/DD/YYYY.');
+  });
 });
 
 describe('formatLetterRate', () => {

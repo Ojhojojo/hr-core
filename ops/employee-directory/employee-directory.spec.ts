@@ -259,4 +259,30 @@ describe('Employee directory', () => {
     await ownerFix.whenStable();
     expect(document.body.querySelector('button[name="edit"]')).not.toBeNull();
   });
+
+  it('owner edit stops a typed separation date that is not a real day and sends no PATCH', async () => {
+    const { http, fixture, host } = await mount('owner');
+    (host.querySelector('button[name="rowMenu"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    (document.body.querySelector('button[name="edit"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const separation = document.body.querySelector(
+      'input[name="separationDate"]',
+    ) as HTMLInputElement;
+    separation.value = '13/25/2026';
+    separation.dispatchEvent(new Event('input'));
+    separation.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(document.body.textContent).toContain('Enter a date as MM/DD/YYYY.');
+
+    const form = document.body.querySelector('form#directory-person') as HTMLFormElement;
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    http.expectNone((req) => req.method === 'PATCH');
+  });
 });

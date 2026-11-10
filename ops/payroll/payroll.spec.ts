@@ -1,14 +1,20 @@
-import { signal } from '@angular/core';
+import { ApplicationRef, signal } from '@angular/core';
+import type { Type } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
-import { afterEach, describe, expect, it } from 'vitest';
+import { MatDialog } from '@angular/material/dialog';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { of } from 'rxjs';
 import { AuthMe, AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
 import { PayrollPage } from './payroll';
+import { StaffAllowanceDialog } from './payroll-allowance-dialog';
+import { DayPayOverrideDialog } from './payroll-day-override-dialog';
+import { StaffLoanDialog } from './payroll-loan-dialog';
+import { HolidayDialog } from './payroll-premium-dialog';
 import { PayrollApi } from './payroll.api';
 import { buildPayslipView, payslipAllowanceLines, payslipLoanLines } from './payroll-payslip';
 import {
@@ -20,6 +26,7 @@ import {
 import {
   PayrollRatesResponse,
   PayrollRegisterResponse,
+  StaffAllowance,
   StatutorySuggestion,
 } from './payroll.models';
 
@@ -781,6 +788,36 @@ describe('PayrollPage lock controls', () => {
     });
   });
 
+  describe('PayrollPage rate dialog date errors', () => {
+    it('shows the date parse message for a bad typed rate date', async () => {
+      const { http, fixture, button } = await mountPayroll();
+
+      button('rate')!.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      http.expectOne((r) => r.url.endsWith('/api/ops/payroll/rates/staff-1')).flush(ratesResponse);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const dialog = document.body.querySelector('mat-dialog-container') as HTMLElement;
+      const dateInput = dialog.querySelector('input[name="rateEffectiveFrom"]') as HTMLInputElement;
+      dateInput.value = '13/25/2026';
+      dateInput.dispatchEvent(new Event('input'));
+      dateInput.dispatchEvent(new Event('blur'));
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(dialog.textContent).toContain('Enter a date as MM/DD/YYYY.');
+
+      (dialog.querySelector('mat-dialog-actions button') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      http.verify();
+    });
+  });
+
   describe('payroll lock helpers', () => {
     it('builds the lock line for a locked period only', () => {
       expect(payrollLockLine('live', '2026-10-07T02:00:00Z', 'Owner Apple')).toBe('');
@@ -1417,5 +1454,115 @@ describe('PayrollPage lock controls', () => {
 
       http.verify();
     });
+  });
+});
+
+describe('payroll dialogs date parse errors', () => {
+  // Open each dialog the same way the page does (MatDialog), so the datepicker runs in its overlay.
+  function openDialog<T>(component: Type<T>, data: unknown) {
+    TestBed.configureTestingModule({
+      imports: [component],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideNoopAnimations(),
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+    const ref = TestBed.inject(MatDialog).open(component, { data });
+    const close = vi.spyOn(ref, 'close');
+    return { ref, close };
+  }
+
+  async function settle() {
+    TestBed.inject(ApplicationRef).tick();
+    await TestBed.inject(ApplicationRef).whenStable();
+    TestBed.inject(ApplicationRef).tick();
+  }
+
+  async function typeDate(input: HTMLInputElement, value: string) {
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
+    input.dispatchEvent(new Event('blur'));
+    await settle();
+  }
+
+  function container(): HTMLElement {
+    return document.body.querySelector('mat-dialog-container') as HTMLElement;
+  }
+
+  it('shows the date parse message for a bad typed work date', async () => {
+    openDialog(DayPayOverrideDialog, {
+      staffName: 'Danilo Santos',
+      workDate: '2026-06-01',
+      mode: 'full',
+      customAmount: null,
+      reason: 'Holiday',
+    });
+    await settle();
+
+    await typeDate(
+      container().querySelector('input[name="workDate"]') as HTMLInputElement,
+      '13/25/2026',
+    );
+
+    expect(container().textContent).toContain('Enter a date as MM/DD/YYYY.');
+  });
+
+  it('shows the date parse message for a bad typed loan start period', async () => {
+    openDialog(StaffLoanDialog, { loan: null, suggestedKinds: [] });
+    await settle();
+
+    await typeDate(
+      container().querySelector('input[name="startPeriod"]') as HTMLInputElement,
+      '13/25/2026',
+    );
+
+    expect(container().textContent).toContain('Enter a date as MM/DD/YYYY.');
+  });
+
+  it('shows the date parse message for a bad typed holiday date', async () => {
+    openDialog(HolidayDialog, { year: 2026, holiday: null });
+    await settle();
+
+    await typeDate(
+      container().querySelector('input[name="date"]') as HTMLInputElement,
+      '13/25/2026',
+    );
+
+    expect(container().textContent).toContain('Enter a date as MM/DD/YYYY.');
+  });
+
+  it('blocks allowance save on a bad typed optional effective-to date', async () => {
+    const allowance: StaffAllowance = {
+      id: 'allow-1',
+      staffId: 'staff-1',
+      name: 'Transport',
+      amount: 100,
+      per: 'period',
+      taxable: true,
+      effectiveFrom: '2026-01-01',
+      effectiveTo: null,
+      note: null,
+      active: true,
+      createdAtUtc: '2026-01-01T00:00:00Z',
+    };
+    const { close } = openDialog(StaffAllowanceDialog, { allowance, suggestedNames: [] });
+    await settle();
+
+    await typeDate(
+      container().querySelector('input[name="effectiveTo"]') as HTMLInputElement,
+      '13/25/2026',
+    );
+
+    expect(container().textContent).toContain('Enter a date as MM/DD/YYYY.');
+
+    (container().querySelector('form#allowance-form') as HTMLFormElement).dispatchEvent(
+      new Event('submit', { bubbles: true, cancelable: true }),
+    );
+    await settle();
+
+    expect(close).not.toHaveBeenCalled();
   });
 });

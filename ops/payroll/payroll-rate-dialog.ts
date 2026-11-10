@@ -1,8 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgModel } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
@@ -36,6 +36,7 @@ export interface PayrollRateDialogData {
   imports: [
     FormsModule,
     MatButton,
+    MatError,
     MatFormField,
     MatLabel,
     MatInput,
@@ -138,7 +139,7 @@ export interface PayrollRateDialogData {
             @if (error()) {
               <ops-banner tone="danger" role="alert" [message]="error()" />
             }
-            <form id="payroll-rate" (ngSubmit)="save()">
+            <form id="payroll-rate" (ngSubmit)="save(rateEffectiveModel)">
               <div class="rate-form-grid">
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
                   <mat-label>Basis</mat-label>
@@ -189,9 +190,13 @@ export interface PayrollRateDialogData {
                     name="rateEffectiveFrom"
                     placeholder="MM/DD/YYYY"
                     [(ngModel)]="effectiveFrom"
+                    #rateEffectiveModel="ngModel"
                   />
                   <mat-datepicker-toggle matIconSuffix [for]="rateEffectivePicker" />
                   <mat-datepicker #rateEffectivePicker />
+                  @if (rateEffectiveModel.hasError('matDatepickerParse')) {
+                    <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+                  }
                 </mat-form-field>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
                   <mat-label>Reason</mat-label>
@@ -354,7 +359,11 @@ export class PayrollRateDialog {
     this.ref.close(this.changed);
   }
 
-  protected save(): void {
+  protected save(rateEffectiveModel: NgModel): void {
+    if (rateEffectiveModel.hasError('matDatepickerParse')) {
+      rateEffectiveModel.control.markAsTouched();
+      return;
+    }
     const rate = Number(this.ratePhp);
     if (this.ratePhp == null || !Number.isFinite(rate) || rate < 0) {
       this.error.set('Rate must be zero or more.');

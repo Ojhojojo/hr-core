@@ -1,8 +1,8 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgModel } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { handoverCandidates } from '../employee-directory/open-work';
 import {
@@ -29,6 +29,7 @@ import { formatDay } from '../hr-dates';
   imports: [
     FormsModule,
     MatButton,
+    MatError,
     MatFormField,
     MatLabel,
     MatInput,
@@ -41,7 +42,7 @@ import { formatDay } from '../hr-dates';
       @if (error()) {
         <ops-banner tone="danger" role="alert" [message]="error()" />
       }
-      <form id="leave-request" class="leave-dialog-form" (ngSubmit)="submit()">
+      <form id="leave-request" class="leave-dialog-form" (ngSubmit)="submit(startModel, endModel)">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Type</mat-label>
           <select matNativeControl name="leaveType" [(ngModel)]="leaveType">
@@ -59,10 +60,14 @@ import { formatDay } from '../hr-dates';
             name="startDate"
             placeholder="MM/DD/YYYY"
             [(ngModel)]="startDate"
+            #startModel="ngModel"
             required
           />
           <mat-datepicker-toggle matIconSuffix [for]="startPicker" />
           <mat-datepicker #startPicker />
+          @if (startModel.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+          }
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>End date</mat-label>
@@ -72,10 +77,14 @@ import { formatDay } from '../hr-dates';
             name="endDate"
             placeholder="MM/DD/YYYY"
             [(ngModel)]="endDate"
+            #endModel="ngModel"
             required
           />
           <mat-datepicker-toggle matIconSuffix [for]="endPicker" />
           <mat-datepicker #endPicker />
+          @if (endModel.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+          }
         </mat-form-field>
         @if (startDate && startDate === endDate) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -129,7 +138,12 @@ export class RequestLeaveDialog {
   protected readonly saving = signal(false);
   protected readonly error = signal('');
 
-  protected submit(): void {
+  protected submit(startModel: NgModel, endModel: NgModel): void {
+    if (startModel.hasError('matDatepickerParse') || endModel.hasError('matDatepickerParse')) {
+      startModel.control.markAsTouched();
+      endModel.control.markAsTouched();
+      return;
+    }
     if (!this.startDate || !this.endDate) {
       this.error.set('Start and end dates are required.');
       return;
@@ -176,6 +190,7 @@ export interface AddLeaveDialogData {
   imports: [
     FormsModule,
     MatButton,
+    MatError,
     MatFormField,
     MatLabel,
     MatInput,
@@ -188,7 +203,12 @@ export interface AddLeaveDialogData {
       @if (error()) {
         <ops-banner tone="danger" role="alert" [message]="error()" />
       }
-      <form id="add-leave-form" class="leave-dialog-form" data-add-leave (ngSubmit)="submit()">
+      <form
+        id="add-leave-form"
+        class="leave-dialog-form"
+        data-add-leave
+        (ngSubmit)="submit(addStartModel, addEndModel)"
+      >
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Person</mat-label>
           <select matNativeControl name="addLeaveStaff" [(ngModel)]="staffId">
@@ -214,10 +234,14 @@ export interface AddLeaveDialogData {
             name="addLeaveStartDate"
             placeholder="MM/DD/YYYY"
             [(ngModel)]="startDate"
+            #addStartModel="ngModel"
             required
           />
           <mat-datepicker-toggle matIconSuffix [for]="addStartPicker" />
           <mat-datepicker #addStartPicker />
+          @if (addStartModel.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+          }
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>End date</mat-label>
@@ -227,10 +251,14 @@ export interface AddLeaveDialogData {
             name="addLeaveEndDate"
             placeholder="MM/DD/YYYY"
             [(ngModel)]="endDate"
+            #addEndModel="ngModel"
             required
           />
           <mat-datepicker-toggle matIconSuffix [for]="addEndPicker" />
           <mat-datepicker #addEndPicker />
+          @if (addEndModel.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+          }
         </mat-form-field>
         @if (startDate && startDate === endDate) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -287,9 +315,14 @@ export class AddLeaveDialog {
   protected readonly saving = signal(false);
   protected readonly error = signal('');
 
-  protected submit(): void {
+  protected submit(startModel: NgModel, endModel: NgModel): void {
     if (!this.staffId) {
       this.error.set('Choose a person.');
+      return;
+    }
+    if (startModel.hasError('matDatepickerParse') || endModel.hasError('matDatepickerParse')) {
+      startModel.control.markAsTouched();
+      endModel.control.markAsTouched();
       return;
     }
     if (!this.startDate || !this.endDate) {

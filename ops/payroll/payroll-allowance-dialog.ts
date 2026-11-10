@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgModel } from '@angular/forms';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -61,7 +61,7 @@ export interface AllowanceOverrideDialogResult {
   ],
   template: `
     <ops-dialog [title]="data.allowance ? 'Edit allowance' : 'Add allowance'">
-      <form id="allowance-form" (ngSubmit)="save()">
+      <form id="allowance-form" (ngSubmit)="save(effectiveFromModel, effectiveToModel)">
         @if (error()) {
           <ops-banner tone="danger" role="alert" [message]="error()" />
         }
@@ -114,9 +114,13 @@ export interface AllowanceOverrideDialogResult {
               name="effectiveFrom"
               placeholder="MM/DD/YYYY"
               [(ngModel)]="effectiveFrom"
+              #effectiveFromModel="ngModel"
             />
             <mat-datepicker-toggle matIconSuffix [for]="fromPicker" />
             <mat-datepicker #fromPicker />
+            @if (effectiveFromModel.hasError('matDatepickerParse')) {
+              <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Effective to</mat-label>
@@ -126,9 +130,13 @@ export interface AllowanceOverrideDialogResult {
               name="effectiveTo"
               placeholder="MM/DD/YYYY"
               [(ngModel)]="effectiveTo"
+              #effectiveToModel="ngModel"
             />
             <mat-datepicker-toggle matIconSuffix [for]="toPicker" />
             <mat-datepicker #toPicker />
+            @if (effectiveToModel.hasError('matDatepickerParse')) {
+              <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+            }
           </mat-form-field>
           <mat-form-field appearance="outline">
             <mat-label>Note</mat-label>
@@ -185,7 +193,15 @@ export class StaffAllowanceDialog {
     this.ref.close(undefined);
   }
 
-  protected save(): void {
+  protected save(effectiveFromModel: NgModel, effectiveToModel: NgModel): void {
+    if (
+      effectiveFromModel.hasError('matDatepickerParse') ||
+      effectiveToModel.hasError('matDatepickerParse')
+    ) {
+      effectiveFromModel.control.markAsTouched();
+      effectiveToModel.control.markAsTouched();
+      return;
+    }
     const name = this.name.trim();
     if (!name || name.length > 80) {
       this.error.set('Name is required and must be 80 characters or fewer.');
