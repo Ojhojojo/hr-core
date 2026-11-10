@@ -136,33 +136,34 @@ public sealed class PayrollEmployerShareTests
     }
 
     [Fact]
-    public void Daily_paid_halves_are_exact_and_an_odd_centavo_stays_unassigned()
+    public void Daily_paid_odd_centavo_goes_on_the_second_half_and_the_export_matches_the_month()
     {
-        Assert.Equal(PayrollEmployerShare.OddCentavoHalf, "unassigned");
-
+        // SSS on the published MSC steps is a whole peso, so the split stays even.
         var (sssEarlier, sssLater) = PayrollEmployerShare.SplitHalfMonth(2_030m);
         Assert.Equal(1_015m, sssEarlier);
         Assert.Equal(1_015m, sssLater);
-        var (pagibigEarlier, pagibigLater) = PayrollEmployerShare.SplitHalfMonth(200m);
-        Assert.Equal(100m, pagibigEarlier);
-        Assert.Equal(100m, pagibigLater);
+        Assert.Equal(2_030m, sssEarlier + sssLater);
 
-        // PhilHealth on 20,001 is 500.03. Each half is 250.01 and one centavo is left off both.
-        var (oddEarlier, oddLater) = PayrollEmployerShare.SplitHalfMonth(500.03m);
-        Assert.Equal(250.01m, oddEarlier);
-        Assert.Equal(250.01m, oddLater);
-        Assert.Equal(500.02m, oddEarlier + oddLater);
+        // Pag-IBIG 2% of 3,333.50 is 66.67. The old unassigned split stored 33.33 and 33.33.
+        var pagibigMonth = StatutoryPack.PagIbigEmployerShare(new DateOnly(2025, 11, 1), 3_333.50m);
+        Assert.Equal(66.67m, pagibigMonth);
+        var (pagibigEarlier, pagibigLater) = PayrollEmployerShare.SplitHalfMonth(pagibigMonth);
+        Assert.Equal(33.33m, pagibigEarlier);
+        Assert.Equal(33.34m, pagibigLater);
+        Assert.Equal(pagibigMonth, pagibigEarlier + pagibigLater);
+        Assert.NotEqual(pagibigEarlier, pagibigLater);
 
-        var (firstEarlier, firstLater) = PayrollEmployerShare.SplitHalfMonth(500.03m, "first");
-        Assert.Equal(250.02m, firstEarlier);
-        Assert.Equal(250.01m, firstLater);
-        var (secondEarlier, secondLater) = PayrollEmployerShare.SplitHalfMonth(500.03m, "second");
-        Assert.Equal(250.01m, secondEarlier);
-        Assert.Equal(250.02m, secondLater);
+        // PhilHealth on 20,250 is 506.25. The old split stored 253.12 and 253.12.
+        var philHealthMonth = StatutoryPack.PhilHealthEmployerShare(November2025, 20_250m);
+        Assert.Equal(506.25m, philHealthMonth);
+        var (philEarlier, philLater) = PayrollEmployerShare.SplitHalfMonth(philHealthMonth);
+        Assert.Equal(253.12m, philEarlier);
+        Assert.Equal(253.13m, philLater);
+        Assert.Equal(506.25m, philEarlier + philLater);
 
         var first = PayrollEmployerShare.ForPeriod(
             November2025,
-            20_001m,
+            20_250m,
             10_000m,
             [],
             null,
@@ -171,6 +172,49 @@ public sealed class PayrollEmployerShareTests
             PayrollEmployerShare.HalfMonth.First);
         var second = PayrollEmployerShare.ForPeriod(
             November2025,
+            20_250m,
+            10_000m,
+            [],
+            null,
+            2,
+            PayBasis.Daily,
+            PayrollEmployerShare.HalfMonth.Second);
+        Assert.Equal(1_040m, first.Sss);
+        Assert.Equal(1_040m, second.Sss);
+        Assert.Equal(253.12m, first.PhilHealth);
+        Assert.Equal(253.13m, second.PhilHealth);
+        Assert.Equal(100m, first.PagIbig);
+        Assert.Equal(100m, second.PagIbig);
+        var monthly = PayrollEmployerShare.Monthly(November2025, 20_250m);
+        Assert.Equal(monthly.Sss, first.Sss + second.Sss);
+        Assert.Equal(monthly.PhilHealth, first.PhilHealth + second.PhilHealth);
+        Assert.Equal(monthly.PagIbig, first.PagIbig + second.PagIbig);
+
+        var agencies = PayrollRemittance.Sum(
+        [
+            new PayrollRemittance.Line(0m, 0m, 0m, first.Sss, first.PhilHealth, first.PagIbig),
+            new PayrollRemittance.Line(0m, 0m, 0m, second.Sss, second.PhilHealth, second.PagIbig)
+        ]);
+        Assert.Equal(monthly.Sss, agencies[0].Employer);
+        Assert.Equal(monthly.PhilHealth, agencies[1].Employer);
+        Assert.Equal(monthly.PagIbig, agencies[2].Employer);
+        var csv = PayrollRemittance.Csv(agencies);
+        Assert.Contains("SSS,0.00,2080.00,2080.00", csv);
+        Assert.Contains("PhilHealth,0.00,506.25,506.25", csv);
+        Assert.Contains("Pag-IBIG,0.00,200.00,200.00", csv);
+
+        // PhilHealth on 20,001 is 500.03. The old split left the centavo off both halves.
+        var firstOdd = PayrollEmployerShare.ForPeriod(
+            November2025,
+            20_001m,
+            10_000m,
+            [],
+            null,
+            2,
+            PayBasis.Daily,
+            PayrollEmployerShare.HalfMonth.First);
+        var secondOdd = PayrollEmployerShare.ForPeriod(
+            November2025,
             20_001m,
             10_000m,
             [],
@@ -178,12 +222,11 @@ public sealed class PayrollEmployerShareTests
             2,
             PayBasis.Daily,
             PayrollEmployerShare.HalfMonth.Second);
-        Assert.Equal(first, second);
-        Assert.Equal(250.01m, first.PhilHealth);
-        Assert.Equal(1_015m, first.Sss);
-        Assert.Equal(100m, first.PagIbig);
+        Assert.Equal(250.01m, firstOdd.PhilHealth);
+        Assert.Equal(250.02m, secondOdd.PhilHealth);
+        Assert.Equal(500.03m, firstOdd.PhilHealth + secondOdd.PhilHealth);
+        Assert.NotEqual(firstOdd.PhilHealth, secondOdd.PhilHealth);
 
-        // A full month keeps the monthly share, including the odd centavo.
         var full = PayrollEmployerShare.ForPeriod(
             November2025, 20_001m, 20_001m, [], null, 0, PayBasis.Daily, PayrollEmployerShare.HalfMonth.Full);
         Assert.Equal(500.03m, full.PhilHealth);

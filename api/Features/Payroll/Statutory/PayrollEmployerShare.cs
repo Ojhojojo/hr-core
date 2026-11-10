@@ -8,6 +8,8 @@ namespace HrCore.Features.Payroll;
 /// staff are then placed the same way the employee statutory suggestion is placed: prorate
 /// by period base / month base, or the shop's cut-off / split rule when one is saved.
 /// Daily-paid staff take half of that monthly share on each half-month run.
+/// The first half is the monthly amount floored to the centavo. The second half
+/// keeps the leftover centavo, so the two halves add up to the monthly share.
 /// A month before the pack's effective date is zero. Nothing here is stored.
 /// </summary>
 public static class PayrollEmployerShare
@@ -24,14 +26,6 @@ public static class PayrollEmployerShare
         First,
         Second
     }
-
-    /// <summary>
-    /// OPEN QUESTION for Bienh. Which half-month run keeps a leftover centavo when a monthly
-    /// employer share does not divide evenly. "unassigned" stores the truncated half on both
-    /// runs and leaves the centavo off both. "first" adds it to the earlier run. "second"
-    /// adds it to the later run.
-    /// </summary>
-    public const string OddCentavoHalf = "unassigned";
 
     /// <summary>Monthly employer shares for <paramref name="compensationBase"/>. Zero before January 2024.</summary>
     public static Shares Monthly(DateOnly month, decimal compensationBase)
@@ -87,29 +81,14 @@ public static class PayrollEmployerShare
     }
 
     /// <summary>
-    /// Two exact halves when the amount divides to the centavo. Otherwise follows
-    /// <see cref="OddCentavoHalf"/>.
+    /// First half is the monthly amount floored to the centavo. The second half is the rest,
+    /// so an odd centavo lands on the later half-month run and the two halves add up exactly.
     /// </summary>
-    public static (decimal Earlier, decimal Later) SplitHalfMonth(decimal monthly) =>
-        SplitHalfMonth(monthly, OddCentavoHalf);
-
-    /// <summary>Same split with an explicit answer for the leftover centavo, so the placeholder can be tested.</summary>
-    public static (decimal Earlier, decimal Later) SplitHalfMonth(decimal monthly, string oddCentavoHalf)
+    public static (decimal Earlier, decimal Later) SplitHalfMonth(decimal monthly)
     {
         var cents = decimal.ToInt64(decimal.Round(monthly * 100m, 0, MidpointRounding.AwayFromZero));
-        var each = cents / 2;
-        var leftover = cents - (each * 2);
-        var earlier = each;
-        var later = each;
-        if (leftover != 0 && oddCentavoHalf == "first")
-        {
-            earlier += leftover;
-        }
-        else if (leftover != 0 && oddCentavoHalf == "second")
-        {
-            later += leftover;
-        }
-
+        var earlier = cents / 2;
+        var later = cents - earlier;
         return (earlier / 100m, later / 100m);
     }
 
