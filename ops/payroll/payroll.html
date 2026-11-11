@@ -522,7 +522,7 @@
                 }
               </ul>
             }
-            @if (row.notes) {
+            @if (row.notes && row.notes !== formatRate(row)) {
               <span class="ops-cell-sub">{{ row.notes }}</span>
             }
           </td>

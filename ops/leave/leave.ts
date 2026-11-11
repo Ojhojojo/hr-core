@@ -65,7 +65,7 @@ import { formatDayRange } from '../hr-dates';
   templateUrl: './leave.html',
   styles: [
     `
-      .mat-column-role {
+      td.mat-column-role {
         text-transform: capitalize;
       }
       .mat-column-vacation,
@@ -451,6 +451,10 @@ export class LeavePage {
 
   protected memberAllotment(member: StaffLeaveBalances, type: LeaveType): string | number {
     return this.teamBalancesLoaded() ? this.memberBalance(member, type).allotment : '—';
+  }
+
+  protected statusLabel(status: string): string {
+    return status.charAt(0).toUpperCase() + status.slice(1);
   }
 
   protected statusTone(status: string): StatusBadgeTone {
