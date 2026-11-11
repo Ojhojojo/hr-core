@@ -93,3 +93,12 @@ export interface ClosePunchBody {
   outAtManila: string;
   reason: string;
 }
+
+/** An open punch (no clock-out yet), from GET /api/ops/attendance/open-punches. */
+export interface OpenPunchRow {
+  punchId: string;
+  staffId: string;
+  staffName: string;
+  inAtUtc: string;
+  inAtManila: string;
+}

@@ -35,6 +35,22 @@
   </div>
 </ops-page-header>
 
+@if (stale().length) {
+  <!-- #685: a forgotten clock-out blocks that person's next clock-in until it is closed. -->
+  <ops-banner [tone]="staleSevere() ? 'danger' : 'warn'">
+    <strong
+      >{{ stale().length === 1 ? 'An open clock-in' : 'Open clock-ins' }} from an earlier
+      day.</strong
+    >
+    Close {{ stale().length === 1 ? 'it' : 'each one' }} so the person can clock in again.
+    <ul>
+      @for (row of stale(); track row.punchId) {
+        <li>{{ row.label }}</li>
+      }
+    </ul>
+  </ops-banner>
+}
+
 <div class="ops-card ops-attend-toolbar">
   <ops-period-nav [from]="from()" [to]="to()" (rangeChange)="onPeriodChange($event)" />
   @if (canManage()) {

@@ -175,6 +175,7 @@ describe('AttendancePage', () => {
     const fixture = TestBed.createComponent(AttendancePage);
     fixture.detectChanges();
     http.expectOne('/api/staff').flush([]);
+    http.expectOne((req) => req.url === '/api/ops/attendance/open-punches').flush([]);
     http.expectOne('/api/ops/attendance/register').flush(register);
     flushOvertime(http, '2026-09-13', '2026-09-19');
     fixture.detectChanges();
@@ -215,6 +216,7 @@ describe('AttendancePage', () => {
     const fixture = TestBed.createComponent(AttendancePage);
     fixture.detectChanges();
     http.expectOne('/api/staff').flush([]);
+    http.expectOne((req) => req.url === '/api/ops/attendance/open-punches').flush([]);
     http.expectOne('/api/ops/attendance/register').flush(register);
     flushOvertime(http, '2026-09-13', '2026-09-19');
     fixture.detectChanges();
@@ -262,6 +264,7 @@ describe('AttendancePage', () => {
     fixture.detectChanges();
 
     http.expectOne('/api/staff').flush([]);
+    http.expectOne((req) => req.url === '/api/ops/attendance/open-punches').flush([]);
     const manyRows = Array.from({ length: 15 }, (_, i) => ({
       ...closedRow,
       staffId: `staff-${i + 1}`,
@@ -305,6 +308,7 @@ describe('AttendancePage', () => {
     fixture.detectChanges();
 
     http.expectOne('/api/staff').flush([]);
+    http.expectOne((req) => req.url === '/api/ops/attendance/open-punches').flush([]);
     http.expectOne('/api/ops/attendance/register').flush(register);
 
     const shopOtReq = http.expectOne(

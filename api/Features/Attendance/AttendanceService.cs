@@ -202,7 +202,7 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
             var existing = await FindOpenAsync(target.Id, cancellationToken);
             if (existing is not null)
             {
-                throw new InvalidOperationException("They're already clocked in.");
+                throw new InvalidOperationException(OpenPunchRefusalMessage(existing.InAtUtc, self: false));
             }
         }
 
@@ -667,6 +667,24 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
     private static string JoinCsv(params string?[] cells) =>
         string.Join(",", cells.Select(CsvEscape));
 
+    /// <summary>
+    /// #685: an open punch from an earlier Manila day says when it started and what to do, so a
+    /// forgotten clock-out is not mistaken for today's shift. Same-day keeps the short message.
+    /// </summary>
+    public static string OpenPunchRefusalMessage(DateTime openInAtUtc, bool self, DateTime? utcNow = null)
+    {
+        var openedOn = ManilaTime.ToManilaDate(openInAtUtc);
+        if (openedOn >= ManilaTime.Today(utcNow))
+        {
+            return self ? "You're already clocked in." : "They're already clocked in.";
+        }
+
+        var when = ManilaTime.ToManila(openInAtUtc).ToString("MMM d, yyyy h:mm tt", CultureInfo.InvariantCulture);
+        return self
+            ? $"You still have an open clock-in from {when}. Ask the desk to close it on Attendance, then clock in again."
+            : $"They still have an open clock-in from {when}. Close it on Attendance first, then clock them in.";
+    }
+
     private Task<AttendancePunch?> FindOpenAsync(Guid staffId, CancellationToken cancellationToken) =>
         db.AttendancePunches.FirstOrDefaultAsync(
             p => p.StaffId == staffId && p.OutAtUtc == null,
@@ -812,7 +830,7 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
         var open = await FindOpenAsync(staff.Id, cancellationToken);
         if (open is not null)
         {
-            throw new InvalidOperationException(self ? "You're already clocked in." : "They're already clocked in.");
+            throw new InvalidOperationException(OpenPunchRefusalMessage(open.InAtUtc, self));
         }
 
         EnsurePhoto(
