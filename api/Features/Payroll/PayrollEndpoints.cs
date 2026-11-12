@@ -94,6 +94,7 @@ public static class PayrollEndpoints
             .WithDescription(
                 "Body: branchId, from, to, note (optional, 500 chars). " +
                 "Freezes the live register for that shop and period into run lines. " +
+                "400 when this shop has no run yet and Pay from this date is unset. " +
                 "409 when the period already has a run or overlaps a locked one. " +
                 "404 when the shop is outside the scope. Locked periods refuse edits; correct in the next period.");
 
@@ -163,6 +164,21 @@ public static class PayrollEndpoints
             .WithDescription(
                 "Owner only. Percents are 0 through 1000. Enables and the night window (Asia/Manila) " +
                 "are stored on the branch, same columns as shop desk settings.");
+
+        api.MapGet("/pay-from", GetPayFrom)
+            .WithName("PayrollPayFrom")
+            .WithSummary("First day this system should pay")
+            .WithDescription(
+                "The header shop, or branchId when set. payFromDate is null until an owner or admin sets it. " +
+                "hasRun is true once this shop has any payroll run, including a voided one. " +
+                "Not required at deploy.");
+
+        api.MapPut("/pay-from", SetPayFrom)
+            .WithName("PayrollPayFromSave")
+            .WithSummary("Set the first day this system should pay")
+            .WithDescription(
+                "Owner and admin. Body: payFromDate (YYYY-MM-DD), branchId (optional, header shop). " +
+                "Does not change a locked run. The shop's first lock is refused until this date is set.");
 
         api.MapGet("/holidays", ListHolidays)
             .WithName("PayrollHolidays")
@@ -465,10 +481,11 @@ public static class PayrollEndpoints
         OpsReportScope.MapAsync(
             http,
             branches,
-            async (shops, _, ct) =>
+            async (shops, currentId, ct) =>
             {
+                var payFrom = shops.FirstOrDefault(shop => shop.Id == currentId)?.PayFromDate;
                 var result = await payroll.GetRegisterAsync(
-                    shops, from, to, includeInactive ?? false, IncludeUnscopedOwners(http), ct);
+                    shops, from, to, includeInactive ?? false, IncludeUnscopedOwners(http), ct, payFrom);
                 return Results.Ok(result);
             },
             cancellationToken);
@@ -530,6 +547,11 @@ public static class PayrollEndpoints
                     http.GetStaff()?.Id,
                     IncludeUnscopedOwners(http),
                     ct);
+                if (error == PayrollService.PayFromRequiredMessage)
+                {
+                    return Results.BadRequest(new { error });
+                }
+
                 if (error is not null)
                 {
                     return Results.Json(new { error }, statusCode: StatusCodes.Status409Conflict);
@@ -614,10 +636,11 @@ public static class PayrollEndpoints
         OpsReportScope.MapAsync(
             http,
             branches,
-            async (shops, _, ct) =>
+            async (shops, currentId, ct) =>
             {
+                var payFrom = shops.FirstOrDefault(shop => shop.Id == currentId)?.PayFromDate;
                 var file = await payroll.BuildRegisterCsvAsync(
-                    shops, from, to, includeInactive ?? false, IncludeUnscopedOwners(http), ct);
+                    shops, from, to, includeInactive ?? false, IncludeUnscopedOwners(http), ct, payFrom);
                 return Results.File(file.Bytes, "text/csv; charset=utf-8", file.FileName);
             },
             cancellationToken);
@@ -871,6 +894,44 @@ public static class PayrollEndpoints
                     : Results.Ok(saved);
             },
             cancellationToken);
+
+    private static async Task<IResult> GetPayFrom(
+        Guid? branchId,
+        HttpContext http,
+        BranchResolver branches,
+        PayrollService payroll,
+        CancellationToken cancellationToken)
+    {
+        var allowed = await branches.ListOpsAsync(http, cancellationToken);
+        var id = branchId ?? await branches.ResolveOpsAsync(http, cancellationToken);
+        var result = await payroll.GetPayFromAsync(allowed, id, cancellationToken);
+        return result is null
+            ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+            : Results.Ok(result);
+    }
+
+    private static async Task<IResult> SetPayFrom(
+        SetPayFromDateRequest body,
+        HttpContext http,
+        BranchResolver branches,
+        PayrollService payroll,
+        CancellationToken cancellationToken)
+    {
+        var allowed = await branches.ListOpsAsync(http, cancellationToken);
+        var id = body.BranchId is Guid branchId && branchId != Guid.Empty
+            ? branchId
+            : await branches.ResolveOpsAsync(http, cancellationToken);
+        var (saved, error) = await payroll.SetPayFromAsync(
+            allowed, id, body.PayFromDate, http.ActorStaffId(), cancellationToken);
+        if (error is not null)
+        {
+            return Results.BadRequest(new { error });
+        }
+
+        return saved is null
+            ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+            : Results.Ok(saved);
+    }
 
     private static Task<IResult> ListHolidays(
         int? year,

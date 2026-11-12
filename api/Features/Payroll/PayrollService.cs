@@ -14,8 +14,15 @@ public sealed partial class PayrollService(IHrDb db)
         DateOnly? to,
         bool includeInactive,
         bool includeUnscopedOwners,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateOnly? payFromDate = null)
     {
+        // Dates left blank use the usual week, moved up to the shop pay-from date when that week starts earlier.
+        if (from is null && to is null)
+        {
+            (from, to) = DefaultPeriod(ManilaTime.Today(), payFromDate);
+        }
+
         var (start, end, fromUtc, toExclusiveUtc) = ResolvePeriod(from, to);
 
         // A locked run for exactly this shop and period wins: show the frozen snapshot.
@@ -113,7 +120,9 @@ public sealed partial class PayrollService(IHrDb db)
                 shiftEnd,
                 graceMinutes,
                 paidLeaveDays,
-                dayOverrideSpecs);
+                dayOverrideSpecs,
+                staff.HireDate);
+            var missingHireDate = MissingHireDateWarningFor(staff.HireDate, staff.PayBasis, slices);
             var overtime = PriceStaffOvertime(staff, staffPunches, slices, overtimeByStaff, shiftEnd, graceMinutes);
             var premium = PriceStaffPremium(staff, staffPunches, slices, premiums);
             var allowance = PriceStaffAllowances(
@@ -200,7 +209,8 @@ public sealed partial class PayrollService(IHrDb db)
                     allowance.Warnings,
                     loan.Warnings,
                     capped.Warning is null ? [] : [capped.Warning],
-                    notClockingWarning is null ? [] : [notClockingWarning]),
+                    notClockingWarning is null ? [] : [notClockingWarning],
+                    missingHireDate is null ? [] : [missingHireDate]),
                 Allowances: allowance.Allowances,
                 AllowanceItems: allowance.Items,
                 AllowancesOverridden: allowance.Overridden,
@@ -415,10 +425,11 @@ public sealed partial class PayrollService(IHrDb db)
         DateOnly? to,
         bool includeInactive,
         bool includeUnscopedOwners,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        DateOnly? payFromDate = null)
     {
         var register = await GetRegisterAsync(
-            shops, from, to, includeInactive, includeUnscopedOwners, cancellationToken);
+            shops, from, to, includeInactive, includeUnscopedOwners, cancellationToken, payFromDate);
 
         var lines = new List<string>
         {
@@ -527,6 +538,31 @@ public sealed partial class PayrollService(IHrDb db)
     }
 
     /// <summary>
+    /// Monthly preview warning when hire date is blank. Pay is not clipped: guessing a date would
+    /// underpay. Daily and hourly do not use hire date, so they are not warned.
+    /// </summary>
+    internal const string MissingHireDateWarning =
+        "Hire date is not set, so a mid-month hire may be overpaid for the whole period.";
+
+    internal static string? MissingHireDateWarningFor(
+        DateOnly? hireDate,
+        PayBasis? basis,
+        IReadOnlyList<RateSlice> slices)
+    {
+        if (hireDate is not null)
+        {
+            return null;
+        }
+
+        if (basis == PayBasis.Monthly || slices.Any(slice => slice.Basis == PayBasis.Monthly))
+        {
+            return MissingHireDateWarning;
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Warns when a daily or hourly person is not set to clock and the period has no closed punches,
     /// paid leave or day overrides, so their pay is zero. The pay rule itself is unchanged.
     /// </summary>
@@ -577,6 +613,8 @@ public sealed partial class PayrollService(IHrDb db)
     /// Gross for one register period priced by dated rate slices. Hourly and daily days are priced
     /// with the slice effective that day; monthly days split each month slice by days at each rate
     /// and round every piece AwayFromZero. Slices must cover [start, end].
+    /// <paramref name="hireDate"/> clips monthly salary only. Leave it null for 13th month, which
+    /// already starts its window on the hire date and must keep the extended rate.
     /// </summary>
     internal static PeriodGross ComputePeriodGross(
         IReadOnlyList<RateSlice> slices,
@@ -587,7 +625,8 @@ public sealed partial class PayrollService(IHrDb db)
         TimeOnly? shiftEnd = null,
         int? graceMinutes = null,
         IReadOnlyDictionary<DateOnly, decimal>? paidLeaveDays = null,
-        IReadOnlyDictionary<DateOnly, DayPayOverrideSpec>? dayPayOverrides = null)
+        IReadOnlyDictionary<DateOnly, DayPayOverrideSpec>? dayPayOverrides = null,
+        DateOnly? hireDate = null)
     {
         if (start > end)
         {
@@ -635,7 +674,8 @@ public sealed partial class PayrollService(IHrDb db)
             if (dayPayOverrides is not null
                 && dayPayOverrides.TryGetValue(day, out var dayOverride)
                 && slice is not null
-                && closed)
+                && closed
+                && !MonthlyDayExcluded(slice, day, hireDate))
             {
                 var normal = NormalDayPay(slice, day, regular);
                 var (pay, days) = ApplyDayPayOverride(dayOverride, normal);
@@ -673,7 +713,7 @@ public sealed partial class PayrollService(IHrDb db)
                 }
 
                 var slice = SliceFor(slices, day);
-                if (slice is null)
+                if (slice is null || MonthlyDayExcluded(slice, day, hireDate))
                 {
                     continue;
                 }
@@ -731,7 +771,8 @@ public sealed partial class PayrollService(IHrDb db)
                 continue;
             }
 
-            var (monthlyGross, monthlyPaidDays) = ComputeMonthlySliceGross(slice, unpaidDays, overriddenDays, start, end);
+            var (monthlyGross, monthlyPaidDays) = ComputeMonthlySliceGross(
+                slice, unpaidDays, overriddenDays, start, end, hireDate);
             totalAmount += monthlyGross;
             daysPaid += monthlyPaidDays;
         }
@@ -807,20 +848,51 @@ public sealed partial class PayrollService(IHrDb db)
     }
 
     /// <summary>
+    /// First day of a monthly slice that is paid. A blank hire date keeps <paramref name="sliceFrom"/>,
+    /// so a rate extended backwards still prices the period. With a hire date, pay starts on the
+    /// later of that date and the rate's effective date.
+    /// </summary>
+    internal static DateOnly MonthlyPayableFrom(DateOnly sliceFrom, DateOnly? hireDate, DateOnly? rateEffectiveFrom)
+    {
+        if (hireDate is not DateOnly hired)
+        {
+            return sliceFrom;
+        }
+
+        var from = hired > sliceFrom ? hired : sliceFrom;
+        if (rateEffectiveFrom is DateOnly effective && effective > from)
+        {
+            from = effective;
+        }
+
+        return from;
+    }
+
+    /// <summary>
+    /// Monthly day-pay overrides outside the hire/rate window are not paid and are not removed from
+    /// the slice (the slice does not include them). Daily and hourly days are never excluded here.
+    /// </summary>
+    private static bool MonthlyDayExcluded(RateSlice slice, DateOnly day, DateOnly? hireDate) =>
+        slice.Basis == PayBasis.Monthly && day < MonthlyPayableFrom(slice.From, hireDate, slice.EffectiveFrom);
+
+    /// <summary>
     /// One rate slice of a monthly gross. Each calendar-month piece is rounded AwayFromZero,
     /// exactly like the single-rate Mode 4 rule. Unpaid days and day-pay-overridden days are both
     /// excluded from the monthly share (a day counted in both is excluded once); overridden days are
-    /// paid by their override in <see cref="ComputePeriodGross"/>.
+    /// paid by their override in <see cref="ComputePeriodGross"/>. A hire date clips the slice before
+    /// the month split, so a period that crosses a month boundary still prorates each month.
     /// </summary>
     private static (decimal Gross, int PaidDays) ComputeMonthlySliceGross(
         RateSlice slice,
         IReadOnlySet<DateOnly>? unpaidDays,
         IReadOnlySet<DateOnly>? overriddenDays,
         DateOnly start,
-        DateOnly end)
+        DateOnly end,
+        DateOnly? hireDate)
     {
         var from = slice.From > start ? slice.From : start;
         var to = slice.To < end ? slice.To : end;
+        from = MonthlyPayableFrom(from, hireDate, slice.EffectiveFrom);
         if (from > to)
         {
             return (0m, 0);

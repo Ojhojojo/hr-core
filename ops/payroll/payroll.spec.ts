@@ -133,6 +133,16 @@ function flushThirteenth(http: HttpTestingController, year = 2026): void {
   req.flush({ year, rows: [], totalThirteenthMonth: 0 });
 }
 
+/** Existing shops already have a run, so the first-run prompt stays closed. */
+function flushPayFrom(
+  http: HttpTestingController,
+  body: { payFromDate: string | null; hasRun: boolean } = { payFromDate: null, hasRun: true },
+): void {
+  const req = http.expectOne((r) => r.url.endsWith('/api/ops/payroll/pay-from'));
+  expect(req.request.method).toBe('GET');
+  req.flush(body);
+}
+
 const lockedRegister: PayrollRegisterResponse = {
   ...mockPayrollData,
   source: 'locked',
@@ -199,6 +209,10 @@ function confirmStub() {
 async function mountPayroll(
   me: AuthMe = ownerMe,
   register: PayrollRegisterResponse = mockPayrollData,
+  payFrom: { payFromDate: string | null; hasRun: boolean } = {
+    payFromDate: null,
+    hasRun: true,
+  },
 ) {
   const confirm = confirmStub();
   await TestBed.configureTestingModule({
@@ -217,6 +231,7 @@ async function mountPayroll(
   const http = TestBed.inject(HttpTestingController);
   const fixture = TestBed.createComponent(PayrollPage);
   fixture.detectChanges();
+  flushPayFrom(http, payFrom);
   http.expectOne((r) => r.url.endsWith('/api/ops/payroll')).flush(register);
   flushThirteenth(http);
   fixture.detectChanges();
@@ -376,6 +391,7 @@ describe('PayrollPage', () => {
     const http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(PayrollPage);
     fixture.detectChanges();
+    flushPayFrom(http);
 
     const req = http.expectOne((r) => r.url.endsWith('/api/ops/payroll'));
     expect(req.request.method).toBe('GET');
@@ -434,6 +450,7 @@ describe('PayrollPage', () => {
     const http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(PayrollPage);
     fixture.detectChanges();
+    flushPayFrom(http);
 
     const initialReq = http.expectOne((r) => r.url.endsWith('/api/ops/payroll'));
     expect(initialReq.request.params.has('includeInactive')).toBe(false);
@@ -475,6 +492,7 @@ describe('PayrollPage', () => {
     const http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(PayrollPage);
     fixture.detectChanges();
+    flushPayFrom(http);
 
     http.expectOne((r) => r.url.endsWith('/api/ops/payroll')).flush(mockPayrollData);
     flushThirteenth(http);
@@ -509,6 +527,72 @@ describe('PayrollPage', () => {
       (r) => r.url.includes('/api/ops/payroll') && r.urlWithParams.includes('from=2026-10-01'),
     );
     reloadReq.flush(mockPayrollData);
+  });
+
+  it('asks for the pay-from date before the first run and does not lock without it', async () => {
+    const { fixture, host, button } = await mountPayroll(ownerMe, mockPayrollData, {
+      payFromDate: null,
+      hasRun: false,
+    });
+    expect(host.textContent).toContain('First day this system should pay');
+    expect(button('lockPeriod')!.disabled).toBe(true);
+
+    const page = fixture.componentInstance as PayrollPage & { payFromDraft: string };
+    page.payFromDraft = '';
+    page['savePayFrom']();
+    fixture.detectChanges();
+    expect(host.textContent).toContain('Enter the first day this system should pay as MM/DD/YYYY.');
+  });
+
+  it('warns on the register and in the lock confirmation when From is earlier', async () => {
+    const { http, fixture, host, confirm, button } = await mountPayroll(ownerMe, mockPayrollData, {
+      payFromDate: '2026-11-15',
+      hasRun: true,
+    });
+    fixture.componentInstance.onPeriodChange({ from: '2026-11-01', to: '2026-11-30' });
+    fixture.detectChanges();
+    http
+      .expectOne(
+        (r) => r.url.includes('/api/ops/payroll') && r.urlWithParams.includes('from=2026-11-01'),
+      )
+      .flush({ ...mockPayrollData, from: '2026-11-01', to: '2026-11-30' });
+    fixture.detectChanges();
+
+    expect(host.querySelector('[data-pay-from-warning]')?.textContent).toContain('Nov 1');
+    expect(host.querySelector('[data-pay-from-warning]')?.textContent).toContain('no clock data');
+
+    button('lockPeriod')!.click();
+    fixture.detectChanges();
+    http.expectOne((r) => r.url.endsWith('/api/ops/attendance/open-punches')).flush([]);
+    fixture.detectChanges();
+    expect(confirm.calls[0].message).toContain('no clock data');
+    http.expectOne((r) => r.url.endsWith('/api/ops/payroll/runs')).flush({ id: 'run-new' });
+    http.expectOne((r) => r.url.endsWith('/api/ops/payroll')).flush(mockPayrollData);
+  });
+
+  it('opens the register on the pay-from date when the usual week starts earlier', async () => {
+    await TestBed.configureTestingModule({
+      imports: [PayrollPage],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideNoopAnimations(),
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: AuthService, useValue: authStub(ownerMe) },
+      ],
+    }).compileComponents();
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(PayrollPage);
+    fixture.detectChanges();
+    flushPayFrom(http, { payFromDate: '2099-06-15', hasRun: false });
+    const register = http.expectOne((r) => r.url.endsWith('/api/ops/payroll'));
+    expect(register.request.params.get('from')).toBe('2099-06-15');
+    expect(register.request.params.get('to')! >= '2099-06-15').toBe(true);
+    register.flush({ ...mockPayrollData, from: '2099-06-15', to: '2099-06-21' });
+    flushThirteenth(http);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('First day this system should pay');
   });
 });
 

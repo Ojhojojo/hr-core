@@ -107,9 +107,14 @@ public sealed partial class PayrollService
         IReadOnlyList<string> allowance,
         IReadOnlyList<string> loans,
         IReadOnlyList<string> deductionCap,
-        IReadOnlyList<string> notClocking)
+        IReadOnlyList<string> notClocking,
+        IReadOnlyList<string> missingHireDate)
     {
-        if (allowance.Count == 0 && loans.Count == 0 && deductionCap.Count == 0 && notClocking.Count == 0)
+        if (allowance.Count == 0
+            && loans.Count == 0
+            && deductionCap.Count == 0
+            && notClocking.Count == 0
+            && missingHireDate.Count == 0)
         {
             return premium;
         }
@@ -138,6 +143,11 @@ public sealed partial class PayrollService
         if (notClocking.Count > 0)
         {
             merged.AddRange(notClocking);
+        }
+
+        if (missingHireDate.Count > 0)
+        {
+            merged.AddRange(missingHireDate);
         }
 
         return merged;

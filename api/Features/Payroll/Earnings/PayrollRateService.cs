@@ -156,8 +156,9 @@ public sealed class PayrollRateService(IHrDb db, HrChangeLogService hr)
         if (considered.Count == 0)
         {
             // Every row starts after the period. The snapshot is the current authority and mirrors
-            // the newest row, so keep pricing the period the way the app always did.
-            return [snapshot];
+            // the newest row, so keep pricing the period the way the app always did. EffectiveFrom
+            // stays on the slice so a monthly salary with a hire date does not pay before the rate.
+            return [snapshot with { EffectiveFrom = rows.Min(row => row.EffectiveFrom) }];
         }
 
         var slices = new List<RateSlice>();
@@ -181,7 +182,13 @@ public sealed class PayrollRateService(IHrDb db, HrChangeLogService hr)
             }
 
             Append(slices, new RateSlice(
-                from, to, row.Basis, row.RatePhp, row.OtAfterHoursPerDay, row.OtMultiplier));
+                from,
+                to,
+                row.Basis,
+                row.RatePhp,
+                row.OtAfterHoursPerDay,
+                row.OtMultiplier,
+                row.EffectiveFrom));
         }
 
         if (slices.Count == 0)
