@@ -206,7 +206,10 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
             }
         }
 
-        await EnsureUnlockedAsync(target.Id, inAt, outAt ?? inAt, cancellationToken);
+        // #717: an open punch runs to now, and Close checks from clock-in to clock-out. Check the same
+        // span here, so a punch that could never be closed is not created.
+        var utcNow = DateTime.UtcNow;
+        await EnsureUnlockedAsync(target.Id, inAt, outAt ?? (inAt > utcNow ? inAt : utcNow), cancellationToken);
         await EnsureNoOverlapAsync(target.Id, inAt, outAt, cancellationToken);
 
         var punch = new AttendancePunch
