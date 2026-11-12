@@ -31,6 +31,7 @@ export interface PayrollStaffRow {
   otHours: number;
   otPay?: number;
   daysPaid: number;
+  leaveDaysPaid?: number;
   amount: number;
   notes?: string | null;
   active?: boolean;
@@ -241,6 +242,7 @@ export interface Payslip {
   otHours: number;
   otPay?: number;
   daysPaid: number;
+  leaveDaysPaid?: number;
   gross: number;
   sss: number;
   philHealth: number;
@@ -293,6 +295,7 @@ export interface MyPayslipDetail {
   otHours: number;
   otPay?: number | null;
   daysPaid: number;
+  leaveDaysPaid?: number;
   gross: number;
   sss: number;
   philHealth: number;

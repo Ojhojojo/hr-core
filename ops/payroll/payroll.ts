@@ -74,6 +74,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatTooltip } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { formatDay } from '../hr-dates';
+import { paidDaysLabel } from './paid-days-label';
 
 @Component({
   selector: 'app-ops-payroll',
@@ -278,6 +279,7 @@ import { formatDay } from '../hr-dates';
 })
 export class PayrollPage {
   protected readonly formatDay = formatDay;
+  protected readonly paidDaysLabel = paidDaysLabel;
   private readonly api = inject(PayrollApi);
   private readonly dialog = inject(MatDialog);
   private readonly breakpoints = inject(OpsBreakpoints);

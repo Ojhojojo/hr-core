@@ -301,6 +301,7 @@ public sealed partial class PayrollService(IHrDb db)
                     RegularHours: line.RegularHours,
                     OtHours: line.OtHours,
                     DaysPaid: line.DaysPaid,
+                    LeaveDaysPaid: line.LeaveDaysPaid,
                     Amount: line.Gross,
                     Notes: line.Notes,
                     Active: staff?.Active ?? true,
@@ -423,7 +424,7 @@ public sealed partial class PayrollService(IHrDb db)
         {
             JoinCsv(
                 "Name", "Role", "Branch", "Kind", "Basis", "Rate", "Regular Hours", "OT Hours", "OT Pay", "Days Paid",
-                "Amount", "Notes", "SSS", "PhilHealth", "Pag-IBIG", "WHT", "Other", "Deductions", "Net",
+                "Leave Days Paid", "Amount", "Notes", "SSS", "PhilHealth", "Pag-IBIG", "WHT", "Other", "Deductions", "Net",
                 "Holiday Hours", "Rest Day Hours", "Night Hours", "Premium Pay", "Allowances", "Loan Deductions")
         };
 
@@ -440,6 +441,7 @@ public sealed partial class PayrollService(IHrDb db)
                 row.OtHours.ToString("0.00", CultureInfo.InvariantCulture),
                 row.OtPay.ToString("0.00", CultureInfo.InvariantCulture),
                 row.DaysPaid.ToString(CultureInfo.InvariantCulture),
+                row.LeaveDaysPaid.ToString(CultureInfo.InvariantCulture),
                 row.Amount.ToString("0.00", CultureInfo.InvariantCulture),
                 row.Notes,
                 Money(row.Sss),

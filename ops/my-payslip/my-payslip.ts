@@ -159,6 +159,12 @@ import { myPayslipDetailToPayslip } from './my-payslip.format';
             <dt>Days paid</dt>
             <dd>{{ slip.daysPaid }}</dd>
           </div>
+          @if ((slip.leaveDaysPaid ?? 0) > 0) {
+            <div>
+              <dt>Leave days paid</dt>
+              <dd>{{ slip.leaveDaysPaid }}</dd>
+            </div>
+          }
           @for (line of premiumLines(slip); track line.label) {
             <div>
               <dt>{{ line.label }}</dt>
