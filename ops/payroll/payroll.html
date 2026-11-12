@@ -17,7 +17,7 @@
         matButton="filled"
         type="button"
         name="lockPeriod"
-        [disabled]="locking() || !lockBranchId()"
+        [disabled]="locking() || !lockBranchId() || needsPayFrom()"
         (click)="lockPeriod()"
       >
         {{ locking() ? 'Locking…' : 'Lock period' }}
@@ -99,6 +99,51 @@
     data-rate-advisory
     message="Some active staff have no pay rate, so their amount on this register is zero until a rate is set on Staff."
   />
+}
+
+@if (earlyPayWarning(); as payFromWarning) {
+  <ops-banner tone="warn" data-pay-from-warning [message]="payFromWarning" />
+}
+
+@if (needsPayFrom()) {
+  <ops-card>
+    <h2 class="pay-from-title">First day this system should pay</h2>
+    <p class="ops-premium-hint">
+      Set this before the first payroll run. It is not required until you start paying in the app.
+      The run starts on this date unless you choose an earlier From.
+    </p>
+    @if (payFromError()) {
+      <ops-banner tone="danger" [message]="payFromError()" />
+    }
+    <div class="pay-from-form">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
+        <mat-label>Pay from this date</mat-label>
+        <input
+          matInput
+          name="payFromDate"
+          placeholder="MM/DD/YYYY"
+          [matDatepicker]="payFromPicker"
+          [(ngModel)]="payFromDraft"
+          #payFromModel="ngModel"
+        />
+        <mat-datepicker-toggle matIconSuffix [for]="payFromPicker" />
+        <mat-datepicker #payFromPicker />
+        <mat-hint>MM/DD/YYYY</mat-hint>
+        @if (payFromModel.hasError('matDatepickerParse')) {
+          <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+        }
+      </mat-form-field>
+      <button
+        matButton="filled"
+        type="button"
+        name="savePayFrom"
+        [disabled]="savingPayFrom()"
+        (click)="savePayFrom()"
+      >
+        {{ savingPayFrom() ? 'Saving…' : 'Save' }}
+      </button>
+    </div>
+  </ops-card>
 }
 
 @if (error()) {

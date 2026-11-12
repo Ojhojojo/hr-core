@@ -133,6 +133,12 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
             return (null, $"Note must be {MaxNoteLength} characters or fewer.");
         }
 
+        var payFromBlock = await payroll.FirstRunPayFromBlockAsync(branchId, cancellationToken);
+        if (payFromBlock is not null)
+        {
+            return (null, payFromBlock);
+        }
+
         var (start, end, _, _) = PayrollService.ResolvePeriod(from, to);
         var duplicate = await db.PayrollRuns.AsNoTracking()
             .AnyAsync(

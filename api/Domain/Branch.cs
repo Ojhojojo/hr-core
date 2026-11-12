@@ -94,5 +94,12 @@ public sealed partial class Branch
     public const DayOfWeek DefaultWeekStartDay = DayOfWeek.Monday;
     public DayOfWeek WeekStartDay { get; set; } = DefaultWeekStartDay;
 
+    /// <summary>
+    /// First day this system should pay. Null until an owner or admin sets it.
+    /// Not required at deploy. The shop's first payroll run cannot be locked until it is set.
+    /// Changing it does not rewrite a locked run.
+    /// </summary>
+    public DateOnly? PayFromDate { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
 }

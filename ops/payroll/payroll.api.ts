@@ -42,6 +42,7 @@ import {
   SaveStaffLoan,
   UpdateStaffLoan,
 } from './payroll.models';
+import { PayFromDateResponse } from './pay-from';
 
 /** A punch with no clock-out, listed before a period is locked. */
 export interface OpenPunchRow {
@@ -233,6 +234,21 @@ export class PayrollApi {
       params: new HttpParams().set('year', String(year)),
       observe: 'response',
       responseType: 'blob',
+    });
+  }
+
+  getPayFrom(branchId?: string): Observable<PayFromDateResponse> {
+    let params = new HttpParams();
+    if (branchId) {
+      params = params.set('branchId', branchId);
+    }
+    return this.http.get<PayFromDateResponse>(`${this.base}/api/ops/payroll/pay-from`, { params });
+  }
+
+  savePayFrom(payFromDate: string, branchId?: string): Observable<PayFromDateResponse> {
+    return this.http.put<PayFromDateResponse>(`${this.base}/api/ops/payroll/pay-from`, {
+      payFromDate,
+      ...(branchId ? { branchId } : {}),
     });
   }
 

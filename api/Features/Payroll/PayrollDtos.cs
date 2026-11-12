@@ -108,6 +108,9 @@ public sealed record PayrollRateSliceDto(
 /// <summary>
 /// Pay-rate span used by the gross math. Covers one contiguous run of days at one rate.
 /// RatePhp and Basis are null only for the "no history" snapshot of a worker with no rate.
+/// <see cref="EffectiveFrom"/> is the history row's real start. <see cref="From"/> may be earlier
+/// because the earliest row still extends backwards for daily, hourly, and 13th-month pay.
+/// Monthly salary uses <see cref="EffectiveFrom"/> only when a hire date is set.
 /// </summary>
 public sealed record RateSlice(
     DateOnly From,
@@ -115,7 +118,8 @@ public sealed record RateSlice(
     PayBasis? Basis,
     decimal? RatePhp,
     decimal? OtAfterHoursPerDay,
-    decimal? OtMultiplier);
+    decimal? OtMultiplier,
+    DateOnly? EffectiveFrom = null);
 
 /// <summary>
 /// Register payload. <c>Source</c> is <c>live</c> for a computed period and <c>locked</c> when the
@@ -727,6 +731,16 @@ public sealed record LoanWriteResult(StaffLoanDto? Saved, string? Error, int Sta
     public static LoanWriteResult Conflict(string error) => new(null, error, StatusCodes.Status409Conflict);
 
     public static LoanWriteResult Ok(StaffLoanDto saved) => new(saved, null, StatusCodes.Status200OK);
+}
+
+/// <summary>Shop setting for the first day payroll should pay, plus whether any run exists yet.</summary>
+public sealed record PayFromDateDto(DateOnly? PayFromDate, bool HasRun);
+
+public sealed class SetPayFromDateRequest
+{
+    public DateOnly PayFromDate { get; set; }
+    /// <summary>Shop to update. Omit to use the header shop.</summary>
+    public Guid? BranchId { get; set; }
 }
 
 public sealed record LoanDeleteResult(bool Deleted, string? Error, int Status)

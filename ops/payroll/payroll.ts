@@ -17,6 +17,7 @@ import {
   OpsToastService,
   InfoTipComponent,
   PageHeaderComponent,
+  OpsDateModule,
   PeriodNavComponent,
   PeriodRange,
   SkeletonComponent,
@@ -24,6 +25,7 @@ import {
 } from '@hr-host';
 import { manilaWeekRange } from '../attendance/attendance';
 import { MatDialog } from '@angular/material/dialog';
+import { defaultPayrollPeriod, earlyPayFromWarning, PayFromDateResponse } from './pay-from';
 import { PayrollApi } from './payroll.api';
 import { AllowanceOverrideDialog } from './payroll-allowance-dialog';
 import { rowHasAllowances } from './payroll-allowances.format';
@@ -64,7 +66,7 @@ import {
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatButtonToggle, MatButtonToggleGroup } from '@angular/material/button-toggle';
 import { MatExpansionModule } from '@angular/material/expansion';
-import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatCheckbox } from '@angular/material/checkbox';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
@@ -85,9 +87,12 @@ import { paidDaysLabel } from './paid-days-label';
     MatButtonToggle,
     MatButtonToggleGroup,
     MatExpansionModule,
+    MatError,
     MatFormField,
+    MatHint,
     MatLabel,
     MatInput,
+    OpsDateModule,
     MatCheckbox,
     MatMenu,
     MatMenuItem,
@@ -183,6 +188,15 @@ import { paidDaysLabel } from './paid-days-label';
       flex-wrap: wrap;
       gap: var(--space-3) var(--space-6);
       margin-bottom: var(--space-2);
+    }
+    .pay-from-title {
+      margin-top: 0;
+    }
+    .pay-from-form {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-3);
     }
     .ops-name-cell {
       display: inline-flex;
@@ -290,6 +304,22 @@ export class PayrollPage {
 
   protected readonly from = signal('');
   protected readonly to = signal('');
+  /** First day this system should pay. Null until an owner or admin sets it. */
+  protected readonly payFromDate = signal<string | null>(null);
+  /** True once this shop has any payroll run. Existing shops are not prompted. */
+  protected readonly payFromHasRun = signal(true);
+  protected readonly payFromReady = signal(false);
+  protected payFromDraft = '';
+  protected readonly savingPayFrom = signal(false);
+  protected readonly payFromError = signal('');
+  protected readonly needsPayFrom = computed(
+    () => this.payFromReady() && !this.payFromHasRun() && !this.payFromDate(),
+  );
+  protected readonly earlyPayWarning = computed(() =>
+    this.source() === 'locked'
+      ? null
+      : earlyPayFromWarning(this.from(), this.to(), this.payFromDate()),
+  );
   protected readonly includeInactive = signal(false);
   protected readonly statutorySchedule = signal<'semi_monthly' | 'full_month'>('semi_monthly');
   protected readonly rows = signal<PayrollStaffRow[]>([]);
@@ -475,8 +505,55 @@ export class PayrollPage {
     const range = manilaWeekRange();
     this.from.set(range.from);
     this.to.set(range.to);
-    this.load();
-    this.loadThirteenth();
+    this.api.getPayFrom().subscribe({
+      next: (body) => {
+        this.rememberPayFrom(body, true);
+        this.load();
+        this.loadThirteenth();
+      },
+      error: () => {
+        this.payFromReady.set(true);
+        this.load();
+        this.loadThirteenth();
+      },
+    });
+  }
+
+  /** Saves the first day this system should pay, then opens the period on that default. */
+  protected savePayFrom(): void {
+    if (this.savingPayFrom()) {
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(this.payFromDraft)) {
+      this.payFromError.set('Enter the first day this system should pay as MM/DD/YYYY.');
+      return;
+    }
+    this.savingPayFrom.set(true);
+    this.payFromError.set('');
+    this.api.savePayFrom(this.payFromDraft).subscribe({
+      next: (body) => {
+        this.savingPayFrom.set(false);
+        this.rememberPayFrom(body, true);
+        this.toast.success('Pay from this date saved.');
+        this.load();
+      },
+      error: (err: unknown) => {
+        this.payFromError.set(apiErrorMessage(err));
+        this.savingPayFrom.set(false);
+      },
+    });
+  }
+
+  private rememberPayFrom(body: PayFromDateResponse, applyDefault: boolean): void {
+    this.payFromDate.set(body.payFromDate);
+    this.payFromHasRun.set(body.hasRun);
+    this.payFromDraft = body.payFromDate ?? '';
+    this.payFromReady.set(true);
+    if (applyDefault) {
+      const range = defaultPayrollPeriod(manilaToday(), body.payFromDate);
+      this.from.set(range.from);
+      this.to.set(range.to);
+    }
   }
 
   load(): void {
@@ -528,6 +605,12 @@ export class PayrollPage {
 
   /** Freezes the period for one shop after the operator confirms the totals. */
   lockPeriod(): void {
+    if (this.needsPayFrom()) {
+      this.payFromError.set(
+        "Set the first day this system should pay before this shop's first payroll run.",
+      );
+      return;
+    }
     const branchId = this.lockBranchId();
     if (!branchId || !this.from() || !this.to()) {
       this.error.set('Pick a shop and a period before locking.');
@@ -550,13 +633,14 @@ export class PayrollPage {
 
   private confirmLock(branchId: string, openWarning: string): void {
     const warningLine = openWarning ? ` ${openWarning}` : '';
+    const earlyLine = this.earlyPayWarning() ? ` ${this.earlyPayWarning()}` : '';
     this.confirm
       .confirm({
         title: 'Lock period',
         message:
           `Lock ${this.lockBranchName()} for ${this.from()} to ${this.to()}? ` +
           `Total gross ${this.formatMoney(this.totalAmount())}, deductions ${this.formatMoney(this.totalDeductions())}, ` +
-          `net ${this.formatMoney(this.totalNet())}. Locking freezes this period; later corrections go in the next period.${warningLine}`,
+          `net ${this.formatMoney(this.totalNet())}. Locking freezes this period; later corrections go in the next period.${warningLine}${earlyLine}`,
         confirmLabel: 'Lock period',
       })
       .subscribe((result) => {
