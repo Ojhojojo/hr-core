@@ -41,6 +41,7 @@ import {
   OvertimeRow,
 } from './attendance.models';
 import { canReviewPunch, punchStatusLabel, punchStatusTone } from './punch-review';
+import { StalePunch, stalePunches } from './stale-punch';
 import { formatDay, formatDayPrefix } from '../hr-dates';
 
 @Component({
@@ -200,6 +201,9 @@ export class AttendancePage {
   protected readonly loading = signal(true);
   protected readonly downloading = signal(false);
   protected readonly error = signal('');
+  /** #685: open punches from earlier days, which block that person's next clock-in. */
+  protected readonly stale = signal<StalePunch[]>([]);
+  protected readonly staleSevere = computed(() => this.stale().some((row) => row.severe));
   /** True while a review, overtime decision or close is open or saving, so a second tap does nothing. */
   protected readonly acting = signal(false);
 
@@ -238,8 +242,18 @@ export class AttendancePage {
         next: (staff) => this.staff.set(staff),
         error: (err: unknown) => this.error.set(apiErrorMessage(err)),
       });
+      this.loadStale();
     }
     this.load();
+  }
+
+  /** #685: looked up once, and again after a punch is closed. A failed lookup never blocks the page. */
+  private loadStale(): void {
+    const today = manilaToday();
+    this.api.openPunches(addDays(today, -90), addDays(today, -1)).subscribe({
+      next: (rows) => this.stale.set(stalePunches(rows, today)),
+      error: () => this.stale.set([]),
+    });
   }
 
   load(): void {
@@ -498,6 +512,7 @@ export class AttendancePage {
         next: () => {
           this.acting.set(false);
           this.load();
+          this.loadStale();
         },
         error: (err: unknown) => {
           this.acting.set(false);

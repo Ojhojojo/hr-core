@@ -51,6 +51,17 @@ describe('AttendanceApi', () => {
     });
   });
 
+  it('GETs open punches for the range', () => {
+    const { api, http } = setup();
+    api.openPunches('2026-10-13', '2026-11-11').subscribe();
+
+    const req = http.expectOne('/api/ops/attendance/open-punches?from=2026-10-13&to=2026-11-11');
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('from')).toBe('2026-10-13');
+    expect(req.request.params.get('to')).toBe('2026-11-11');
+    req.flush([]);
+  });
+
   it('POSTs approve and reject with an optional note', () => {
     const { api, http } = setup();
     api.approve('punch-1', 'Looks good').subscribe();

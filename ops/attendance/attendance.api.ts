@@ -7,6 +7,7 @@ import {
   AttendanceRegisterResponse,
   AttendanceStaffOption,
   ClosePunchBody,
+  OpenPunchRow,
   OvertimeListResponse,
   PunchForBody,
 } from './attendance.models';
@@ -20,6 +21,13 @@ export class AttendanceApi {
   register(query: AttendanceRegisterQuery = {}): Observable<AttendanceRegisterResponse> {
     return this.http.get<AttendanceRegisterResponse>(`${this.base}/api/ops/attendance/register`, {
       params: toParams(query),
+    });
+  }
+
+  /** Open punches whose clock-in falls in the range (owner or admin). */
+  openPunches(from: string, to: string): Observable<OpenPunchRow[]> {
+    return this.http.get<OpenPunchRow[]>(`${this.base}/api/ops/attendance/open-punches`, {
+      params: toParams({ from, to }),
     });
   }
 
