@@ -532,7 +532,8 @@
           <td mat-cell *matCellDef="let row" data-label="Hours">
             {{ formatHours(row.regularHours) }}
             <span class="ops-cell-sub"
-              >OT {{ formatHours(row.otHours) }} · {{ row.daysPaid }} days paid</span
+              >OT {{ formatHours(row.otHours) }} ·
+              {{ paidDaysLabel(row.daysPaid, row.leaveDaysPaid) }}</span
             >
             @if (rowHasPremium(row)) {
               <span class="ops-cell-sub">

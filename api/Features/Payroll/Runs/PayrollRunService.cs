@@ -193,6 +193,7 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
                 OtHours = row.OtHours,
                 OtPay = row.OtPay,
                 DaysPaid = row.DaysPaid,
+                LeaveDaysPaid = row.LeaveDaysPaid,
                 Gross = row.Amount,
                 Sss = row.Sss,
                 PhilHealth = row.PhilHealth,
@@ -533,7 +534,8 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
             line.PremiumPay,
             line.Allowances,
             line.LoanDeductions,
-            items));
+            items,
+            LeaveDaysPaid: line.LeaveDaysPaid));
     }
 
     internal static string Period(DateOnly from, DateOnly to) =>
@@ -615,7 +617,8 @@ public sealed class PayrollRunService(IHrDb db, HrChangeLogService hr, PayrollSe
             allowanceItems is { Count: > 0 } ? allowanceItems : null,
             line.LoanDeductions,
             loanItems is { Count: > 0 } ? loanItems : null,
-            line.OtPay);
+            line.OtPay,
+            LeaveDaysPaid: line.LeaveDaysPaid);
 
     private static string? BlankToNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

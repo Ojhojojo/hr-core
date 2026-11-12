@@ -42,6 +42,7 @@ import {
   RequestLeaveDialog,
   SetAllotmentDialog,
 } from './leave.dialogs';
+import { pendingHeldLabel } from './leave-pending';
 import { formatDayRange } from '../hr-dates';
 
 @Component({
@@ -443,6 +444,13 @@ export class LeavePage {
   /** Same placeholder rule for the owner team table, which falls back to zero-filled rows. */
   protected memberRemaining(member: StaffLeaveBalances, type: LeaveType): string | number {
     return this.teamBalancesLoaded() ? this.memberBalance(member, type).remaining : '—';
+  }
+
+  /** #681: days a pending request is holding, so the days-left number makes sense beside it. */
+  protected memberPendingLabel(member: StaffLeaveBalances, type: LeaveType): string | null {
+    return this.teamBalancesLoaded()
+      ? pendingHeldLabel(this.memberBalance(member, type).pending)
+      : null;
   }
 
   protected memberUsed(member: StaffLeaveBalances, type: LeaveType): string | number {

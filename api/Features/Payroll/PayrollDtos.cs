@@ -245,7 +245,8 @@ public sealed record PayrollRunLineDto(
     IReadOnlyList<PayrollAllowanceItemDto>? AllowanceItems = null,
     decimal? LoanDeductions = null,
     IReadOnlyList<PayrollLoanItemDto>? LoanItems = null,
-    decimal? OtPay = null);
+    decimal? OtPay = null,
+    decimal LeaveDaysPaid = 0m);
 
 public sealed record PayrollRunDetailDto(
     PayrollRunSummaryDto Run,
@@ -307,7 +308,8 @@ public sealed record MyPayslipDetailDto(
     decimal? PremiumPay = null,
     decimal? Allowances = null,
     decimal? LoanDeductions = null,
-    IReadOnlyList<PayrollRunLineItemDto>? Items = null);
+    IReadOnlyList<PayrollRunLineItemDto>? Items = null,
+    decimal LeaveDaysPaid = 0m);
 
 /// <summary>One frozen piece of a saved payslip line. Kind "allowance" is an allowance slice; loans reuse the row.</summary>
 public sealed record PayrollRunLineItemDto(
@@ -401,7 +403,8 @@ public sealed record PayslipResponse(
     IReadOnlyList<PayslipLoanItemDto>? LoanItems = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     IReadOnlyList<string>? Warnings = null,
-    decimal OtPay = 0);
+    decimal OtPay = 0,
+    decimal LeaveDaysPaid = 0m);
 
 /// <summary>One allowance line on a register row. Per is null on a locked snapshot.</summary>
 public sealed record PayrollAllowanceItemDto(

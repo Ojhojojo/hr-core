@@ -1,4 +1,7 @@
-<ops-page-header title="Leave" infoTooltip="Pending days stay on the balance until approved.">
+<ops-page-header
+  title="Leave"
+  infoTooltip="Days left already take off pending requests. Approving one does not change the number. Rejecting or cancelling gives the days back."
+>
   <div actions>
     @if (!isOwner()) {
       <button matButton="filled" type="button" name="requestLeaveOpen" (click)="openRequestLeave()">
@@ -279,6 +282,9 @@
                 <strong>{{ memberRemaining(member, 'vacation') }}</strong>
                 <span class="ops-muted"> / {{ memberAllotment(member, 'vacation') }}</span>
               </span>
+              @if (memberPendingLabel(member, 'vacation'); as held) {
+                <span class="ops-cell-sub">{{ held }}</span>
+              }
             </td>
           </ng-container>
 
@@ -289,6 +295,9 @@
                 <strong>{{ memberRemaining(member, 'sick') }}</strong>
                 <span class="ops-muted"> / {{ memberAllotment(member, 'sick') }}</span>
               </span>
+              @if (memberPendingLabel(member, 'sick'); as held) {
+                <span class="ops-cell-sub">{{ held }}</span>
+              }
             </td>
           </ng-container>
 
@@ -308,6 +317,9 @@
                 <strong>{{ memberRemaining(member, 'service_incentive') }}</strong>
                 <span class="ops-muted"> / {{ memberAllotment(member, 'service_incentive') }}</span>
               </span>
+              @if (memberPendingLabel(member, 'service_incentive'); as held) {
+                <span class="ops-cell-sub">{{ held }}</span>
+              }
             </td>
           </ng-container>
 

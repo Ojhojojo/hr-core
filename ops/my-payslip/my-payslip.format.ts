@@ -28,6 +28,7 @@ export function myPayslipDetailToPayslip(detail: MyPayslipDetail): Payslip {
     otHours: detail.otHours,
     otPay: detail.otPay ?? undefined,
     daysPaid: detail.daysPaid,
+    leaveDaysPaid: detail.leaveDaysPaid ?? 0,
     gross: detail.gross,
     sss: detail.sss,
     philHealth: detail.philHealth,

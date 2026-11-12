@@ -19,6 +19,9 @@ public sealed class PayrollRunLine
     /// <summary>Approved overtime pay included in <see cref="Gross"/>. Null on runs locked before overtime approval.</summary>
     public decimal? OtPay { get; set; }
     public decimal DaysPaid { get; set; }
+
+    /// <summary>#682: paid-leave days inside <see cref="Gross"/> (0.5 steps). Kept apart from <see cref="DaysPaid"/>, which counts punched days.</summary>
+    public decimal LeaveDaysPaid { get; set; }
     public decimal Gross { get; set; }
     public decimal Sss { get; set; }
     public decimal PhilHealth { get; set; }

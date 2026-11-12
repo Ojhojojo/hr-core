@@ -31,6 +31,8 @@ export interface PayslipView {
   otHours: string;
   otPay: string;
   daysPaid: number;
+  /** #682: paid-leave days inside the gross. Shown only when above zero. */
+  leaveDaysPaid: number;
   grossLabel: string;
   gross: string;
   grossAmount: number;
@@ -219,6 +221,7 @@ export function payslipViewFromApi(slip: Payslip): PayslipView {
     otHours: Number(slip.otHours ?? 0).toFixed(2),
     otPay: formatPayslipMoney(slip.otPay ?? 0),
     daysPaid: slip.daysPaid ?? 0,
+    leaveDaysPaid: slip.leaveDaysPaid ?? 0,
     grossLabel: monthly ? 'Salary gross' : 'Gross',
     gross: formatPayslipMoney(slip.gross),
     grossAmount: Number(slip.gross) || 0,
@@ -251,6 +254,7 @@ export function buildPayslipView(
     otHours: Number(row.otHours ?? 0).toFixed(2),
     otPay: formatPayslipMoney(row.otPay ?? 0),
     daysPaid: row.daysPaid ?? 0,
+    leaveDaysPaid: row.leaveDaysPaid ?? 0,
     grossLabel: monthly ? 'Salary gross' : 'Gross',
     gross: formatPayslipMoney(gross),
     grossAmount: gross,
@@ -364,6 +368,9 @@ export function buildPayslipPdf(
     writePair('OT hours', slip.otHours);
     writePair('OT pay', slip.otPay);
     writePair('Days paid', String(slip.daysPaid));
+    if (slip.leaveDaysPaid > 0) {
+      writePair('Leave days paid', String(slip.leaveDaysPaid));
+    }
     for (const line of slip.premiumLines) {
       writePair(line.label, line.amount);
     }
@@ -449,6 +456,12 @@ export function buildPayslipPdf(
                 <th>Days paid</th>
                 <td>{{ slip.daysPaid }}</td>
               </tr>
+              @if (slip.leaveDaysPaid > 0) {
+                <tr>
+                  <th>Leave days paid</th>
+                  <td>{{ slip.leaveDaysPaid }}</td>
+                </tr>
+              }
               @for (line of slip.premiumLines; track line.label) {
                 <tr>
                   <th>{{ line.label }}</th>

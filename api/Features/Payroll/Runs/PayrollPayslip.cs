@@ -168,5 +168,6 @@ public sealed partial class PayrollService
                     .Select(item => new PayslipLoanItemDto(item.Kind, item.Amount, item.BalanceAfter))
                     .ToList(),
             row.Warnings is { Count: > 0 } ? row.Warnings : null,
-            row.OtPay);
+            row.OtPay,
+            row.LeaveDaysPaid);
 }
