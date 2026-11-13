@@ -54,21 +54,28 @@ public static class OvertimeMath
     }
 
     /// <summary>
-    /// Hourly rate equivalent. Hourly is the rate. Daily is the rate ÷ 8.
-    /// Monthly is monthly × 12 ÷ <paramref name="monthlyDayDivisor"/> ÷ 8.
+    /// Hourly rate equivalent. Hourly is the rate. Daily is the rate ÷ hours per day.
+    /// Monthly is monthly × 12 ÷ <paramref name="monthlyDayDivisor"/> ÷ hours per day.
+    /// Hours per day default to 8, the same day used before the shop setting existed.
     /// </summary>
-    public static decimal HourlyEquivalent(PayBasis? basis, decimal? rate, decimal monthlyDayDivisor)
+    public static decimal HourlyEquivalent(
+        PayBasis? basis,
+        decimal? rate,
+        decimal monthlyDayDivisor,
+        decimal hoursPerDay = Branch.DefaultHoursPerDay)
     {
         if (rate is not decimal value || basis is not PayBasis pay || value < 0m)
         {
             return 0m;
         }
 
+        var dayHours = HoursPerDaySetting.Resolve(hoursPerDay);
         return pay switch
         {
             PayBasis.Hourly => value,
-            PayBasis.Daily => value / 8m,
-            PayBasis.Monthly when monthlyDayDivisor > 0m => value * 12m / monthlyDayDivisor / 8m,
+            PayBasis.Daily when dayHours > 0m => value / dayHours,
+            PayBasis.Monthly when monthlyDayDivisor > 0m && dayHours > 0m =>
+                value * 12m / monthlyDayDivisor / dayHours,
             _ => 0m
         };
     }
@@ -93,7 +100,8 @@ public static class OvertimeMath
     public static (decimal Hours, decimal Pay) SumDays(
         IEnumerable<DayPayInput> days,
         decimal monthlyDayDivisor,
-        decimal premiumPercent)
+        decimal premiumPercent,
+        decimal hoursPerDay = Branch.DefaultHoursPerDay)
     {
         decimal hours = 0m;
         decimal pay = 0m;
@@ -106,7 +114,10 @@ public static class OvertimeMath
             }
 
             hours += payable;
-            pay += Pay(payable, HourlyEquivalent(day.Basis, day.Rate, monthlyDayDivisor), premiumPercent);
+            pay += Pay(
+                payable,
+                HourlyEquivalent(day.Basis, day.Rate, monthlyDayDivisor, hoursPerDay),
+                premiumPercent);
         }
 
         return (hours, pay);

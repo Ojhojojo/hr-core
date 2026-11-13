@@ -381,7 +381,8 @@ public sealed partial class PayrollService
                 sliceStart,
                 sliceEnd,
                 paidLeaveDays: paidLeaveDays,
-                dayPayOverrides: dayPayOverrides).Amount;
+                dayPayOverrides: dayPayOverrides,
+                hoursPerDay: HoursPerDaySetting.Resolve(staff.Branch?.HoursPerDay)).Amount;
         }
 
         return total;

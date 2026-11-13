@@ -86,10 +86,17 @@ public sealed partial class Branch
 
     /// <summary>
     /// Working days in a year used to turn a monthly salary into an hourly equivalent:
-    /// monthly × 12 ÷ this ÷ 8. Seed 313.
+    /// monthly × 12 ÷ this ÷ hours per day. Seed 313.
     /// </summary>
     public const decimal DefaultOtMonthlyDayDivisor = 313m;
     public decimal OtMonthlyDayDivisor { get; set; } = DefaultOtMonthlyDayDivisor;
+
+    /// <summary>
+    /// Hours that make a working day for leave and hourly-equivalent pay. Seed 8, the same
+    /// day used before this column existed.
+    /// </summary>
+    public const decimal DefaultHoursPerDay = 8m;
+    public decimal HoursPerDay { get; set; } = DefaultHoursPerDay;
 
     public const DayOfWeek DefaultWeekStartDay = DayOfWeek.Monday;
     public DayOfWeek WeekStartDay { get; set; } = DefaultWeekStartDay;

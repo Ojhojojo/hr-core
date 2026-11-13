@@ -19,7 +19,8 @@ public static class PayrollPremiumCalculator
         bool NightDiffEnabled,
         decimal NightDiffPercent,
         TimeOnly NightStart,
-        TimeOnly NightEnd)
+        TimeOnly NightEnd,
+        decimal HoursPerDay = Branch.DefaultHoursPerDay)
     {
         public static Settings Defaults { get; } = FromBranch(new Branch());
 
@@ -32,7 +33,8 @@ public static class PayrollPremiumCalculator
             branch.PayrollNightDiffEnabled,
             branch.PayrollNightDiffPercent,
             branch.PayrollNightStart,
-            branch.PayrollNightEnd);
+            branch.PayrollNightEnd,
+            HoursPerDaySetting.Resolve(branch.HoursPerDay));
     }
 
     public readonly record struct Result(
@@ -63,7 +65,9 @@ public static class PayrollPremiumCalculator
             return Result.Zero;
         }
 
-        var hourly = basis == PayBasis.Daily ? rate / 8m : rate;
+        var hourly = basis == PayBasis.Daily
+            ? rate / HoursPerDaySetting.Resolve(settings.HoursPerDay)
+            : rate;
         decimal holidayHours = 0m;
         decimal restDayHours = 0m;
         decimal premium = 0m;

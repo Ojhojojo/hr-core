@@ -67,3 +67,8 @@ export function sumPremiums(rows: readonly Pick<PayrollStaffRow, 'premiumPay'>[]
 export function canEditPremiumSettings(role: string | null | undefined): boolean {
   return role === 'owner';
 }
+
+/** Owner or admin can set hours per day. */
+export function canEditHoursPerDay(role: string | null | undefined): boolean {
+  return role === 'owner' || role === 'admin';
+}
