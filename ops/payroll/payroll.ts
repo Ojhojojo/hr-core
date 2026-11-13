@@ -36,6 +36,7 @@ import {
 } from './payroll-premium-dialog';
 import { DayPayOverrideDialog } from './payroll-day-override-dialog';
 import {
+  canEditHoursPerDay as roleCanEditHoursPerDay,
   canEditPremiumSettings,
   premiumLabel,
   rowHasPremium,
@@ -407,6 +408,9 @@ export class PayrollPage {
   protected readonly isOwner = computed(() => this.auth.me()?.staffRole === 'owner');
   protected readonly canEditPremiums = computed(() =>
     canEditPremiumSettings(this.auth.me()?.staffRole),
+  );
+  protected readonly canEditHoursPerDay = computed(() =>
+    roleCanEditHoursPerDay(this.auth.me()?.staffRole),
   );
   protected readonly holidayYear = signal(Number(manilaToday().slice(0, 4)));
   protected readonly holidays = signal<ShopHoliday[]>([]);
@@ -1535,7 +1539,7 @@ export class PayrollPage {
 
   savePremiumSettings(): void {
     const draft = this.settingsDraft();
-    if (!draft || !this.canEditPremiums()) {
+    if (!draft || !this.canEditHoursPerDay()) {
       return;
     }
     const percents = [
@@ -1551,6 +1555,16 @@ export class PayrollPage {
       )
     ) {
       this.premiumsError.set('Percents must be from 0 through 1000.');
+      return;
+    }
+    const hoursPerDay = Number(draft.hoursPerDay);
+    if (
+      !Number.isFinite(hoursPerDay) ||
+      hoursPerDay < 1 ||
+      hoursPerDay > 24 ||
+      (hoursPerDay * 2) % 1 !== 0
+    ) {
+      this.premiumsError.set('Hours per day must be from 1 through 24 in steps of 0.5.');
       return;
     }
     this.premiumsSaving.set(true);
@@ -1570,6 +1584,7 @@ export class PayrollPage {
         adminsCanApproveOt: draft.adminsCanApproveOt,
         otPremiumPercent: Number(draft.otPremiumPercent),
         otMonthlyDayDivisor: Number(draft.otMonthlyDayDivisor),
+        hoursPerDay,
       })
       .subscribe({
         next: (saved) => {
@@ -1882,6 +1897,7 @@ function toSettingsDraft(settings: {
   adminsCanApproveOt?: boolean;
   otPremiumPercent?: number;
   otMonthlyDayDivisor?: number;
+  hoursPerDay?: number;
 }): UpdatePayrollPremiumSettings {
   return {
     regularHolidayPercent: settings.regularHolidayPercent,
@@ -1898,6 +1914,7 @@ function toSettingsDraft(settings: {
     adminsCanApproveOt: settings.adminsCanApproveOt ?? false,
     otPremiumPercent: settings.otPremiumPercent ?? 125,
     otMonthlyDayDivisor: settings.otMonthlyDayDivisor ?? 313,
+    hoursPerDay: settings.hoursPerDay ?? 8,
   };
 }
 

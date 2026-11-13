@@ -9,8 +9,11 @@ namespace HrCore.Features.Payroll;
 /// </summary>
 internal static class PayrollPaidLeave
 {
-    /// <summary>Hours in one leave day for hourly staff. Same 8-hour day as <see cref="OvertimeMath.HourlyEquivalent"/>.</summary>
-    public const decimal HoursPerLeaveDay = 8m;
+    /// <summary>
+    /// Default hours in one leave day for hourly staff. Shops that set
+    /// <see cref="Branch.HoursPerDay"/> use that value; this is the 8-hour fallback.
+    /// </summary>
+    public const decimal HoursPerLeaveDay = Branch.DefaultHoursPerDay;
 
     /// <summary>
     /// Pay factor per date for each staff member with paid leave in [start, end]. A date covered by

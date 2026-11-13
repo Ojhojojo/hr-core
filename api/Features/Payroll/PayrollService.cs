@@ -105,6 +105,7 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
             paidLeaveByStaff.TryGetValue(staff.Id, out var paidLeaveDays);
             dayPayOverridesByStaff.TryGetValue(staff.Id, out var staffDayOverrides);
             var dayOverrideSpecs = ToDayPayOverrideSpecs(staffDayOverrides);
+            var hoursPerDay = HoursPerDaySetting.Resolve(staff.Branch?.HoursPerDay);
             var gross = ComputePeriodGross(
                 slices,
                 staffPunches,
@@ -114,7 +115,8 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
                 shiftEnd,
                 graceMinutes,
                 paidLeaveDays,
-                dayOverrideSpecs);
+                dayOverrideSpecs,
+                hoursPerDay);
             var overtime = PriceStaffOvertime(staff, staffPunches, slices, overtimeByStaff, shiftEnd, graceMinutes);
             var premium = PriceStaffPremium(staff, staffPunches, slices, premiums);
             var allowance = PriceStaffAllowances(
@@ -531,6 +533,7 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
             ? branch.OtMonthlyDayDivisor
             : Branch.DefaultOtMonthlyDayDivisor;
         var premium = staff.Branch?.OtPremiumPercent ?? Branch.DefaultOtPremiumPercent;
+        var hoursPerDay = HoursPerDaySetting.Resolve(staff.Branch?.HoursPerDay);
         var inputs = days.Select(day =>
         {
             var slice = SliceFor(slices, day);
@@ -540,7 +543,7 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
                 slice?.Basis,
                 slice?.RatePhp);
         });
-        return OvertimeMath.SumDays(inputs, divisor, premium);
+        return OvertimeMath.SumDays(inputs, divisor, premium, hoursPerDay);
     }
 
     /// <summary>
@@ -577,7 +580,8 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
         DateOnly start,
         DateOnly end,
         TimeOnly? shiftEnd = null,
-        int? graceMinutes = null) =>
+        int? graceMinutes = null,
+        decimal hoursPerDay = Branch.DefaultHoursPerDay) =>
         ComputePeriodGross(
             [new RateSlice(start, end, basis, rate, otAfterHoursPerDay, otMultiplier)],
             staffPunches,
@@ -585,7 +589,8 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
             start,
             end,
             shiftEnd,
-            graceMinutes);
+            graceMinutes,
+            hoursPerDay: hoursPerDay);
 
     /// <summary>#390: one day's pay override applied inside period gross.</summary>
     internal readonly record struct DayPayOverrideSpec(PayrollDayPayMode Mode, decimal? CustomAmount);
@@ -604,7 +609,8 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
         TimeOnly? shiftEnd = null,
         int? graceMinutes = null,
         IReadOnlyDictionary<DateOnly, decimal>? paidLeaveDays = null,
-        IReadOnlyDictionary<DateOnly, DayPayOverrideSpec>? dayPayOverrides = null)
+        IReadOnlyDictionary<DateOnly, DayPayOverrideSpec>? dayPayOverrides = null,
+        decimal hoursPerDay = Branch.DefaultHoursPerDay)
     {
         if (start > end)
         {
@@ -613,6 +619,7 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
 
         var shift = shiftEnd ?? Branch.DefaultShiftEnd;
         var grace = graceMinutes ?? Branch.DefaultOtGraceMinutes;
+        var dayHours = HoursPerDaySetting.Resolve(hoursPerDay);
 
         var punchesByDay = staffPunches
             .Where(p => p.ApprovalStatus == PunchApprovalStatus.Approved)
@@ -654,7 +661,7 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
                 && slice is not null
                 && closed)
             {
-                var normal = NormalDayPay(slice, day, regular);
+                var normal = NormalDayPay(slice, day, regular, dayHours);
                 var (pay, days) = ApplyDayPayOverride(dayOverride, normal);
                 totalAmount += pay;
                 daysPaid += days;
@@ -695,7 +702,7 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
                     continue;
                 }
 
-                var normal = NormalDayPay(slice, day, regularHours: 0m);
+                var normal = NormalDayPay(slice, day, regularHours: 0m, hoursPerDay: dayHours);
                 var (pay, days) = ApplyDayPayOverride(dayOverride, normal);
                 totalAmount += pay;
                 daysPaid += days;
@@ -728,7 +735,7 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
                 else if (slice.Basis == PayBasis.Hourly)
                 {
                     totalAmount += Math.Round(
-                        PayrollPaidLeave.HoursPerLeaveDay * rate * factor,
+                        HoursPerDaySetting.LeaveHours(factor, dayHours) * rate,
                         2,
                         MidpointRounding.AwayFromZero);
                 }
@@ -781,10 +788,10 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
                 row => new DayPayOverrideSpec(row.Mode, row.CustomAmount));
 
     /// <summary>
-    /// Normal pay for one day before a #390 override: daily rate, or 8× hourly, or monthly rate / days in
+    /// Normal pay for one day before a #390 override: daily rate, or hours-per-day × hourly, or monthly rate / days in
     /// that day's calendar month (the same share the monthly slice pays per day).
     /// </summary>
-    private static decimal NormalDayPay(RateSlice slice, DateOnly day, decimal regularHours)
+    private static decimal NormalDayPay(RateSlice slice, DateOnly day, decimal regularHours, decimal hoursPerDay)
     {
         if (slice.RatePhp is not decimal rate)
         {
@@ -795,7 +802,7 @@ public sealed partial class PayrollService(IHrDb db, HrCoreFeatures features)
         {
             PayBasis.Daily => rate,
             PayBasis.Hourly => Math.Round(
-                (regularHours > 0m ? regularHours : PayrollPaidLeave.HoursPerLeaveDay) * rate,
+                (regularHours > 0m ? regularHours : hoursPerDay) * rate,
                 2,
                 MidpointRounding.AwayFromZero),
             PayBasis.Monthly => Math.Round(

@@ -82,6 +82,9 @@ public static class HrModel
             e.Property(x => x.OtMonthlyDayDivisor)
                 .HasPrecision(7, 2)
                 .HasDefaultValue(Branch.DefaultOtMonthlyDayDivisor);
+            e.Property(x => x.HoursPerDay)
+                .HasPrecision(5, 2)
+                .HasDefaultValue(Branch.DefaultHoursPerDay);
             e.Property(x => x.ClockRadiusMeters).HasDefaultValue(Branch.DefaultClockRadiusMeters);
             e.Property(x => x.RequireClockPhoto)
                 .HasDefaultValue(Branch.DefaultRequireClockPhoto);

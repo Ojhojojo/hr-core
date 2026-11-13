@@ -165,16 +165,18 @@ public static class PayrollEndpoints
             .WithName("PayrollPremiumSettings")
             .WithSummary("Holiday, rest-day, and night-differential settings")
             .WithDescription(
-                "The header shop's premium percents, switches, and night window. " +
-                "Percents include the base 100. Night differential is off until the owner turns it on.");
+                "The header shop's premium percents, switches, night window, and hours per day. " +
+                "Percents include the base 100. Night differential is off until the owner turns it on. " +
+                "Hours per day default to 8.");
 
         api.MapPut("/settings", SavePremiumSettings)
-            .AddEndpointFilter(StaffRoleFilter.OwnerOnly)
+            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin)
             .WithName("PayrollPremiumSettingsSave")
             .WithSummary("Save premium settings")
             .WithDescription(
-                "Owner only. Percents are 0 through 1000. Enables and the night window (Asia/Manila) " +
-                "are stored on the branch, same columns as shop desk settings.");
+                "Owner or admin. Percents are 0 through 1000. Enables and the night window (Asia/Manila) " +
+                "are stored on the branch, same columns as shop desk settings. " +
+                "Hours per day is 1 through 24 in steps of 0.5.");
 
         api.MapGet("/holidays", ListHolidays)
             .WithName("PayrollHolidays")
@@ -952,7 +954,13 @@ public static class PayrollEndpoints
             branches,
             async (shops, currentId, ct) =>
             {
-                var (saved, error) = await payroll.SavePremiumSettingsAsync(shops, currentId, body, http.ActorStaffId(), ct);
+                var (saved, error, fieldErrors) = await payroll.SavePremiumSettingsAsync(
+                    shops, currentId, body, http.ActorStaffId(), ct);
+                if (fieldErrors is not null)
+                {
+                    return Results.ValidationProblem(fieldErrors);
+                }
+
                 if (error is not null)
                 {
                     return Results.BadRequest(new { error });

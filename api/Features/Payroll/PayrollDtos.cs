@@ -556,7 +556,8 @@ public sealed record PayrollPremiumSettingsDto(
     int OtGraceMinutes,
     bool AdminsCanApproveOt,
     decimal OtPremiumPercent,
-    decimal OtMonthlyDayDivisor);
+    decimal OtMonthlyDayDivisor,
+    decimal HoursPerDay);
 
 public sealed class UpdatePayrollPremiumSettingsRequest
 {
@@ -574,6 +575,7 @@ public sealed class UpdatePayrollPremiumSettingsRequest
     public bool? AdminsCanApproveOt { get; set; }
     public decimal? OtPremiumPercent { get; set; }
     public decimal? OtMonthlyDayDivisor { get; set; }
+    public decimal? HoursPerDay { get; set; }
 }
 
 public sealed record ShopHolidayDto(

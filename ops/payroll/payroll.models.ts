@@ -578,6 +578,7 @@ export interface PayrollPremiumSettings {
   adminsCanApproveOt: boolean;
   otPremiumPercent: number;
   otMonthlyDayDivisor: number;
+  hoursPerDay: number;
 }
 
 export type PayrollCutoffMode = 'free' | 'schedule';
@@ -663,6 +664,7 @@ export interface UpdatePayrollPremiumSettings {
   adminsCanApproveOt: boolean;
   otPremiumPercent: number;
   otMonthlyDayDivisor: number;
+  hoursPerDay: number;
 }
 
 export interface ShopHoliday {

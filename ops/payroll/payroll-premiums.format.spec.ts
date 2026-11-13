@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canEditHoursPerDay,
   canEditPremiumSettings,
   percentToMultiplierLabel,
   premiumLabel,
@@ -80,5 +81,14 @@ describe('payroll premium labels', () => {
     expect(canEditPremiumSettings('sales')).toBe(false);
     expect(canEditPremiumSettings(null)).toBe(false);
     expect(canEditPremiumSettings(undefined)).toBe(false);
+  });
+
+  it('lets the owner or admin set hours per day', () => {
+    expect(canEditHoursPerDay('owner')).toBe(true);
+    expect(canEditHoursPerDay('admin')).toBe(true);
+    expect(canEditHoursPerDay('technician')).toBe(false);
+    expect(canEditHoursPerDay('sales')).toBe(false);
+    expect(canEditHoursPerDay(null)).toBe(false);
+    expect(canEditHoursPerDay(undefined)).toBe(false);
   });
 });

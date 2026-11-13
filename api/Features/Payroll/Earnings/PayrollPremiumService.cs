@@ -232,7 +232,7 @@ public sealed partial class PayrollService
         return branch is null ? null : ToSettings(branch);
     }
 
-    public async Task<(PayrollPremiumSettingsDto? Saved, string? Error)> SavePremiumSettingsAsync(
+    public async Task<(PayrollPremiumSettingsDto? Saved, string? Error, Dictionary<string, string[]>? FieldErrors)> SavePremiumSettingsAsync(
         IReadOnlyList<Branch> shops,
         Guid branchId,
         UpdatePayrollPremiumSettingsRequest request,
@@ -241,13 +241,19 @@ public sealed partial class PayrollService
     {
         if (shops.All(shop => shop.Id != branchId))
         {
-            return (null, null);
+            return (null, null, null);
         }
 
         var branch = await db.Branches.FirstOrDefaultAsync(row => row.Id == branchId, cancellationToken);
         if (branch is null)
         {
-            return (null, null);
+            return (null, null, null);
+        }
+
+        if (request.HoursPerDay is decimal hours
+            && !HoursPerDaySetting.TryValidate(hours, out var hoursErrors))
+        {
+            return (null, null, hoursErrors);
         }
 
         var before = PremiumLogValues(branch);
@@ -264,7 +270,7 @@ public sealed partial class PayrollService
         }
         catch (InvalidOperationException ex)
         {
-            return (null, ex.Message);
+            return (null, ex.Message, null);
         }
 
         branch.PayrollHolidayPremiumEnabled = request.HolidayPremiumEnabled;
@@ -275,7 +281,7 @@ public sealed partial class PayrollService
         // Same rule as the shop desk: a window that starts and ends at the same time is not a window.
         if (branch.PayrollNightStart == branch.PayrollNightEnd)
         {
-            return (null, "Night differential start and end must be different.");
+            return (null, "Night differential start and end must be different.", null);
         }
         if (request.ShiftEnd is TimeOnly shiftEnd)
         {
@@ -293,7 +299,7 @@ public sealed partial class PayrollService
             {
                 if (grace < 0 || grace > Branch.MaxOtGraceMinutes)
                 {
-                    return (null, $"Overtime grace must be from 0 through {Branch.MaxOtGraceMinutes} minutes.");
+                    return (null, $"Overtime grace must be from 0 through {Branch.MaxOtGraceMinutes} minutes.", null);
                 }
 
                 branch.OtGraceMinutes = grace;
@@ -309,15 +315,20 @@ public sealed partial class PayrollService
             {
                 if (divisor <= 0m || divisor > 1000m)
                 {
-                    return (null, "Monthly day divisor must be greater than 0 and at most 1000.");
+                    return (null, "Monthly day divisor must be greater than 0 and at most 1000.", null);
                 }
 
                 branch.OtMonthlyDayDivisor = divisor;
             }
+
+            if (request.HoursPerDay is decimal hoursPerDay)
+            {
+                branch.HoursPerDay = hoursPerDay;
+            }
         }
         catch (InvalidOperationException ex)
         {
-            return (null, ex.Message);
+            return (null, ex.Message, null);
         }
 
         var changes = new SettingsChangeLogService(db);
@@ -327,7 +338,7 @@ public sealed partial class PayrollService
             SettingsArea.ShopDesk,
             SettingsChangeLogService.Diff(before, PremiumLogValues(branch)));
         await db.SaveChangesAsync(cancellationToken);
-        return (ToSettings(branch), null);
+        return (ToSettings(branch), null, null);
     }
 
     /// <summary>The premium fields under the same keys the shop desk logs, so both write paths share one trail.</summary>
@@ -342,6 +353,7 @@ public sealed partial class PayrollService
         ("payroll_night_diff_percent", SettingsChangeLogService.Show(branch.PayrollNightDiffPercent)),
         ("payroll_night_start", SettingsChangeLogService.Show(branch.PayrollNightStart)),
         ("payroll_night_end", SettingsChangeLogService.Show(branch.PayrollNightEnd)),
+        ("payroll_hours_per_day", SettingsChangeLogService.Show(branch.HoursPerDay)),
     ];
 
     private static PayrollPremiumSettingsDto ToSettings(Branch branch) => new(
@@ -359,7 +371,8 @@ public sealed partial class PayrollService
         branch.OtGraceMinutes,
         branch.AdminsCanApproveOt,
         branch.OtPremiumPercent,
-        branch.OtMonthlyDayDivisor);
+        branch.OtMonthlyDayDivisor,
+        branch.HoursPerDay);
 
     public async Task<ShopHolidayListResponse> ListHolidaysAsync(
         IReadOnlyList<Branch> shops,

@@ -1098,6 +1098,7 @@ describe('PayrollPage lock controls', () => {
       adminsCanApproveOt: false,
       otPremiumPercent: 125,
       otMonthlyDayDivisor: 313,
+      hoursPerDay: 8,
     };
 
     it('GETs and PUTs premium settings', () => {
