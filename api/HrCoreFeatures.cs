@@ -53,4 +53,13 @@ public sealed class HrCoreFeatures
     /// Discrepancy is net minus that amount. The locked line values stay as they are.
     /// </summary>
     public bool Deposits { get; set; }
+
+    /// <summary>
+    /// Effective-dated SSS, PhilHealth, Pag-IBIG, and withholding rows
+    /// (<c>StatutoryRate</c>, <c>StatutoryTaxBracket</c>).
+    /// Off: those tables are not in the EF model, the rate routes are not mapped, and payroll
+    /// keeps using <c>StatutoryPack</c>. On: suggestions and employer shares use the latest
+    /// row of each kind on or before the month. Seeded rows match today's pack. Owner only.
+    /// </summary>
+    public bool StatutoryRates { get; set; }
 }

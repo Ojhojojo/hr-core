@@ -61,8 +61,9 @@ public sealed class PayrollRemittanceService(
             .Select(rule => new PayrollEmployerShare.Rule(rule.DeductionKey, rule.Mode, rule.CutoffOrdinal))
             .ToList();
 
+        var tables = await payroll.LoadStatutoryTablesAsync(monthStart, cancellationToken);
         return PayrollEmployerShare.Compute(
-            from, to, periodRows, monthRows, allocation, matched, periodCount);
+            from, to, periodRows, monthRows, allocation, matched, periodCount, tables);
     }
 
     public async Task<RemittanceReportDto?> GetAsync(

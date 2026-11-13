@@ -24,12 +24,13 @@ public static class SettingsArea
     public const string PayrollDeduction = "payroll_deduction";
     public const string PayrollRemittance = "payroll_remittance";
     public const string PayrollLoanKind = "payroll_loan_kind";
+    public const string PayrollStatutoryRate = "payroll_statutory_rate";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         ShopDesk, ShopPayment, BankAccount, Company, Branch, Service, MessageTemplate,
         PartGrade, PartCategory, WorkCategory, ExpenseCategory, ChecklistTemplate, InsuranceRates, Demo,
-        PayrollCutoff, PayrollDeduction, PayrollRemittance, PayrollLoanKind
+        PayrollCutoff, PayrollDeduction, PayrollRemittance, PayrollLoanKind, PayrollStatutoryRate
     };
 }
 

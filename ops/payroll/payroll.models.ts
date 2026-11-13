@@ -551,6 +551,74 @@ export interface SaveLoanKind {
   cutoffOrdinal: number | null;
 }
 
+export type StatutoryRateKind = 'sss' | 'philhealth' | 'pagibig' | 'wht';
+
+/** One TRAIN monthly withholding band on a dated withholding row. */
+export interface StatutoryTaxBracket {
+  id: string;
+  sortOrder: number;
+  upTo: number | null;
+  baseTax: number;
+  rate: number;
+  excessOver: number;
+}
+
+/** One dated SSS, PhilHealth, Pag-IBIG, or withholding row. */
+export interface StatutoryRate {
+  id: string;
+  kind: StatutoryRateKind;
+  effectiveFrom: string;
+  mscFloor?: number | null;
+  mscCeiling?: number | null;
+  mscStep?: number | null;
+  employeeRate?: number | null;
+  employerRate?: number | null;
+  ecLow?: number | null;
+  ecHigh?: number | null;
+  ecMscCeilingForLow?: number | null;
+  floor?: number | null;
+  ceiling?: number | null;
+  smallSalary?: number | null;
+  rateSmall?: number | null;
+  rate?: number | null;
+  cap?: number | null;
+  exemptMonthly?: number | null;
+  brackets?: StatutoryTaxBracket[] | null;
+}
+
+export interface StatutoryRateList {
+  rates: StatutoryRate[];
+}
+
+export interface SaveStatutoryTaxBracket {
+  upTo: number | null;
+  baseTax: number;
+  rate: number;
+  excessOver: number;
+  sortOrder?: number | null;
+}
+
+export interface SaveStatutoryRate {
+  kind: StatutoryRateKind;
+  effectiveFrom: string;
+  mscFloor?: number | null;
+  mscCeiling?: number | null;
+  mscStep?: number | null;
+  employeeRate?: number | null;
+  employerRate?: number | null;
+  ecLow?: number | null;
+  ecHigh?: number | null;
+  ecMscCeilingForLow?: number | null;
+  floor?: number | null;
+  ceiling?: number | null;
+  smallSalary?: number | null;
+  rateSmall?: number | null;
+  rate?: number | null;
+  cap?: number | null;
+  exemptMonthly?: number | null;
+  brackets?: SaveStatutoryTaxBracket[] | null;
+}
+
 export interface UpdateStaffLoan {
   kind: string;
   perPeriodAmount: number;

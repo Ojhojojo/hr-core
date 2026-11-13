@@ -356,6 +356,11 @@ public static class PayrollEndpoints
             app.MapPayrollDepositApi();
         }
 
+        if (features.StatutoryRates)
+        {
+            app.MapStatutoryRateApi();
+        }
+
         return app;
     }
 

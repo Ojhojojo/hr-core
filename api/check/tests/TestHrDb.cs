@@ -11,8 +11,9 @@ namespace HrCore.Tests;
 /// Payroll schedule tables are included only when the options carry
 /// <see cref="HrCoreFeatures.PayrollSchedules"/>. The remittance setting is included only when
 /// <see cref="HrCoreFeatures.EmployerRemittance"/> is on. <see cref="HrCoreFeatures.PayoutHold"/>
-/// adds the hold table. Deposits adds PayrollRunLine.DepositedAmount. There is no DbSet for those
-/// types, so a flag-off context does not discover them.
+/// adds the hold table. Deposits adds PayrollRunLine.DepositedAmount. StatutoryRates adds
+/// the dated rate tables. There is no DbSet for those types, so a flag-off context does not
+/// discover them.
 /// </summary>
 public sealed class TestHrDb(DbContextOptions<TestHrDb> options) : DbContext(options), IHrDb
 {
@@ -78,14 +79,16 @@ public sealed class HrCoreFeaturesExtension : IDbContextOptionsExtension
             + (extension.Features.EmployerRemittance ? "EmployerRemittance " : "")
             + (extension.Features.LoanKinds ? "LoanKinds " : "")
             + (extension.Features.PayoutHold ? "PayoutHold " : "")
-            + (extension.Features.Deposits ? "Deposits " : "");
+            + (extension.Features.Deposits ? "Deposits " : "")
+            + (extension.Features.StatutoryRates ? "StatutoryRates " : "");
 
         public override int GetServiceProviderHashCode() =>
             (extension.Features.PayrollSchedules ? 1 : 0)
             + (extension.Features.EmployerRemittance ? 2 : 0)
             + (extension.Features.LoanKinds ? 4 : 0)
             + (extension.Features.PayoutHold ? 8 : 0)
-            + (extension.Features.Deposits ? 16 : 0);
+            + (extension.Features.Deposits ? 16 : 0)
+            + (extension.Features.StatutoryRates ? 32 : 0);
 
         public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) =>
             other is ExtensionInfo otherInfo
@@ -98,6 +101,7 @@ public sealed class HrCoreFeaturesExtension : IDbContextOptionsExtension
             debugInfo["HrCore:LoanKinds"] = extension.Features.LoanKinds.ToString();
             debugInfo["HrCore:PayoutHold"] = extension.Features.PayoutHold.ToString();
             debugInfo["HrCore:Deposits"] = extension.Features.Deposits.ToString();
+            debugInfo["HrCore:StatutoryRates"] = extension.Features.StatutoryRates.ToString();
         }
     }
 }

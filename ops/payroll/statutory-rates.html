@@ -1,0 +1,266 @@
+<div class="ops-cutoff-settings" data-statutory-rates>
+  @if (loading()) {
+    <ops-skeleton data-statutory-rates-loading [rows]="3" label="Loading statutory rates" />
+  } @else if (loadError()) {
+    <ops-banner tone="danger" role="alert" [message]="loadError()" />
+    <button matButton="outlined" type="button" name="retryStatutoryRates" (click)="load()">Retry</button>
+  } @else if (ready()) {
+    @if (notice()) {
+      <ops-banner tone="ok" [message]="notice()" />
+    }
+    @if (saveError()) {
+      <ops-banner tone="danger" role="alert" [message]="saveError()" />
+    }
+    <p>
+      Each row is one government table with the first day it applies. Payroll uses the latest row of
+      that kind on or before the month. Rates are decimals (0.05 is 5%). Suggestions stay
+      suggestions — verify them before saving.
+    </p>
+    <div class="statutory-rate-rows">
+      @for (row of rows(); track $index; let rowIndex = $index) {
+        <div class="statutory-rate-row" [attr.data-statutory-kind]="row.kind">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Kind</mat-label>
+            <mat-select
+              [name]="'statutoryKind' + rowIndex"
+              [ngModel]="row.kind"
+              (ngModelChange)="setKind(rowIndex, $event)"
+            >
+              <mat-option value="sss">SSS</mat-option>
+              <mat-option value="philhealth">PhilHealth</mat-option>
+              <mat-option value="pagibig">Pag-IBIG</mat-option>
+              <mat-option value="wht">Withholding</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Effective from</mat-label>
+            <input
+              matInput
+              type="date"
+              [name]="'statutoryFrom' + rowIndex"
+              [ngModel]="row.effectiveFrom"
+              (ngModelChange)="setDate(rowIndex, $event)"
+            />
+          </mat-form-field>
+          @if (row.kind === 'sss') {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>MSC floor</mat-label>
+              <input
+                matInput
+                type="number"
+                [name]="'statutoryMscFloor' + rowIndex"
+                [ngModel]="row.mscFloor"
+                (ngModelChange)="setNumber(rowIndex, 'mscFloor', $event)"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>MSC ceiling</mat-label>
+              <input
+                matInput
+                type="number"
+                [name]="'statutoryMscCeiling' + rowIndex"
+                [ngModel]="row.mscCeiling"
+                (ngModelChange)="setNumber(rowIndex, 'mscCeiling', $event)"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Employee rate</mat-label>
+              <input
+                matInput
+                type="number"
+                step="0.001"
+                [name]="'statutoryEmployeeRate' + rowIndex"
+                [ngModel]="row.employeeRate"
+                (ngModelChange)="setNumber(rowIndex, 'employeeRate', $event)"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Employer rate</mat-label>
+              <input
+                matInput
+                type="number"
+                step="0.001"
+                [name]="'statutoryEmployerRate' + rowIndex"
+                [ngModel]="row.employerRate"
+                (ngModelChange)="setNumber(rowIndex, 'employerRate', $event)"
+              />
+            </mat-form-field>
+          }
+          @if (row.kind === 'philhealth') {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Floor</mat-label>
+              <input
+                matInput
+                type="number"
+                [name]="'statutoryFloor' + rowIndex"
+                [ngModel]="row.floor"
+                (ngModelChange)="setNumber(rowIndex, 'floor', $event)"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Ceiling</mat-label>
+              <input
+                matInput
+                type="number"
+                [name]="'statutoryCeiling' + rowIndex"
+                [ngModel]="row.ceiling"
+                (ngModelChange)="setNumber(rowIndex, 'ceiling', $event)"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Employee rate</mat-label>
+              <input
+                matInput
+                type="number"
+                step="0.001"
+                [name]="'statutoryPhEmployeeRate' + rowIndex"
+                [ngModel]="row.employeeRate"
+                (ngModelChange)="setNumber(rowIndex, 'employeeRate', $event)"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Employer rate</mat-label>
+              <input
+                matInput
+                type="number"
+                step="0.001"
+                [name]="'statutoryPhEmployerRate' + rowIndex"
+                [ngModel]="row.employerRate"
+                (ngModelChange)="setNumber(rowIndex, 'employerRate', $event)"
+              />
+            </mat-form-field>
+          }
+          @if (row.kind === 'pagibig') {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Cap</mat-label>
+              <input
+                matInput
+                type="number"
+                [name]="'statutoryCap' + rowIndex"
+                [ngModel]="row.cap"
+                (ngModelChange)="setNumber(rowIndex, 'cap', $event)"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Employee rate</mat-label>
+              <input
+                matInput
+                type="number"
+                step="0.001"
+                [name]="'statutoryPagRate' + rowIndex"
+                [ngModel]="row.rate"
+                (ngModelChange)="setNumber(rowIndex, 'rate', $event)"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Employer rate</mat-label>
+              <input
+                matInput
+                type="number"
+                step="0.001"
+                [name]="'statutoryPagEmployerRate' + rowIndex"
+                [ngModel]="row.employerRate"
+                (ngModelChange)="setNumber(rowIndex, 'employerRate', $event)"
+              />
+            </mat-form-field>
+          }
+          @if (row.kind === 'wht') {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Exempt monthly</mat-label>
+              <input
+                matInput
+                type="number"
+                [name]="'statutoryExempt' + rowIndex"
+                [ngModel]="row.exemptMonthly"
+                (ngModelChange)="setNumber(rowIndex, 'exemptMonthly', $event)"
+              />
+            </mat-form-field>
+            <div class="statutory-brackets">
+              @for (bracket of row.brackets; track $index; let bracketIndex = $index) {
+                <div class="statutory-bracket-row">
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Up to</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      [name]="'statutoryUpTo' + rowIndex + '_' + bracketIndex"
+                      [ngModel]="bracket.upTo"
+                      (ngModelChange)="setBracket(rowIndex, bracketIndex, 'upTo', $event)"
+                    />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Base tax</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      [name]="'statutoryBaseTax' + rowIndex + '_' + bracketIndex"
+                      [ngModel]="bracket.baseTax"
+                      (ngModelChange)="setBracket(rowIndex, bracketIndex, 'baseTax', $event)"
+                    />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Rate</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      step="0.01"
+                      [name]="'statutoryBracketRate' + rowIndex + '_' + bracketIndex"
+                      [ngModel]="bracket.rate"
+                      (ngModelChange)="setBracket(rowIndex, bracketIndex, 'rate', $event)"
+                    />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Excess over</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      [name]="'statutoryExcess' + rowIndex + '_' + bracketIndex"
+                      [ngModel]="bracket.excessOver"
+                      (ngModelChange)="setBracket(rowIndex, bracketIndex, 'excessOver', $event)"
+                    />
+                  </mat-form-field>
+                  <button
+                    matButton="outlined"
+                    type="button"
+                    [name]="'deleteStatutoryBracket' + rowIndex + '_' + bracketIndex"
+                    (click)="removeBracket(rowIndex, bracketIndex)"
+                  >
+                    Remove band
+                  </button>
+                </div>
+              }
+              <button
+                matButton="outlined"
+                type="button"
+                [name]="'addStatutoryBracket' + rowIndex"
+                (click)="addBracket(rowIndex)"
+              >
+                Add tax band
+              </button>
+            </div>
+          }
+          <button
+            matButton="outlined"
+            type="button"
+            [name]="'deleteStatutoryRate' + rowIndex"
+            (click)="remove(rowIndex)"
+          >
+            Delete
+          </button>
+        </div>
+      }
+    </div>
+    <button matButton="outlined" type="button" name="addStatutoryRate" (click)="addRate()">
+      Add rate row
+    </button>
+    <button
+      matButton="filled"
+      type="button"
+      name="saveStatutoryRates"
+      [disabled]="saving()"
+      (click)="save()"
+    >
+      {{ saving() ? 'Saving…' : 'Save statutory rates' }}
+    </button>
+  }
+</div>
