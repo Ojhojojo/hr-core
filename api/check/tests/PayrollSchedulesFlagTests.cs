@@ -48,6 +48,8 @@ public sealed class PayrollSchedulesFlagTests
         Assert.Null(line.FindProperty(nameof(PayrollRunLine.ReleasedOn)));
         Assert.Null(line.FindProperty(nameof(PayrollRunLine.ReleasedByStaffId)));
         Assert.Null(line.FindProperty(nameof(PayrollRunLine.DepositedAmount)));
+        Assert.DoesNotContain(typeof(StatutoryRate), types);
+        Assert.DoesNotContain(typeof(StatutoryTaxBracket), types);
         Assert.Contains(typeof(Staff), types);
     }
 
@@ -161,6 +163,33 @@ public sealed class PayrollSchedulesFlagTests
     }
 
     [Fact]
+    public void Statutory_rates_flag_on_maps_the_tables_and_seeds_the_pack()
+    {
+        var built = new DbContextOptionsBuilder<TestHrDb>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseHrCoreFeatures(new HrCoreFeatures { StatutoryRates = true });
+        using var db = new TestHrDb((DbContextOptions<TestHrDb>)built.Options);
+        db.Database.EnsureCreated();
+        var types = db.Model.GetEntityTypes().Select(entity => entity.ClrType).ToHashSet();
+
+        Assert.Contains(typeof(StatutoryRate), types);
+        Assert.Contains(typeof(StatutoryTaxBracket), types);
+        Assert.DoesNotContain(typeof(LoanKind), types);
+        var rate = db.Model.FindEntityType(typeof(StatutoryRate));
+        Assert.NotNull(rate);
+        Assert.Equal(StatutoryRate.KindMaxLength, rate.FindProperty(nameof(StatutoryRate.Kind))!.GetMaxLength());
+        Assert.Equal(14, rate.FindProperty(nameof(StatutoryRate.MscFloor))!.GetPrecision());
+        Assert.Equal(2, rate.FindProperty(nameof(StatutoryRate.MscFloor))!.GetScale());
+        Assert.Equal(9, rate.FindProperty(nameof(StatutoryRate.EmployeeRate))!.GetPrecision());
+        Assert.Equal(6, rate.FindProperty(nameof(StatutoryRate.EmployeeRate))!.GetScale());
+        Assert.Equal(6, db.StatutoryRates().Count());
+        Assert.Equal(5, db.StatutoryTaxBrackets().Count());
+        Assert.Contains(
+            db.StatutoryRates(),
+            row => row.Kind == StatutoryRateKind.Sss && row.EffectiveFrom == new DateOnly(2025, 1, 1));
+    }
+
+    [Fact]
     public void Remittance_flag_on_includes_the_setting_and_export_tables()
     {
         var built = new DbContextOptionsBuilder<TestHrDb>()
@@ -249,6 +278,10 @@ public sealed class PayrollSchedulesFlagTests
         yield return (HttpMethod.Post, "/api/ops/payroll/payout-holds");
         yield return (HttpMethod.Post, "/api/ops/payroll/payout-holds/" + Guid.Empty + "/release");
         yield return (HttpMethod.Put, "/api/ops/payroll/runs/" + Guid.Empty + "/deposit");
+        yield return (HttpMethod.Get, "/api/ops/payroll/statutory-rates");
+        yield return (HttpMethod.Post, "/api/ops/payroll/statutory-rates");
+        yield return (HttpMethod.Put, "/api/ops/payroll/statutory-rates/" + Guid.Empty);
+        yield return (HttpMethod.Delete, "/api/ops/payroll/statutory-rates/" + Guid.Empty);
     }
 
     private sealed class FlagApp : IAsyncDisposable

@@ -15,6 +15,7 @@ import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { HR_LOAN_KINDS } from './payroll-loan-kinds';
 import { HR_PAYOUT_HOLD } from './payroll-payout-hold';
 import { HR_PAYROLL_DEPOSITS } from './payroll-deposits';
+import { HR_STATUTORY_RATES } from './payroll-statutory-rates';
 import {
   HR_EMPLOYER_REMITTANCE,
   HR_REMITTANCE_ACCESS,
@@ -189,6 +190,7 @@ async function mountPayroll(
   loanKinds = false,
   payoutHold = false,
   deposits = false,
+  statutoryRates = false,
 ) {
   const confirm = confirmStub();
   await TestBed.configureTestingModule({
@@ -208,6 +210,7 @@ async function mountPayroll(
       ...(loanKinds ? [{ provide: HR_LOAN_KINDS, useValue: true }] : []),
       ...(payoutHold ? [{ provide: HR_PAYOUT_HOLD, useValue: true }] : []),
       ...(deposits ? [{ provide: HR_PAYROLL_DEPOSITS, useValue: true }] : []),
+      ...(statutoryRates ? [{ provide: HR_STATUTORY_RATES, useValue: true }] : []),
     ],
   }).compileComponents();
 
@@ -1711,6 +1714,36 @@ describe('Deposits flag', () => {
     expect(host.querySelector('[data-deposit-discrepancy]')?.textContent).toContain('50.00');
     expect(host.querySelector('app-ops-payroll-deposits')).toBeNull();
     expect(http.match((r) => r.url.includes('/deposit')).length).toBe(0);
+    http.verify();
+  });
+});
+
+describe('Statutory rates flag', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('hides the statutory rates panel and does not call it when the flag is off', async () => {
+    const { host, http } = await mountPayroll();
+    expect(host.querySelector('app-ops-statutory-rates')).toBeNull();
+    expect(host.textContent).not.toContain('Statutory rates');
+    expect(http.match((r) => r.url.includes('/statutory-rates')).length).toBe(0);
+    http.verify();
+  });
+
+  it('shows the panel when the host turns the flag on, without calling it yet', async () => {
+    const { host, http } = await mountPayroll(
+      ownerMe,
+      mockPayrollData,
+      false,
+      false,
+      null,
+      false,
+      false,
+      false,
+      true,
+    );
+    expect(host.querySelector('app-ops-statutory-rates')).toBeTruthy();
+    expect(host.textContent).toContain('Statutory rates');
+    expect(http.match((r) => r.url.includes('/statutory-rates')).length).toBe(0);
     http.verify();
   });
 });

@@ -85,6 +85,8 @@ import { PayoutHoldSettings } from './payout-holds';
 import { HR_PAYOUT_HOLD } from './payroll-payout-hold';
 import { PayrollDepositSettings } from './deposits';
 import { HR_PAYROLL_DEPOSITS } from './payroll-deposits';
+import { StatutoryRateSettings } from './statutory-rates';
+import { HR_STATUTORY_RATES } from './payroll-statutory-rates';
 import { HR_PAYROLL_SCHEDULES } from './payroll-schedules';
 import { RemittanceReport } from './remittance-report';
 import { EmployerShareReviewPanel } from './employer-share-review';
@@ -129,6 +131,7 @@ import {
     LoanKindSettings,
     PayoutHoldSettings,
     PayrollDepositSettings,
+    StatutoryRateSettings,
     RemittanceReport,
     EmployerShareReviewPanel,
   ],
@@ -338,6 +341,8 @@ export class PayrollPage {
   protected readonly payoutHold = inject(HR_PAYOUT_HOLD, { optional: true }) ?? false;
   /** Host flag. Absent means off, so the deposit panel and its calls stay hidden. */
   protected readonly deposits = inject(HR_PAYROLL_DEPOSITS, { optional: true }) ?? false;
+  /** Host flag. Absent means off, so the statutory rates panel stays hidden and payroll uses the pack. */
+  protected readonly statutoryRates = inject(HR_STATUTORY_RATES, { optional: true }) ?? false;
   private readonly remittanceAccess = inject(HR_REMITTANCE_ACCESS);
   /** Hidden until the host provides a capability that allows this caller. */
   protected readonly showRemittance = computed(

@@ -9,6 +9,7 @@ namespace HrCore.Data;
 /// <see cref="BranchRemittanceSettings"/> exists only when <see cref="HrCoreFeatures.EmployerRemittance"/> is on.
 /// <see cref="LoanKinds"/> exists only when <see cref="HrCoreFeatures.LoanKinds"/> is on.
 /// <see cref="StaffPayoutHolds"/> exists only when <see cref="HrCoreFeatures.PayoutHold"/> is on.
+/// <see cref="StatutoryRates"/> exists only when <see cref="HrCoreFeatures.StatutoryRates"/> is on.
 /// Calling one while the flag is off throws, because the type is not in the model.
 /// </summary>
 public static class HrDbSets
@@ -49,4 +50,18 @@ public static class HrDbSets
     /// </summary>
     public static DbSet<StaffPayoutHold> StaffPayoutHolds(this IHrDb db) =>
         ((DbContext)db).Set<StaffPayoutHold>();
+
+    /// <summary>
+    /// Exists only when <see cref="HrCoreFeatures.StatutoryRates"/> is on.
+    /// Calling it while the flag is off throws, because the type is not in the model.
+    /// </summary>
+    public static DbSet<StatutoryRate> StatutoryRates(this IHrDb db) =>
+        ((DbContext)db).Set<StatutoryRate>();
+
+    /// <summary>
+    /// Exists only when <see cref="HrCoreFeatures.StatutoryRates"/> is on.
+    /// Calling it while the flag is off throws, because the type is not in the model.
+    /// </summary>
+    public static DbSet<StatutoryTaxBracket> StatutoryTaxBrackets(this IHrDb db) =>
+        ((DbContext)db).Set<StatutoryTaxBracket>();
 }

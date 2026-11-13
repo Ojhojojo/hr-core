@@ -246,6 +246,20 @@
   </mat-expansion-panel>
 }
 
+@if (statutoryRates) {
+  <mat-expansion-panel class="ops-premium-panel" (opened)="statutoryRatePanel.load()">
+    <mat-expansion-panel-header>
+      <mat-panel-title>
+        Statutory rates
+        <ops-info-tip
+          text="Dated SSS, PhilHealth, Pag-IBIG, and tax rows. A new government table is a data update. Suggestions stay suggestions."
+        />
+      </mat-panel-title>
+    </mat-expansion-panel-header>
+    <app-ops-statutory-rates #statutoryRatePanel />
+  </mat-expansion-panel>
+}
+
 @if (loanKinds) {
   <mat-expansion-panel class="ops-premium-panel" (opened)="loanKindPanel.load()">
     <mat-expansion-panel-header>

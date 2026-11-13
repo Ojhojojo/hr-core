@@ -27,9 +27,26 @@ public static class PayrollEmployerShare
         Second
     }
 
-    /// <summary>Monthly employer shares for <paramref name="compensationBase"/>. Zero before January 2024.</summary>
-    public static Shares Monthly(DateOnly month, decimal compensationBase)
+    /// <summary>
+    /// Monthly employer shares for <paramref name="compensationBase"/>. Zero before January 2024.
+    /// When <paramref name="tables"/> is set (host flag on), dated rows drive the math and a missing
+    /// kind is zero. When it is null, <see cref="StatutoryPack"/> is used unchanged.
+    /// </summary>
+    public static Shares Monthly(
+        DateOnly month,
+        decimal compensationBase,
+        StatutoryTables? tables = null)
     {
+        if (tables is not null)
+        {
+            return new Shares(
+                tables.Sss is null ? 0m : StatutoryMath.SssEmployerShare(tables.Sss, compensationBase),
+                tables.PhilHealth is null
+                    ? 0m
+                    : StatutoryMath.PhilHealthEmployerShare(tables.PhilHealth, compensationBase),
+                tables.PagIbig is null ? 0m : StatutoryMath.PagIbigEmployerShare(tables.PagIbig, compensationBase));
+        }
+
         if (month < StatutoryPack.EffectiveFrom)
         {
             return new Shares(0m, 0m, 0m);
@@ -53,7 +70,8 @@ public static class PayrollEmployerShare
         IReadOnlyList<PayrollStaffRowDto> monthRows,
         IReadOnlyList<Rule> rules,
         int? matchedOrdinal,
-        int periodCount)
+        int periodCount,
+        StatutoryTables? tables = null)
     {
         var monthStart = new DateOnly(to.Year, to.Month, 1);
         var monthEnd = monthStart.AddMonths(1).AddDays(-1);
@@ -74,7 +92,8 @@ public static class PayrollEmployerShare
                 matchedOrdinal,
                 periodCount,
                 row.Basis,
-                half);
+                half,
+                tables);
         }
 
         return shares;
@@ -105,9 +124,10 @@ public static class PayrollEmployerShare
         int? matchedOrdinal,
         int periodCount,
         PayBasis? basis = null,
-        HalfMonth half = HalfMonth.Full)
+        HalfMonth half = HalfMonth.Full,
+        StatutoryTables? tables = null)
     {
-        var monthly = Monthly(month, monthBase);
+        var monthly = Monthly(month, monthBase, tables);
         if (basis == PayBasis.Daily && half != HalfMonth.Full)
         {
             var (earlierSss, laterSss) = SplitHalfMonth(monthly.Sss);

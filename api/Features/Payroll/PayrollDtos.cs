@@ -838,3 +838,108 @@ public sealed record LoanDeleteResult(bool Deleted, string? Error, int Status)
 
     public static LoanDeleteResult Ok() => new(true, null, StatusCodes.Status204NoContent);
 }
+
+/// <summary>One TRAIN monthly withholding band on a dated withholding row.</summary>
+public sealed record StatutoryTaxBracketDto(
+    Guid Id,
+    int SortOrder,
+    decimal? UpTo,
+    decimal BaseTax,
+    decimal Rate,
+    decimal ExcessOver);
+
+/// <summary>
+/// One dated SSS, PhilHealth, Pag-IBIG, or withholding row. Kind-specific fields are omitted
+/// when they do not apply.
+/// </summary>
+public sealed record StatutoryRateDto(
+    Guid Id,
+    string Kind,
+    DateOnly EffectiveFrom,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? MscFloor = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? MscCeiling = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? MscStep = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? EmployeeRate = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? EmployerRate = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? EcLow = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? EcHigh = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? EcMscCeilingForLow = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? Floor = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? Ceiling = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? SmallSalary = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? RateSmall = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? Rate = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? Cap = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    decimal? ExemptMonthly = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyList<StatutoryTaxBracketDto>? Brackets = null);
+
+public sealed record StatutoryRateListResponse(IReadOnlyList<StatutoryRateDto> Rates);
+
+/// <summary>One withholding band on create or update. Id is ignored; brackets are replaced.</summary>
+public sealed record SaveStatutoryTaxBracketRequest(
+    decimal? UpTo,
+    decimal BaseTax,
+    decimal Rate,
+    decimal ExcessOver,
+    int? SortOrder = null);
+
+/// <summary>Create or replace one dated statutory row. Unused kind fields may be omitted.</summary>
+public sealed class SaveStatutoryRateRequest
+{
+    public string? Kind { get; set; }
+    public DateOnly? EffectiveFrom { get; set; }
+    public decimal? MscFloor { get; set; }
+    public decimal? MscCeiling { get; set; }
+    public decimal? MscStep { get; set; }
+    public decimal? EmployeeRate { get; set; }
+    public decimal? EmployerRate { get; set; }
+    public decimal? EcLow { get; set; }
+    public decimal? EcHigh { get; set; }
+    public decimal? EcMscCeilingForLow { get; set; }
+    public decimal? Floor { get; set; }
+    public decimal? Ceiling { get; set; }
+    public decimal? SmallSalary { get; set; }
+    public decimal? RateSmall { get; set; }
+    public decimal? Rate { get; set; }
+    public decimal? Cap { get; set; }
+    public decimal? ExemptMonthly { get; set; }
+    public IReadOnlyList<SaveStatutoryTaxBracketRequest>? Brackets { get; set; }
+}
+
+public sealed record StatutoryRateWriteResult(
+    StatutoryRateDto? Saved,
+    Dictionary<string, string[]>? Errors,
+    int Status)
+{
+    public static StatutoryRateWriteResult Ok(StatutoryRateDto saved) =>
+        new(saved, null, StatusCodes.Status200OK);
+
+    public static StatutoryRateWriteResult Bad(Dictionary<string, string[]> errors) =>
+        new(null, errors, StatusCodes.Status400BadRequest);
+
+    public static StatutoryRateWriteResult NotFound() =>
+        new(null, null, StatusCodes.Status404NotFound);
+}
+
+public sealed record StatutoryRateDeleteResult(bool Deleted, int Status)
+{
+    public static StatutoryRateDeleteResult NotFound() => new(false, StatusCodes.Status404NotFound);
+
+    public static StatutoryRateDeleteResult Ok() => new(true, StatusCodes.Status204NoContent);
+}

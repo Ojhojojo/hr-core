@@ -12,6 +12,7 @@ namespace HrCore.Data;
 /// <see cref="HrCoreFeatures.LoanKinds"/> adds <c>LoanKind</c> and <c>StaffLoan.LoanKindId</c>.
 /// <see cref="HrCoreFeatures.PayoutHold"/> adds <c>StaffPayoutHold</c> and the hold columns on <c>PayrollRunLine</c>.
 /// <see cref="HrCoreFeatures.Deposits"/> adds <c>PayrollRunLine.DepositedAmount</c>.
+/// <see cref="HrCoreFeatures.StatutoryRates"/> adds <c>StatutoryRate</c> and <c>StatutoryTaxBracket</c>.
 /// </summary>
 public static class HrModel
 {
@@ -112,6 +113,11 @@ public static class HrModel
         if (features.PayoutHold)
         {
             ConfigurePayoutHolds(modelBuilder);
+        }
+
+        if (features.StatutoryRates)
+        {
+            ConfigureStatutoryRates(modelBuilder);
         }
 
         modelBuilder.Entity<Profile>(e =>
@@ -801,6 +807,56 @@ public static class HrModel
     }
 
     /// <summary>
+    /// Dated SSS, PhilHealth, Pag-IBIG, and withholding rows. Called only when
+    /// <see cref="HrCoreFeatures.StatutoryRates"/> is on, so a host that leaves the flag off
+    /// does not discover these entities. Seeded rows match today's statutory pack.
+    /// </summary>
+    private static void ConfigureStatutoryRates(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<StatutoryRate>(e =>
+        {
+            e.ToTable("StatutoryRates", t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_StatutoryRates_Kind",
+                    "\"Kind\" IN ('sss', 'philhealth', 'pagibig', 'wht')");
+            });
+            e.Property(x => x.Kind).HasMaxLength(StatutoryRate.KindMaxLength).IsRequired();
+            e.HasIndex(x => new { x.Kind, x.EffectiveFrom }).IsUnique();
+            e.Property(x => x.MscFloor).HasPrecision(14, 2);
+            e.Property(x => x.MscCeiling).HasPrecision(14, 2);
+            e.Property(x => x.MscStep).HasPrecision(14, 2);
+            e.Property(x => x.EmployeeRate).HasPrecision(9, 6);
+            e.Property(x => x.EmployerRate).HasPrecision(9, 6);
+            e.Property(x => x.EcLow).HasPrecision(14, 2);
+            e.Property(x => x.EcHigh).HasPrecision(14, 2);
+            e.Property(x => x.EcMscCeilingForLow).HasPrecision(14, 2);
+            e.Property(x => x.Floor).HasPrecision(14, 2);
+            e.Property(x => x.Ceiling).HasPrecision(14, 2);
+            e.Property(x => x.SmallSalary).HasPrecision(14, 2);
+            e.Property(x => x.RateSmall).HasPrecision(9, 6);
+            e.Property(x => x.Rate).HasPrecision(9, 6);
+            e.Property(x => x.Cap).HasPrecision(14, 2);
+            e.Property(x => x.ExemptMonthly).HasPrecision(14, 2);
+            e.HasMany(x => x.Brackets).WithOne(x => x.StatutoryRate)
+                .HasForeignKey(x => x.StatutoryRateId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasData(StatutoryRateSeed.Rates());
+        });
+
+        modelBuilder.Entity<StatutoryTaxBracket>(e =>
+        {
+            e.ToTable("StatutoryTaxBrackets");
+            e.Property(x => x.UpTo).HasPrecision(14, 2);
+            e.Property(x => x.BaseTax).HasPrecision(14, 2);
+            e.Property(x => x.Rate).HasPrecision(9, 6);
+            e.Property(x => x.ExcessOver).HasPrecision(14, 2);
+            e.HasIndex(x => new { x.StatutoryRateId, x.SortOrder }).IsUnique();
+            e.HasData(StatutoryRateSeed.Brackets());
+        });
+    }
+
+    /// <summary>
     /// Enums are stored as strings (max 40). Money-named decimals on HR tables are numeric(12,2).
     /// Only touches the entity types this package owns, and only enums from HrCore.Domain:
     /// enums an app adds on its own part of a shared entity keep the app's own mapping.
@@ -834,6 +890,7 @@ public static class HrModel
         typeof(ShopHoliday), typeof(PayrollAmountOverride), typeof(PayrollDayPayOverride), typeof(StaffAllowance),
         typeof(StaffLoan), typeof(StaffLoanPayment), typeof(LoanKind), typeof(StaffPayoutHold),
         typeof(PayrollRunLineItem), typeof(StaffPayRate),
-        typeof(HrChangeLog), typeof(SettingsChangeLog), typeof(Announcement), typeof(IncentiveBonus)
+        typeof(HrChangeLog), typeof(SettingsChangeLog), typeof(Announcement), typeof(IncentiveBonus),
+        typeof(StatutoryRate), typeof(StatutoryTaxBracket)
     ];
 }

@@ -32,26 +32,52 @@ public sealed partial class PayrollService
             return null;
         }
 
-        if (monthStart < StatutoryPack.EffectiveFrom)
+        var baseAmount = StatutoryBase(row);
+        var shares = await MonthlyEmployeeSharesAsync(monthStart, baseAmount, cancellationToken);
+        if (shares is null)
         {
             return Suggest(
-                row, monthStart, StatutoryBase(row), 0m, 0m, 0m, 0m, 0m,
-                ["The statutory pack covers January 2024 on. Enter the amounts by hand."],
-                periodFrom, periodTo, null);
+                row,
+                monthStart,
+                baseAmount,
+                0m,
+                0m,
+                0m,
+                0m,
+                0m,
+                0m,
+                0m,
+                0m,
+                [
+                    features.StatutoryRates
+                        ? "No statutory rate row covers this month. Enter the amounts by hand."
+                        : "The statutory pack covers January 2024 on. Enter the amounts by hand."
+                ],
+                periodFrom,
+                periodTo,
+                null);
         }
 
-        var baseAmount = StatutoryBase(row);
-        var sss = StatutoryPack.SssEmployeeShare(monthStart, baseAmount);
-        var philHealth = StatutoryPack.PhilHealthEmployeeShare(monthStart, baseAmount);
-        var pagIbig = StatutoryPack.PagIbigEmployeeShare(monthStart, baseAmount);
-        var whtTaxable = baseAmount - sss - philHealth - pagIbig;
-        var wht = StatutoryPack.MonthlyWithholdingTax(whtTaxable);
+        var (sssMsc, sss, philHealthBase, philHealth, pagIbigBase, pagIbig, whtTaxable, wht) = shares.Value;
 
         if (periodFrom is null || periodTo is null)
         {
             return Suggest(
-                row, monthStart, baseAmount, sss, philHealth, pagIbig, whtTaxable, wht,
-                StatutoryPack.VerificationNotes, null, null, null);
+                row,
+                monthStart,
+                baseAmount,
+                sssMsc,
+                sss,
+                philHealthBase,
+                philHealth,
+                pagIbigBase,
+                pagIbig,
+                whtTaxable,
+                wht,
+                StatutoryPack.VerificationNotes,
+                null,
+                null,
+                null);
         }
 
         decimal periodBase;
@@ -90,8 +116,11 @@ public sealed partial class PayrollService
                 row,
                 monthStart,
                 baseAmount,
+                sssMsc,
                 scheduled.Value.Sss,
+                philHealthBase,
                 scheduled.Value.PhilHealth,
+                pagIbigBase,
                 scheduled.Value.PagIbig,
                 scheduled.Value.Taxable,
                 scheduled.Value.Wht,
@@ -117,8 +146,11 @@ public sealed partial class PayrollService
             row,
             monthStart,
             baseAmount,
+            sssMsc,
             prorated.Sss,
+            philHealthBase,
             prorated.PhilHealth,
+            pagIbigBase,
             prorated.PagIbig,
             prorated.PeriodTaxable,
             prorated.Wht,
@@ -128,12 +160,71 @@ public sealed partial class PayrollService
             prorated.Fraction);
     }
 
+    private async Task<(
+        decimal SssMsc,
+        decimal Sss,
+        decimal PhilHealthBase,
+        decimal PhilHealth,
+        decimal PagIbigBase,
+        decimal PagIbig,
+        decimal WhtTaxable,
+        decimal Wht)?> MonthlyEmployeeSharesAsync(
+        DateOnly monthStart,
+        decimal baseAmount,
+        CancellationToken cancellationToken)
+    {
+        if (features.StatutoryRates)
+        {
+            var tables = await LoadStatutoryTablesAsync(monthStart, cancellationToken);
+            if (tables is null || !tables.CoversSuggestions)
+            {
+                return null;
+            }
+
+            var sss = StatutoryMath.SssEmployeeShare(tables.Sss!, baseAmount);
+            var philHealth = StatutoryMath.PhilHealthEmployeeShare(tables.PhilHealth!, baseAmount);
+            var pagIbig = StatutoryMath.PagIbigEmployeeShare(tables.PagIbig!, baseAmount);
+            var taxable = baseAmount - sss - philHealth - pagIbig;
+            return (
+                StatutoryMath.SssMsc(tables.Sss!, baseAmount),
+                sss,
+                StatutoryMath.PhilHealthBase(tables.PhilHealth!, baseAmount),
+                philHealth,
+                StatutoryMath.PagIbigBase(tables.PagIbig!, baseAmount),
+                pagIbig,
+                taxable,
+                StatutoryMath.MonthlyWithholdingTax(tables.Wht!, taxable));
+        }
+
+        if (monthStart < StatutoryPack.EffectiveFrom)
+        {
+            return null;
+        }
+
+        var packSss = StatutoryPack.SssEmployeeShare(monthStart, baseAmount);
+        var packPhilHealth = StatutoryPack.PhilHealthEmployeeShare(monthStart, baseAmount);
+        var packPagIbig = StatutoryPack.PagIbigEmployeeShare(monthStart, baseAmount);
+        var packTaxable = baseAmount - packSss - packPhilHealth - packPagIbig;
+        return (
+            StatutoryPack.SssMsc(monthStart, baseAmount),
+            packSss,
+            StatutoryPack.PhilHealthBase(baseAmount),
+            packPhilHealth,
+            StatutoryPack.PagIbigBase(baseAmount),
+            packPagIbig,
+            packTaxable,
+            StatutoryPack.MonthlyWithholdingTax(packTaxable));
+    }
+
     private static StatutorySuggestionDto Suggest(
         PayrollStaffRowDto row,
         DateOnly monthStart,
         decimal baseAmount,
+        decimal sssMsc,
         decimal sss,
+        decimal philHealthBase,
         decimal philHealth,
+        decimal pagIbigBase,
         decimal pagIbig,
         decimal whtTaxable,
         decimal wht,
@@ -146,11 +237,11 @@ public sealed partial class PayrollService
             row.StaffName,
             monthStart.ToString("yyyy-MM"),
             baseAmount,
-            StatutoryPack.SssMsc(monthStart, baseAmount),
+            sssMsc,
             sss,
-            StatutoryPack.PhilHealthBase(baseAmount),
+            philHealthBase,
             philHealth,
-            StatutoryPack.PagIbigBase(baseAmount),
+            pagIbigBase,
             pagIbig,
             whtTaxable,
             wht,

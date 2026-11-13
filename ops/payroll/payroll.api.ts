@@ -20,6 +20,9 @@ import {
   SaveThirteenthOverride,
   SetPayrollRate,
   StatutorySuggestion,
+  StatutoryRate,
+  StatutoryRateList,
+  SaveStatutoryRate,
   PayrollFinalPay,
   ThirteenthMonthResponse,
   ThirteenthMonthRow,
@@ -473,6 +476,22 @@ export class PayrollApi {
 
   deleteLoanKind(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/api/ops/payroll/loan-kinds/${id}`);
+  }
+
+  listStatutoryRates(): Observable<StatutoryRateList> {
+    return this.http.get<StatutoryRateList>(`${this.base}/api/ops/payroll/statutory-rates`);
+  }
+
+  createStatutoryRate(body: SaveStatutoryRate): Observable<StatutoryRate> {
+    return this.http.post<StatutoryRate>(`${this.base}/api/ops/payroll/statutory-rates`, body);
+  }
+
+  updateStatutoryRate(id: string, body: SaveStatutoryRate): Observable<StatutoryRate> {
+    return this.http.put<StatutoryRate>(`${this.base}/api/ops/payroll/statutory-rates/${id}`, body);
+  }
+
+  deleteStatutoryRate(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/api/ops/payroll/statutory-rates/${id}`);
   }
 }
 
