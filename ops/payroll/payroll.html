@@ -209,7 +209,7 @@
       </mat-checkbox>
       @if (needsShopChoice()) {
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
-          <mat-label>Shop to lock</mat-label>
+          <mat-label>{{ words.placeLabel }} to lock</mat-label>
           <mat-select
             name="lockBranch"
             [value]="lockBranchChoice()"

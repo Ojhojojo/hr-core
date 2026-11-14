@@ -25,6 +25,7 @@ import {
   StatusBadgeComponent,
   StatusBadgeTone,
 } from '@hr-host';
+import { HR_HOST_WORDS } from '../hr-words';
 import {
   DirectoryConfigIssue,
   DirectoryRole,
@@ -115,6 +116,7 @@ export class EmployeeDirectoryPage {
   private readonly toast = inject(OpsToastService);
   private readonly route = inject(ActivatedRoute, { optional: true });
   private readonly hostRoles = inject(HR_DIRECTORY_ROLES, { optional: true });
+  protected readonly words = inject(HR_HOST_WORDS);
   private readonly base = environment.apiBaseUrl;
 
   protected readonly loading = signal(true);

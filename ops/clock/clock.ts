@@ -36,6 +36,7 @@ import {
 } from './offsite-punch';
 import { punchStatusLabel, punchStatusTone } from '../attendance/punch-review';
 import { formatDay } from '../hr-dates';
+import { HR_HOST_WORDS } from '../hr-words';
 
 const GPS_IN = 'Turn on location to clock in from your phone.';
 const GPS_OUT = 'Turn on location to clock out from your phone.';
@@ -78,6 +79,7 @@ export class ClockPage {
   private readonly shopApi = inject(ShopApiService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
+  protected readonly words = inject(HR_HOST_WORDS);
   /** Route data, not the signed-in role. /me/clock is self; /hr/clock-kiosk is kiosk. */
   protected readonly clockMode: ClockMode = clockModeFrom(this.route.snapshot.data);
   protected readonly isSelfClock = this.clockMode === 'self';
@@ -124,7 +126,7 @@ export class ClockPage {
   );
   protected readonly pageTooltip = computed(() =>
     this.isSelfClock
-      ? 'Phone clock-in uses the shop pin and radius from Settings.'
+      ? `Phone clock-in uses the ${this.words.placeSentenceWord} pin and radius from Settings.`
       : 'Tap a name to clock in or out; desk taps skip GPS.',
   );
 

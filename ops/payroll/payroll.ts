@@ -23,6 +23,7 @@ import {
   StatusBadgeComponent,
 } from '@hr-host';
 import { manilaWeekRange } from '../attendance/attendance';
+import { HR_HOST_WORDS } from '../hr-words';
 import { MatDialog } from '@angular/material/dialog';
 import { PayrollApi } from './payroll.api';
 import { AllowanceOverrideDialog } from './payroll-allowance-dialog';
@@ -331,6 +332,7 @@ export class PayrollPage {
   private readonly confirm = inject(OpsConfirmService);
   private readonly toast = inject(OpsToastService);
   /** Host flag. Absent means off, so rakkii's payroll screen stays as it was. */
+  protected readonly words = inject(HR_HOST_WORDS);
   protected readonly payrollSchedules = inject(HR_PAYROLL_SCHEDULES, { optional: true }) ?? false;
   /** Host flag. Absent means off, so the remittance panel and its calls stay hidden. */
   protected readonly employerRemittance =

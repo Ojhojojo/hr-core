@@ -24,6 +24,8 @@ import { MatOption, MatSelect } from '@angular/material/select';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatTableModule } from '@angular/material/table';
+import { ActivatedRoute } from '@angular/router';
+import { HR_HOST_WORDS } from '../hr-words';
 import { AttendanceApi } from './attendance.api';
 import {
   AttendancePhotoDialog,
@@ -181,6 +183,8 @@ export class AttendancePage {
   private readonly dialog = inject(MatDialog);
   private readonly breakpoints = inject(OpsBreakpoints);
   private readonly toast = inject(OpsToastService);
+  private readonly route = inject(ActivatedRoute, { optional: true });
+  protected readonly words = inject(HR_HOST_WORDS);
 
   protected readonly from = signal('');
   protected readonly to = signal('');
@@ -230,7 +234,15 @@ export class AttendancePage {
   protected readonly punchStatusLabel = punchStatusLabel;
   protected readonly punchStatusTone = punchStatusTone;
   protected readonly canReviewPunch = canReviewPunch;
-  protected readonly title = computed(() => (this.canManage() ? 'Attendance' : 'My week'));
+  /** `/me/overtime` sets `data: { overtime: true }` on its route. */
+  protected readonly title = computed(() => {
+    if (this.canManage()) {
+      return this.words.titles.attendance;
+    }
+    return this.route?.snapshot.data?.['overtime'] === true
+      ? this.words.titles.myOvertime
+      : this.words.titles.myWeek;
+  });
 
   constructor() {
     if (this.canManage()) {

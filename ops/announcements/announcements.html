@@ -1,10 +1,9 @@
-<ops-page-header
-  title="Announcements"
-  infoTooltip="Visible on Dashboard for sales and technicians while active and within the date range."
->
+<ops-page-header title="Announcements" [infoTooltip]="words.announcementAudienceHint">
   <div actions>
     <button matButton="filled" type="button" (click)="openPost()">New announcement</button>
-    <a routerLink="/workshop" matButton="text">Dashboard</a>
+    @if (words.dashboardLink; as link) {
+      <a [routerLink]="link" matButton="text">{{ words.dashboardLabel }}</a>
+    }
   </div>
 </ops-page-header>
 
@@ -17,7 +16,10 @@
     <ops-skeleton [rows]="3" />
   </div>
 } @else if (rows().length === 0) {
-  <p class="ops-empty">No announcements yet. Write one to post it.</p>
+  <div class="announcements-empty">
+    <p class="ops-empty">No announcements yet. Write one to post it.</p>
+    <button matButton="filled" type="button" (click)="openPost()">New announcement</button>
+  </div>
 } @else {
   <section class="ops-card" aria-label="Posted announcements">
     <h2>Posted</h2>

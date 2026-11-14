@@ -1,4 +1,8 @@
-<ops-page-header title="Time clock" [subtitle]="pageSubtitle()" [infoTooltip]="pageTooltip()" />
+<ops-page-header
+  [title]="words.titles.clock"
+  [subtitle]="pageSubtitle()"
+  [infoTooltip]="pageTooltip()"
+/>
 
 @if (busy() || kioskBusy()) {
   <mat-progress-bar mode="indeterminate" aria-label="Saving attendance" />
@@ -23,7 +27,9 @@
     </section>
 
     @if (requirePhoto()) {
-      <p class="ops-empty">This shop requires a photo on clock-in and clock-out.</p>
+      <p class="ops-empty">
+        This {{ words.placeSentenceWord }} requires a photo on clock-in and clock-out.
+      </p>
       <section class="ops-clock-photo">
         <app-ops-photo-proof
           label="Shift photo"
@@ -81,7 +87,9 @@
   @if (isKiosk) {
     <ops-card title="Desk kiosk">
       @if (kiosk().length === 0) {
-        <p class="ops-empty">No one at this shop uses the time clock yet.</p>
+        <p class="ops-empty">
+          No one at this {{ words.placeSentenceWord }} uses the time clock yet.
+        </p>
       } @else {
         <div class="ops-kiosk-list">
           @for (person of kiosk(); track person.id) {

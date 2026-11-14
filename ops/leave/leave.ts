@@ -20,7 +20,7 @@ import {
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatTableModule } from '@angular/material/table';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   LEAVE_TYPE_LABELS,
   LeaveApi,
@@ -43,6 +43,8 @@ import {
   SetAllotmentDialog,
 } from './leave.dialogs';
 import { formatDayRange } from '../hr-dates';
+import { HR_HOST_WORDS } from '../hr-words';
+import { leaveStatusLabel } from './leave-status';
 
 @Component({
   selector: 'app-leave',
@@ -158,6 +160,14 @@ export class LeavePage {
   private readonly breakpoints = inject(OpsBreakpoints);
   private readonly confirm = inject(OpsConfirmService);
   private readonly toast = inject(OpsToastService);
+  private readonly route = inject(ActivatedRoute, { optional: true });
+  private readonly words = inject(HR_HOST_WORDS);
+  /** `/me/leave` sets `data: { self: true }` on its route. `/hr/leave` does not. */
+  protected readonly title =
+    this.route?.snapshot.data?.['self'] === true
+      ? this.words.titles.myLeave
+      : this.words.titles.leave;
+  protected readonly statusLabel = leaveStatusLabel;
 
   protected readonly year = new Date().getFullYear();
   protected readonly loading = signal(true);

@@ -16,6 +16,7 @@ import { Announcement, announcementStatus, AnnouncementStatus } from './announce
 import { AnnouncementDialog } from './announcement-dialog';
 import { AnnouncementsApi } from './announcements.api';
 import { formatDayRange } from '../hr-dates';
+import { HR_HOST_WORDS } from '../hr-words';
 
 @Component({
   selector: 'app-ops-announcements',
@@ -51,6 +52,14 @@ import { formatDayRange } from '../hr-dates';
       overflow-wrap: anywhere;
     }
 
+    .announcements-empty {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3) var(--space-4);
+    }
+
     .announcement-dates {
       color: var(--ops-muted);
       font-size: 0.95rem;
@@ -64,6 +73,7 @@ import { formatDayRange } from '../hr-dates';
 })
 export class AnnouncementsPage {
   protected readonly formatDayRange = formatDayRange;
+  protected readonly words = inject(HR_HOST_WORDS);
   private readonly api = inject(AnnouncementsApi);
   private readonly dialog = inject(MatDialog);
   private readonly toast = inject(OpsToastService);

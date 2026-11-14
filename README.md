@@ -94,6 +94,38 @@ The People dialog reads the optional `HR_DIRECTORY_ROLES` injection token (`ops/
 
 Accepted role values on the API are the host `StaffRole` enum, not a list inside hr-core. `HrRoles` is still the host's partial class. A role string that is not in that enum is rejected with 400 and nothing is saved. Creating a person stays `StaffRoleFilter.OwnerOnly`.
 
+The HR screens take their words and links from the optional `HR_HOST_WORDS` injection token (`ops/hr-words.ts`). Nothing is required from a host: the token's factory returns `DEFAULT_HR_WORDS`, which is Rakkii's current text, so a host that provides nothing sees no change. A host that wants its own words provides a full object. Spread the defaults, because `titles` is nested:
+
+```ts
+{
+  provide: HR_HOST_WORDS,
+  useValue: { ...DEFAULT_HR_WORDS, placeLabel: 'Site', titles: { ...DEFAULT_HR_WORDS.titles, myOvertime: 'My overtime' } },
+}
+```
+
+| Field                      | Rakkii default (`DEFAULT_HR_WORDS`)                                                                                  | Used on                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `placeLabel`               | `'Shop'`                                                                                                             | Payroll lock form: "Shop to lock"                                       |
+| `branchColumnLabel`        | `'Branch'`                                                                                                           | Attendance register column                                              |
+| `placeSentenceWord`        | `'shop'`                                                                                                             | Clock: "This shop requires a photo…", "No one at this shop…"            |
+| `dashboardLink`            | `'/workshop'` (`null` hides the link)                                                                                | Announcements header                                                    |
+| `dashboardLabel`           | `'Dashboard'`                                                                                                        | Announcements header                                                    |
+| `announcementAudienceHint` | `'Visible on Dashboard for sales and technicians while active and within the date range.'`                          | Announcements info tooltip                                              |
+| `documentsTooltip`         | `'Offer and COE stay in Directory; workshop forms stay on Forms.'`                                                   | Documents info tooltip                                                  |
+| `moveOpenJobsLabel`        | `'Move open jobs to…'` (`null` hides the menu item)                                                                  | Employee record menu                                                    |
+| `titles.directory`         | `'Directory'`                                                                                                        | Directory page, Directory back link                                     |
+| `titles.employeeRecord`    | `'Employee record'`                                                                                                  | Record title when it fails to load and the name is not known            |
+| `titles.myProfile`         | `'My profile'`                                                                                                       | Own profile title when it fails to load and the name is not known       |
+| `titles.clock`             | `'Time clock'`                                                                                                       | Clock page                                                              |
+| `titles.attendance`        | `'Attendance'`                                                                                                       | Attendance page for managers                                            |
+| `titles.myWeek`            | `'My week'`                                                                                                          | Own attendance page                                                     |
+| `titles.myOvertime`        | `'My week'`                                                                                                          | Own attendance page on a route with `data: { overtime: true }`          |
+| `titles.leave`             | `'Leave'`                                                                                                            | Leave page on `/hr/leave`                                               |
+| `titles.myLeave`           | `'Leave'`                                                                                                            | Leave page on a route with `data: { self: true }`                       |
+| `titles.myPayslips`        | `'My payslip'`                                                                                                       | My payslip page                                                         |
+
+The route data keys are read from the host's own routes. `/me/leave` sets `data: { self: true }` (the same key `/me/profile` already uses), and `/me/overtime` sets `data: { overtime: true }`. Without them the default titles apply.
+
 It also passes in app-only pieces shown inside HR screens. In Rakkii these are the job
 handover dialog and the KPI scorecards tab, and another app can supply stubs. The app
 mounts `hrRoutes` from `hr.routes.ts` under its HR area. See Rakkii's

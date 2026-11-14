@@ -92,8 +92,10 @@
         </ng-container>
 
         <ng-container matColumnDef="branch">
-          <th mat-header-cell *matHeaderCellDef>Branch</th>
-          <td mat-cell *matCellDef="let row" data-label="Branch">{{ row.branchName }}</td>
+          <th mat-header-cell *matHeaderCellDef>{{ words.branchColumnLabel }}</th>
+          <td mat-cell *matCellDef="let row" [attr.data-label]="words.branchColumnLabel">
+            {{ row.branchName }}
+          </td>
         </ng-container>
 
         <ng-container matColumnDef="in">

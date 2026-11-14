@@ -1,4 +1,4 @@
-<ops-page-header title="Directory" [subtitle]="headcountLabel()">
+<ops-page-header [title]="words.titles.directory" [subtitle]="headcountLabel()">
   @if (isOwner()) {
     <button actions matButton="filled" type="button" (click)="openAdd()">Add person</button>
   }
