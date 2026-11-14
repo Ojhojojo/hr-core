@@ -63,7 +63,7 @@ public static class OpsReportScope
         }
         catch (PublicBranchException ex)
         {
-            return Results.Json(new { error = ex.Message }, statusCode: ex.StatusCode);
+            return HrProblems.Problem(ex.StatusCode, ex.Message);
         }
     }
 }

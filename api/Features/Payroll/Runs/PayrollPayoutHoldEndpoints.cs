@@ -161,7 +161,7 @@ public static class PayrollPayoutHoldEndpoints
         }
 
         return result.Saved is null
-            ? Results.NotFound(new { error = result.Error ?? "That person is not on this shop scope." })
+            ? HrProblems.Problem(404, result.Error ?? "That person is not on this shop scope.")
             : Results.Ok(result.Saved);
     }
 }

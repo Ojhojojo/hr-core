@@ -51,7 +51,7 @@ public static class StaffEndpoints
         }
         else if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out day))
         {
-            return Results.BadRequest(new { error = "Date must be YYYY-MM-DD." });
+            return HrProblems.Problem(400, "Date must be YYYY-MM-DD.");
         }
 
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
@@ -153,7 +153,7 @@ public static class StaffEndpoints
     {
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.DisplayName))
         {
-            return Results.BadRequest(new { error = "Email and name are required." });
+            return HrProblems.Problem(400, "Email and name are required.");
         }
 
         var actor = http.GetStaff();
@@ -164,23 +164,19 @@ public static class StaffEndpoints
 
         if (hasPayFields && actor?.Role != StaffRole.Owner)
         {
-            return Results.Json(
-                new { error = "Only the company owner can configure pay fields." },
-                statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, "Only the company owner can configure pay fields.");
         }
 
         if (request.MustClock == true && request.Role == StaffRole.Owner)
         {
-            return Results.BadRequest(new { error = "Owners do not use the time clock." });
+            return HrProblems.Problem(400, "Owners do not use the time clock.");
         }
 
         if (request.Role == StaffRole.Owner)
         {
             if (actor.IsShopScopedOwner())
             {
-                return Results.Json(
-                    new { error = "Only the company owner can invite an owner." },
-                    statusCode: StatusCodes.Status403Forbidden);
+                return HrProblems.Problem(StatusCodes.Status403Forbidden, "Only the company owner can invite an owner.");
             }
 
             if (request.BranchId is Guid shopId)
@@ -241,19 +237,17 @@ public static class StaffEndpoints
     {
         if (http.GetStaff().IsShopScopedOwner())
         {
-            return Results.Json(
-                new { error = "Only the company owner can add an owner for a shop." },
-                statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, "Only the company owner can add an owner for a shop.");
         }
 
         if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.DisplayName))
         {
-            return Results.BadRequest(new { error = "Email and name are required." });
+            return HrProblems.Problem(400, "Email and name are required.");
         }
 
         if (request.BranchId == Guid.Empty)
         {
-            return Results.BadRequest(new { error = "Pick a Franchise shop." });
+            return HrProblems.Problem(400, "Pick a Franchise shop.");
         }
 
         return await CreateShopScopedOwnerCoreAsync(
@@ -282,7 +276,7 @@ public static class StaffEndpoints
             var blocking = await work.LockAndListOpenWorkAsync(id, cancellationToken);
             if (blocking.Count > 0)
             {
-                return Results.Conflict(new { error = work.BlockedDeactivationMessage, jobs = blocking });
+                return HrProblems.Problem(409, work.BlockedDeactivationMessage, new Dictionary<string, object?> { ["jobs"] = blocking });
             }
         }
 
@@ -334,7 +328,7 @@ public static class StaffEndpoints
         var restDays = RestDayList.ParseUpdate(request.RestDays, request.ClearRestDays);
         if (restDays.Error is not null)
         {
-            return Results.BadRequest(new { error = restDays.Error });
+            return HrProblems.Problem(400, restDays.Error);
         }
 
         var before = StaffAuditSnapshot.Capture(staff);
@@ -342,7 +336,7 @@ public static class StaffEndpoints
         var nextRole = request.Role ?? staff.Role;
         if (request.MustClock == true && nextRole == StaffRole.Owner)
         {
-            return Results.BadRequest(new { error = "Owners do not use the time clock." });
+            return HrProblems.Problem(400, "Owners do not use the time clock.");
         }
 
         var hasPayEdits = request.PayBasis != null
@@ -354,31 +348,25 @@ public static class StaffEndpoints
 
         if (hasPayEdits && actor?.Role != StaffRole.Owner)
         {
-            return Results.Json(
-                new { error = "Only the company owner can configure pay fields." },
-                statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, "Only the company owner can configure pay fields.");
         }
 
         if (actor.IsShopScopedOwner())
         {
             if (staff.BranchId != actor!.BranchId)
             {
-                return Results.Json(
-                    new { error = "That person is not on your shop." },
-                    statusCode: StatusCodes.Status403Forbidden);
+                return HrProblems.Problem(StatusCodes.Status403Forbidden, "That person is not on your shop.");
             }
 
             if (request.ClearHomeBranch)
             {
-                return Results.BadRequest(new { error = "Home branch cannot be cleared." });
+                return HrProblems.Problem(400, "Home branch cannot be cleared.");
             }
 
             var requestedRole = request.Role ?? staff.Role;
             if (requestedRole == StaffRole.Owner && staff.Role != StaffRole.Owner)
             {
-                return Results.Json(
-                    new { error = "Only the company owner can invite an owner." },
-                    statusCode: StatusCodes.Status403Forbidden);
+                return HrProblems.Problem(StatusCodes.Status403Forbidden, "Only the company owner can invite an owner.");
             }
 
             staff.BranchId = actor.BranchId;
@@ -394,12 +382,12 @@ public static class StaffEndpoints
         {
             if (role != StaffRole.Owner)
             {
-                return Results.BadRequest(new { error = "Home branch is required." });
+                return HrProblems.Problem(400, "Home branch is required.");
             }
 
             if (staff.IsShopScopedOwner() && role == StaffRole.Owner)
             {
-                return Results.BadRequest(new { error = "Home branch cannot be cleared." });
+                return HrProblems.Problem(400, "Home branch cannot be cleared.");
             }
 
             staff.BranchId = null;
@@ -432,7 +420,7 @@ public static class StaffEndpoints
 
         if (role != StaffRole.Owner && staff.BranchId is null)
         {
-            return Results.BadRequest(new { error = "Home branch is required." });
+            return HrProblems.Problem(400, "Home branch is required.");
         }
 
         if (role == StaffRole.Owner && staff.BranchId is Guid ownerHome && ownerHome != PlatformIds.DemoBranchId)
@@ -470,14 +458,12 @@ public static class StaffEndpoints
 
         if (actor.IsShopScopedOwner() && staff.BranchId != actor!.BranchId)
         {
-            return Results.Json(
-                new { error = "That person is not on your shop." },
-                statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, "That person is not on your shop.");
         }
 
         if (string.IsNullOrWhiteSpace(staff.Profile.Email))
         {
-            return Results.BadRequest(new { error = "That person has no email to invite." });
+            return HrProblems.Problem(400, "That person has no email to invite.");
         }
 
         var inviteResult = await invite.InviteAsync(staff.Profile.Email, staff.Profile.DisplayName, cancellationToken);
@@ -563,27 +549,27 @@ public static class StaffEndpoints
     {
         if (request.Position is not null && request.Position.Trim().Length > 100)
         {
-            return Results.BadRequest(new { error = "Position must be 100 characters or fewer." });
+            return HrProblems.Problem(400, "Position must be 100 characters or fewer.");
         }
 
         if (request.Department is not null && request.Department.Trim().Length > 100)
         {
-            return Results.BadRequest(new { error = "Department must be 100 characters or fewer." });
+            return HrProblems.Problem(400, "Department must be 100 characters or fewer.");
         }
 
         if (request.EmployeeNo is not null && request.EmployeeNo.Trim().Length > 100)
         {
-            return Results.BadRequest(new { error = "Employee number must be 100 characters or fewer." });
+            return HrProblems.Problem(400, "Employee number must be 100 characters or fewer.");
         }
 
         if (request.EmergencyContactName is not null && request.EmergencyContactName.Trim().Length > 200)
         {
-            return Results.BadRequest(new { error = "Emergency contact name must be 200 characters or fewer." });
+            return HrProblems.Problem(400, "Emergency contact name must be 200 characters or fewer.");
         }
 
         if (request.EmergencyContactPhone is not null && request.EmergencyContactPhone.Trim().Length > 40)
         {
-            return Results.BadRequest(new { error = "Emergency contact phone must be 40 characters or fewer." });
+            return HrProblems.Problem(400, "Emergency contact phone must be 40 characters or fewer.");
         }
 
         return StatutoryLengthError(request.Tin, "TIN")
@@ -596,7 +582,7 @@ public static class StaffEndpoints
     {
         if (value is not null && value.Trim().Length > 40)
         {
-            return Results.BadRequest(new { error = $"{label} must be 40 characters or fewer." });
+            return HrProblems.Problem(400, $"{label} must be 40 characters or fewer.");
         }
 
         return null;
@@ -608,17 +594,17 @@ public static class StaffEndpoints
             || branch.Code == BranchCodes.Demo
             || branch.OrganizationId != PlatformIds.OrganizationId)
         {
-            return Results.BadRequest(new { error = "Home branch must be one of your shops." });
+            return HrProblems.Problem(400, "Home branch must be one of your shops.");
         }
 
         if (branch.Id == PlatformIds.BranchId || branch.Code == BranchCodes.Roosevelt)
         {
-            return Results.BadRequest(new { error = "The default shop (Roosevelt) cannot have a shop owner." });
+            return HrProblems.Problem(400, "The default shop (Roosevelt) cannot have a shop owner.");
         }
 
         if (branch.Kind != BranchKind.Franchise)
         {
-            return Results.BadRequest(new { error = "A shop owner can only be added for a Franchise shop." });
+            return HrProblems.Problem(400, "A shop owner can only be added for a Franchise shop.");
         }
 
         return null;
@@ -663,14 +649,14 @@ public static class StaffEndpoints
         if (emergencyName is { Length: > 200 })
         {
             return new StaffPersistResult(
-                Results.BadRequest(new { error = "Emergency contact name must be 200 characters or fewer." }),
+                HrProblems.Problem(400, "Emergency contact name must be 200 characters or fewer."),
                 null, null, null);
         }
 
         if (emergencyPhone is { Length: > 40 })
         {
             return new StaffPersistResult(
-                Results.BadRequest(new { error = "Emergency contact phone must be 40 characters or fewer." }),
+                HrProblems.Problem(400, "Emergency contact phone must be 40 characters or fewer."),
                 null, null, null);
         }
 
@@ -681,7 +667,7 @@ public static class StaffEndpoints
             if (mobileValue.Length > 40)
             {
                 return new StaffPersistResult(
-                    Results.BadRequest(new { error = "Mobile must be 40 characters or fewer." }),
+                    HrProblems.Problem(400, "Mobile must be 40 characters or fewer."),
                     null, null, null);
             }
         }
@@ -715,7 +701,7 @@ public static class StaffEndpoints
 
         if (await db.Staff.AnyAsync(s => s.ProfileId == profile.Id, cancellationToken))
         {
-            return new StaffPersistResult(Results.Conflict(new { error = "That email is already on staff." }), null, null, null);
+            return new StaffPersistResult(HrProblems.Problem(409, "That email is already on staff."), null, null, null);
         }
 
         if (actor?.Role != StaffRole.Owner)
@@ -739,7 +725,7 @@ public static class StaffEndpoints
 
         if (role == StaffRole.Owner && mustClock == true)
         {
-            return new StaffPersistResult(Results.BadRequest(new { error = "Owners do not use the time clock." }), null, null, null);
+            return new StaffPersistResult(HrProblems.Problem(400, "Owners do not use the time clock."), null, null, null);
         }
 
         var clock = role == StaffRole.Owner
@@ -964,7 +950,7 @@ public static class StaffEndpoints
             var branch = await OwnedHomeBranchAsync(db, id, cancellationToken);
             if (branch is null)
             {
-                return (null, null, Results.BadRequest(new { error = "Home branch must be one of your shops." }));
+                return (null, null, HrProblems.Problem(400, "Home branch must be one of your shops."));
             }
 
             return (branch.Id, branch, null);
@@ -982,7 +968,7 @@ public static class StaffEndpoints
             return (fallback, fallbackBranch, null);
         }
 
-        return (null, null, Results.BadRequest(new { error = "Home branch is required." }));
+        return (null, null, HrProblems.Problem(400, "Home branch is required."));
     }
 
     private static Task<Branch?> OwnedHomeBranchAsync(IHrDb db, Guid id, CancellationToken cancellationToken) =>

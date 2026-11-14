@@ -78,7 +78,7 @@ public static class PayrollDeductionScheduleEndpoints
             {
                 var schedule = await schedules.GetAsync(shops, currentId, ct);
                 return schedule is null
-                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    ? HrProblems.Problem(404, "That shop is not on your payroll scope.")
                     : Results.Ok(schedule);
             },
             cancellationToken);
@@ -110,7 +110,7 @@ public static class PayrollDeductionScheduleEndpoints
                 }
 
                 return saved is null
-                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    ? HrProblems.Problem(404, "That shop is not on your payroll scope.")
                     : Results.Ok(saved);
             },
             cancellationToken);
@@ -143,7 +143,7 @@ public static class PayrollDeductionScheduleEndpoints
         }
 
         return saved is null
-            ? Results.NotFound(new { error = "That person is not on your payroll scope." })
+            ? HrProblems.Problem(404, "That person is not on your payroll scope.")
             : Results.Ok(saved);
     }
 }

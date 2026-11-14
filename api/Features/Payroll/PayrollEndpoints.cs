@@ -413,7 +413,7 @@ public static class PayrollEndpoints
     {
         if (!PayrollService.TryResolveThirteenthYear(year, out var resolved, out var error))
         {
-            return Task.FromResult(Results.BadRequest(new { error }));
+            return Task.FromResult<IResult>(HrProblems.Problem(400, error));
         }
 
         return OpsReportScope.MapAsync(
@@ -437,7 +437,7 @@ public static class PayrollEndpoints
     {
         if (!PayrollService.TryResolveThirteenthYear(year, out var resolved, out var error))
         {
-            return Task.FromResult(Results.BadRequest(new { error }));
+            return Task.FromResult<IResult>(HrProblems.Problem(400, error));
         }
 
         return OpsReportScope.MapAsync(
@@ -461,12 +461,12 @@ public static class PayrollEndpoints
     {
         if (!PayrollService.TryResolveThirteenthYear(body.Year, out var year, out var yearError))
         {
-            return Results.BadRequest(new { error = yearError });
+            return HrProblems.Problem(400, yearError);
         }
 
         if (!PayrollService.TryNormalizeOverride(body.BasicEarnedOverride, out var amount, out var amountError))
         {
-            return Results.BadRequest(new { error = amountError });
+            return HrProblems.Problem(400, amountError);
         }
 
         return await OpsReportScope.MapAsync(
@@ -477,7 +477,7 @@ public static class PayrollEndpoints
                 var saved = await payroll.SaveThirteenthOverrideAsync(
                     shops, body.StaffId, year, amount, http.GetStaff()?.Id, IncludeUnscopedOwners(http), ct);
                 return saved is null
-                    ? Results.NotFound(new { error = "That person is not on this 13th-month list." })
+                    ? HrProblems.Problem(404, "That person is not on this 13th-month list.")
                     : Results.Ok(saved);
             },
             cancellationToken);
@@ -493,7 +493,7 @@ public static class PayrollEndpoints
     {
         if (!PayrollService.TryResolveThirteenthYear(year, out var resolved, out var error))
         {
-            return Task.FromResult(Results.BadRequest(new { error }));
+            return Task.FromResult<IResult>(HrProblems.Problem(400, error));
         }
 
         return OpsReportScope.MapAsync(
@@ -504,7 +504,7 @@ public static class PayrollEndpoints
                 var cleared = await payroll.ClearThirteenthOverrideAsync(
                     shops, staffId, resolved, IncludeUnscopedOwners(http), ct);
                 return cleared is null
-                    ? Results.NotFound(new { error = "That person is not on this 13th-month list." })
+                    ? HrProblems.Problem(404, "That person is not on this 13th-month list.")
                     : Results.Ok(cleared);
             },
             cancellationToken);
@@ -520,7 +520,7 @@ public static class PayrollEndpoints
     {
         if (!PayrollService.TryResolveThirteenthYear(year, out var resolved, out var error))
         {
-            return Task.FromResult(Results.BadRequest(new { error }));
+            return Task.FromResult<IResult>(HrProblems.Problem(400, error));
         }
 
         return OpsReportScope.MapAsync(
@@ -530,7 +530,7 @@ public static class PayrollEndpoints
             {
                 var sheet = await bir.GetAsync(shops, staffId, resolved, ct);
                 return sheet is null
-                    ? Results.NotFound(new { error = "That person is not on this shop scope." })
+                    ? HrProblems.Problem(404, "That person is not on this shop scope.")
                     : Results.Ok(sheet);
             },
             cancellationToken);
@@ -593,7 +593,7 @@ public static class PayrollEndpoints
             {
                 var run = await runs.GetRunAsync(shops, id, ct);
                 return run is null
-                    ? Results.NotFound(new { error = "That payroll run is not on this shop scope." })
+                    ? HrProblems.Problem(404, "That payroll run is not on this shop scope.")
                     : Results.Ok(run);
             },
             cancellationToken);
@@ -607,7 +607,7 @@ public static class PayrollEndpoints
     {
         if (body.BranchId == Guid.Empty)
         {
-            return Results.BadRequest(new { error = "Pick a shop." });
+            return HrProblems.Problem(400, "Pick a shop.");
         }
 
         return await OpsReportScope.MapAsync(
@@ -626,11 +626,11 @@ public static class PayrollEndpoints
                     ct);
                 if (error is not null)
                 {
-                    return Results.Json(new { error }, statusCode: StatusCodes.Status409Conflict);
+                    return HrProblems.Problem(StatusCodes.Status409Conflict, error);
                 }
 
                 return run is null
-                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    ? HrProblems.Problem(404, "That shop is not on your payroll scope.")
                     : Results.Ok(run);
             },
             cancellationToken);
@@ -650,11 +650,11 @@ public static class PayrollEndpoints
                 var (run, error) = await runs.VoidAsync(shops, id, http.GetStaff()?.Id, ct);
                 if (error is not null)
                 {
-                    return Results.Json(new { error }, statusCode: StatusCodes.Status409Conflict);
+                    return HrProblems.Problem(StatusCodes.Status409Conflict, error);
                 }
 
                 return run is null
-                    ? Results.NotFound(new { error = "That payroll run is not on this shop scope." })
+                    ? HrProblems.Problem(404, "That payroll run is not on this shop scope.")
                     : Results.Ok(run);
             },
             cancellationToken);
@@ -672,7 +672,7 @@ public static class PayrollEndpoints
             {
                 var result = await rates.GetRatesAsync(shops, staffId, IncludeUnscopedOwners(http), ct);
                 return result is null
-                    ? Results.NotFound(new { error = "That person is not on this payroll register." })
+                    ? HrProblems.Problem(404, "That person is not on this payroll register.")
                     : Results.Ok(result);
             },
             cancellationToken);
@@ -693,11 +693,11 @@ public static class PayrollEndpoints
                     shops, staffId, body, http.GetStaff()?.Id, IncludeUnscopedOwners(http), ct);
                 if (error is not null)
                 {
-                    return Results.Json(new { error }, statusCode: StatusCodes.Status409Conflict);
+                    return HrProblems.Problem(StatusCodes.Status409Conflict, error);
                 }
 
                 return result is null
-                    ? Results.NotFound(new { error = "That person is not on this payroll register." })
+                    ? HrProblems.Problem(404, "That person is not on this payroll register.")
                     : Results.Ok(result);
             },
             cancellationToken);
@@ -730,7 +730,7 @@ public static class PayrollEndpoints
     {
         if (body.Sss < 0 || body.PhilHealth < 0 || body.PagIbig < 0 || body.Wht < 0 || body.Other < 0)
         {
-            return Results.BadRequest(new { error = "Deduction amounts cannot be negative." });
+            return HrProblems.Problem(400, "Deduction amounts cannot be negative.");
         }
 
         return await OpsReportScope.MapAsync(
@@ -742,13 +742,11 @@ public static class PayrollEndpoints
                     shops, body, IncludeUnscopedOwners(http), http.GetStaff()?.Id, ct);
                 if (result.Error is not null)
                 {
-                    return Results.Json(
-                        new { error = result.Error },
-                        statusCode: StatusCodes.Status409Conflict);
+                    return HrProblems.Problem(StatusCodes.Status409Conflict, result.Error);
                 }
 
                 return result.Saved is null
-                    ? Results.NotFound(new { error = "That person is not on this payroll register." })
+                    ? HrProblems.Problem(404, "That person is not on this payroll register.")
                     : Results.Ok(result.Saved);
             },
             cancellationToken);
@@ -769,12 +767,11 @@ public static class PayrollEndpoints
                     shops, body, http.GetStaff()?.Id, IncludeUnscopedOwners(http), ct);
                 if (error is not null)
                 {
-                    return Results.Json(
-                        new { error }, statusCode: StatusCodes.Status400BadRequest);
+                    return HrProblems.Problem(StatusCodes.Status400BadRequest, error);
                 }
 
                 return payslip is null
-                    ? Results.NotFound(new { error = "That person is not on this payroll register." })
+                    ? HrProblems.Problem(404, "That person is not on this payroll register.")
                     : Results.Ok(payslip);
             },
             cancellationToken);
@@ -799,12 +796,12 @@ public static class PayrollEndpoints
                 {
                     if (from is null || to is null)
                     {
-                        return Results.BadRequest(new { error = "Period from and to are both required." });
+                        return HrProblems.Problem(400, "Period from and to are both required.");
                     }
 
                     if (from > to)
                     {
-                        return Results.BadRequest(new { error = "The period end must not be before the start." });
+                        return HrProblems.Problem(400, "The period end must not be before the start.");
                     }
 
                     year = from.Value.Year;
@@ -812,13 +809,13 @@ public static class PayrollEndpoints
                 }
                 else if (!TryParseMonth(month, out year, out monthNumber))
                 {
-                    return Results.BadRequest(new { error = "Month must be YYYY-MM." });
+                    return HrProblems.Problem(400, "Month must be YYYY-MM.");
                 }
 
                 var suggestion = await payroll.GetStatutorySuggestionAsync(
                     shops, staffId, year, monthNumber, from, to, IncludeUnscopedOwners(http), ct);
                 return suggestion is null
-                    ? Results.NotFound(new { error = "That person is not on this payroll register." })
+                    ? HrProblems.Problem(404, "That person is not on this payroll register.")
                     : Results.Ok(suggestion);
             },
             cancellationToken);
@@ -838,11 +835,11 @@ public static class PayrollEndpoints
                     shops, staffId, IncludeUnscopedOwners(http), ct);
                 if (error is not null)
                 {
-                    return Results.BadRequest(new { error });
+                    return HrProblems.Problem(400, error);
                 }
 
                 return result is null
-                    ? Results.NotFound(new { error = "That person is not on this payroll register." })
+                    ? HrProblems.Problem(404, "That person is not on this payroll register.")
                     : Results.Ok(result);
             },
             cancellationToken);
@@ -862,13 +859,12 @@ public static class PayrollEndpoints
 
         if (actor.BranchId is null)
         {
-            return Results.BadRequest(
-                new { error = "Owner logins have no home shop, so there is no own payslip." });
+            return HrProblems.Problem(400, "Owner logins have no home shop, so there is no own payslip.");
         }
 
         var payslip = await payroll.GetMyPayslipAsync(actor, from, to, cancellationToken);
         return payslip is null
-            ? Results.NotFound(new { error = "No payslip for this period." })
+            ? HrProblems.Problem(404, "No payslip for this period.")
             : Results.Ok(payslip);
     }
 
@@ -901,13 +897,11 @@ public static class PayrollEndpoints
         var result = await runs.GetMyPayslipAsync(actor.Id, lineId, cancellationToken);
         if (result.Status == StatusCodes.Status403Forbidden)
         {
-            return Results.Json(
-                new { error = "That payslip belongs to another staff member." },
-                statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, "That payslip belongs to another staff member.");
         }
 
         return result.Saved is null
-            ? Results.NotFound(new { error = "No saved payslip found." })
+            ? HrProblems.Problem(404, "No saved payslip found.")
             : Results.Ok(result.Saved);
     }
 
@@ -943,7 +937,7 @@ public static class PayrollEndpoints
             {
                 var settings = await payroll.GetPremiumSettingsAsync(shops, currentId, ct);
                 return settings is null
-                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    ? HrProblems.Problem(404, "That shop is not on your payroll scope.")
                     : Results.Ok(settings);
             },
             cancellationToken);
@@ -968,11 +962,11 @@ public static class PayrollEndpoints
 
                 if (error is not null)
                 {
-                    return Results.BadRequest(new { error });
+                    return HrProblems.Problem(400, error);
                 }
 
                 return saved is null
-                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    ? HrProblems.Problem(404, "That shop is not on your payroll scope.")
                     : Results.Ok(saved);
             },
             cancellationToken);
@@ -987,7 +981,7 @@ public static class PayrollEndpoints
         var resolved = year ?? ManilaTime.Today().Year;
         if (resolved is < 2000 or > 2100)
         {
-            return Task.FromResult<IResult>(Results.BadRequest(new { error = "Year must be between 2000 and 2100." }));
+            return Task.FromResult<IResult>(HrProblems.Problem(400, "Year must be between 2000 and 2100."));
         }
 
         return OpsReportScope.MapAsync(
@@ -1016,7 +1010,7 @@ public static class PayrollEndpoints
 
                 return error is null
                     ? Results.NotFound()
-                    : Results.Json(new { error }, statusCode: status);
+                    : HrProblems.Problem(status, error);
             },
             cancellationToken);
 
@@ -1039,8 +1033,8 @@ public static class PayrollEndpoints
                 }
 
                 return error is null
-                    ? Results.NotFound(new { error = "That holiday is not on this shop scope." })
-                    : Results.Json(new { error }, statusCode: status);
+                    ? HrProblems.Problem(404, "That holiday is not on this shop scope.")
+                    : HrProblems.Problem(status, error);
             },
             cancellationToken);
 
@@ -1058,7 +1052,7 @@ public static class PayrollEndpoints
                 var deleted = await payroll.DeleteHolidayAsync(shops, id, ct);
                 return deleted
                     ? Results.NoContent()
-                    : Results.NotFound(new { error = "That holiday is not on this shop scope." });
+                    : HrProblems.Problem(404, "That holiday is not on this shop scope.");
             },
             cancellationToken);
 
@@ -1075,7 +1069,7 @@ public static class PayrollEndpoints
             {
                 var (result, error) = await payroll.CopyHolidayYearAsync(shops, body.FromYear, body.ToYear, ct);
                 return error is not null
-                    ? Results.BadRequest(new { error })
+                    ? HrProblems.Problem(400, error)
                     : Results.Ok(result);
             },
             cancellationToken);
@@ -1095,12 +1089,12 @@ public static class PayrollEndpoints
                     shops, body, IncludeUnscopedOwners(http), http.GetStaff()?.Id, ct);
                 if (result.Error is not null)
                 {
-                    return Results.Json(new { error = result.Error }, statusCode: result.ErrorStatus);
+                    return HrProblems.Problem(result.ErrorStatus, result.Error);
                 }
 
                 if (result.Saved is null && result.Cleared is null)
                 {
-                    return Results.NotFound(new { error = "That person is not on this payroll register." });
+                    return HrProblems.Problem(404, "That person is not on this payroll register.");
                 }
 
                 return Results.Ok((object?)result.Saved ?? result.Cleared);
@@ -1127,12 +1121,12 @@ public static class PayrollEndpoints
                     ct);
                 if (result.Error is not null)
                 {
-                    return Results.Json(new { error = result.Error }, statusCode: result.ErrorStatus);
+                    return HrProblems.Problem(result.ErrorStatus, result.Error);
                 }
 
                 if (result.Saved is null && result.Cleared is null)
                 {
-                    return Results.NotFound(new { error = "That person is not on this payroll register." });
+                    return HrProblems.Problem(404, "That person is not on this payroll register.");
                 }
 
                 return Results.Ok((object?)result.Saved ?? result.Cleared);
@@ -1153,7 +1147,7 @@ public static class PayrollEndpoints
                 var result = await payroll.ListAllowancesAsync(
                     shops, staffId, IncludeUnscopedOwners(http), ct);
                 return result is null
-                    ? Results.NotFound(new { error = "That person is not on this payroll register." })
+                    ? HrProblems.Problem(404, "That person is not on this payroll register.")
                     : Results.Ok(result);
             },
             cancellationToken);
@@ -1173,11 +1167,11 @@ public static class PayrollEndpoints
                     shops, body, IncludeUnscopedOwners(http), http.GetStaff()?.Id, ct);
                 if (result.Error is not null)
                 {
-                    return Results.Json(new { error = result.Error }, statusCode: result.Status);
+                    return HrProblems.Problem(result.Status, result.Error);
                 }
 
                 return result.Saved is null
-                    ? Results.NotFound(new { error = "That person is not on this payroll register." })
+                    ? HrProblems.Problem(404, "That person is not on this payroll register.")
                     : Results.Ok(result.Saved);
             },
             cancellationToken);
@@ -1198,11 +1192,11 @@ public static class PayrollEndpoints
                     shops, id, body, IncludeUnscopedOwners(http), http.GetStaff()?.Id, ct);
                 if (result.Error is not null)
                 {
-                    return Results.Json(new { error = result.Error }, statusCode: result.Status);
+                    return HrProblems.Problem(result.Status, result.Error);
                 }
 
                 return result.Saved is null
-                    ? Results.NotFound(new { error = "Allowance not found." })
+                    ? HrProblems.Problem(404, "Allowance not found.")
                     : Results.Ok(result.Saved);
             },
             cancellationToken);
@@ -1222,7 +1216,7 @@ public static class PayrollEndpoints
                     shops, id, IncludeUnscopedOwners(http), http.GetStaff()?.Id, ct);
                 return deleted
                     ? Results.NoContent()
-                    : Results.NotFound(new { error = "Allowance not found." });
+                    : HrProblems.Problem(404, "Allowance not found.");
             },
             cancellationToken);
 
@@ -1241,7 +1235,7 @@ public static class PayrollEndpoints
                 var result = await payroll.ListLoansAsync(
                     shops, staffId, includeClosed ?? false, IncludeUnscopedOwners(http), ct);
                 return result is null
-                    ? Results.NotFound(new { error = "That person is not on this payroll register." })
+                    ? HrProblems.Problem(404, "That person is not on this payroll register.")
                     : Results.Ok(result);
             },
             cancellationToken);
@@ -1259,7 +1253,7 @@ public static class PayrollEndpoints
             {
                 var result = await payroll.GetLoanAsync(shops, id, IncludeUnscopedOwners(http), ct);
                 return result is null
-                    ? Results.NotFound(new { error = "Loan not found." })
+                    ? HrProblems.Problem(404, "Loan not found.")
                     : Results.Ok(result);
             },
             cancellationToken);
@@ -1279,11 +1273,11 @@ public static class PayrollEndpoints
                     shops, body, IncludeUnscopedOwners(http), http.GetStaff()?.Id, ct);
                 if (result.Error is not null)
                 {
-                    return Results.Json(new { error = result.Error }, statusCode: result.Status);
+                    return HrProblems.Problem(result.Status, result.Error);
                 }
 
                 return result.Saved is null
-                    ? Results.NotFound(new { error = "That person is not on this payroll register." })
+                    ? HrProblems.Problem(404, "That person is not on this payroll register.")
                     : Results.Ok(result.Saved);
             },
             cancellationToken);
@@ -1304,11 +1298,11 @@ public static class PayrollEndpoints
                     shops, id, body, IncludeUnscopedOwners(http), http.GetStaff()?.Id, ct);
                 if (result.Error is not null)
                 {
-                    return Results.Json(new { error = result.Error }, statusCode: result.Status);
+                    return HrProblems.Problem(result.Status, result.Error);
                 }
 
                 return result.Saved is null
-                    ? Results.NotFound(new { error = "Loan not found." })
+                    ? HrProblems.Problem(404, "Loan not found.")
                     : Results.Ok(result.Saved);
             },
             cancellationToken);
@@ -1329,11 +1323,11 @@ public static class PayrollEndpoints
                     shops, id, body, IncludeUnscopedOwners(http), http.GetStaff()?.Id, ct);
                 if (result.Error is not null)
                 {
-                    return Results.Json(new { error = result.Error }, statusCode: result.Status);
+                    return HrProblems.Problem(result.Status, result.Error);
                 }
 
                 return result.Saved is null
-                    ? Results.NotFound(new { error = "Loan not found." })
+                    ? HrProblems.Problem(404, "Loan not found.")
                     : Results.Ok(result.Saved);
             },
             cancellationToken);
@@ -1353,12 +1347,12 @@ public static class PayrollEndpoints
                     shops, id, IncludeUnscopedOwners(http), http.GetStaff()?.Id, ct);
                 if (result.Error is not null)
                 {
-                    return Results.Json(new { error = result.Error }, statusCode: result.Status);
+                    return HrProblems.Problem(result.Status, result.Error);
                 }
 
                 return result.Deleted
                     ? Results.NoContent()
-                    : Results.NotFound(new { error = "Loan not found." });
+                    : HrProblems.Problem(404, "Loan not found.");
             },
             cancellationToken);
 
@@ -1438,7 +1432,7 @@ public static class PayrollEndpoints
             {
                 var schedule = await cutoffs.GetAsync(shops, currentId, year, monthNumber, ct);
                 return schedule is null
-                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    ? HrProblems.Problem(404, "That shop is not on your payroll scope.")
                     : Results.Ok(schedule);
             },
             cancellationToken);
@@ -1479,7 +1473,7 @@ public static class PayrollEndpoints
                 }
 
                 return saved is null
-                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    ? HrProblems.Problem(404, "That shop is not on your payroll scope.")
                     : Results.Ok(saved);
             },
             cancellationToken);

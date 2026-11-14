@@ -54,7 +54,7 @@ public static class AnnouncementEndpoints
         }
         catch (InvalidOperationException ex)
         {
-            return Results.BadRequest(new { error = ex.Message });
+            return HrProblems.Problem(400, ex.Message);
         }
     }
 
@@ -70,11 +70,11 @@ public static class AnnouncementEndpoints
         }
         catch (InvalidOperationException ex)
         {
-            return Results.BadRequest(new { error = ex.Message });
+            return HrProblems.Problem(400, ex.Message);
         }
         catch (KeyNotFoundException ex)
         {
-            return Results.NotFound(new { error = ex.Message });
+            return HrProblems.Problem(404, ex.Message);
         }
     }
 
@@ -90,7 +90,7 @@ public static class AnnouncementEndpoints
         }
         catch (KeyNotFoundException ex)
         {
-            return Results.NotFound(new { error = ex.Message });
+            return HrProblems.Problem(404, ex.Message);
         }
     }
 }

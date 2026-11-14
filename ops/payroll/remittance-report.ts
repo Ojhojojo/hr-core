@@ -139,7 +139,7 @@ export class RemittanceReport {
 
   private async showExportError(err: unknown): Promise<void> {
     const body = await exportErrorBody(err);
-    this.exportError.set(body.error || 'Could not export the remittance report.');
+    this.exportError.set(body.detail || body.error || 'Could not export the remittance report.');
     this.blockingRuns.set(body.blockingRuns ?? []);
   }
 
@@ -152,21 +152,26 @@ export class RemittanceReport {
   }
 }
 
-async function exportErrorBody(
-  err: unknown,
-): Promise<{ error?: string; blockingRuns?: RemittanceRunRef[] }> {
+/** Problem details (`detail`), with the old `error` field kept for older API builds. */
+interface ExportErrorBody {
+  detail?: string;
+  error?: string;
+  blockingRuns?: RemittanceRunRef[];
+}
+
+async function exportErrorBody(err: unknown): Promise<ExportErrorBody> {
   if (!(err instanceof HttpErrorResponse)) {
     return {};
   }
   const payload = err.error;
   if (payload instanceof Blob) {
     const text = await blobText(payload);
-    return text ? (JSON.parse(text) as { error?: string; blockingRuns?: RemittanceRunRef[] }) : {};
+    return text ? (JSON.parse(text) as ExportErrorBody) : {};
   }
   if (typeof payload === 'string' && payload) {
-    return JSON.parse(payload) as { error?: string; blockingRuns?: RemittanceRunRef[] };
+    return JSON.parse(payload) as ExportErrorBody;
   }
-  return (payload ?? {}) as { error?: string; blockingRuns?: RemittanceRunRef[] };
+  return (payload ?? {}) as ExportErrorBody;
 }
 
 function blobText(blob: Blob): Promise<string> {

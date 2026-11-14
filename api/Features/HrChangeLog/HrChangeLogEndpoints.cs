@@ -74,7 +74,7 @@ public static class HrChangeLogEndpoints
                 {
                     return scopedStaffIds.Contains(one)
                         ? await RespondAsync(hr, [one], field, from, to, capped, ct)
-                        : Results.NotFound(new { error = "That person is not in this shop scope." });
+                        : HrProblems.Problem(404, "That person is not in this shop scope.");
                 }
 
                 return scopedStaffIds.Count == 0
@@ -98,5 +98,5 @@ public static class HrChangeLogEndpoints
     }
 
     private static IResult Forbidden(string error) =>
-        Results.Json(new { error }, statusCode: StatusCodes.Status403Forbidden);
+        HrProblems.Problem(StatusCodes.Status403Forbidden, error);
 }

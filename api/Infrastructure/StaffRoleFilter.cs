@@ -23,16 +23,12 @@ public sealed partial class StaffRoleFilter(params StaffRole[] allowed) : IEndpo
         {
             // StaffAuthorizationFilter already rejects callers with no token (401) and callers with no
             // staff row (403). Reaching here without a staff row means no role: deny.
-            return Results.Json(
-                new { error = "This screen is not available for your role." },
-                statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, "This screen is not available for your role.");
         }
 
         if (!allowed.Contains(staff.Role))
         {
-            return Results.Json(
-                new { error = "This screen is not available for your role." },
-                statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, "This screen is not available for your role.");
         }
 
         return await next(context);
@@ -56,7 +52,7 @@ public sealed class HqOwnerFilter : IEndpointFilter
         var staff = context.HttpContext.GetStaff();
         if (staff.IsShopScopedOwner())
         {
-            return Results.Json(new { error = Error }, statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, Error);
         }
 
         return await next(context);

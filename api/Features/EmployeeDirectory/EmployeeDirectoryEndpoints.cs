@@ -166,17 +166,17 @@ public static class EmployeeDirectoryEndpoints
             || !Enum.IsDefined(request.Role.Value)
             || request.HireDate is null)
         {
-            return Results.BadRequest(new { error = "Email, name, role, and hire date are required." });
+            return HrProblems.Problem(400, "Email, name, role, and hire date are required.");
         }
 
         if (request.DisplayName.Trim().Length > 200)
         {
-            return Results.BadRequest(new { error = "Name must be 200 characters or fewer." });
+            return HrProblems.Problem(400, "Name must be 200 characters or fewer.");
         }
 
         if (!IsValidEmail(request.Email))
         {
-            return Results.BadRequest(new { error = "Enter a valid email address." });
+            return HrProblems.Problem(400, "Enter a valid email address.");
         }
 
         var lengthError = LengthError(
@@ -197,7 +197,7 @@ public static class EmployeeDirectoryEndpoints
 
         if (!IsValidTin(request.Tin))
         {
-            return Results.BadRequest(new { error = "TIN must be 9 to 14 digits, for example 123-456-789-000." });
+            return HrProblems.Problem(400, "TIN must be 9 to 14 digits, for example 123-456-789-000.");
         }
 
         var actor = http.GetStaff();
@@ -338,7 +338,7 @@ public static class EmployeeDirectoryEndpoints
             var blocking = await work.LockAndListOpenWorkAsync(staff.Id, cancellationToken);
             if (blocking.Count > 0)
             {
-                return Results.Conflict(new { error = work.BlockedDeactivationMessage, jobs = blocking });
+                return HrProblems.Problem(409, work.BlockedDeactivationMessage, new Dictionary<string, object?> { ["jobs"] = blocking });
             }
         }
 
@@ -349,7 +349,7 @@ public static class EmployeeDirectoryEndpoints
             var name = request.DisplayName.Trim();
             if (name.Length == 0 || name.Length > 200)
             {
-                return Results.BadRequest(new { error = "Name must be 200 characters or fewer." });
+                return HrProblems.Problem(400, "Name must be 200 characters or fewer.");
             }
 
             staff.Profile.DisplayName = name;
@@ -373,18 +373,18 @@ public static class EmployeeDirectoryEndpoints
 
         if (!IsValidTin(request.Tin))
         {
-            return Results.BadRequest(new { error = "TIN must be 9 to 14 digits, for example 123-456-789-000." });
+            return HrProblems.Problem(400, "TIN must be 9 to 14 digits, for example 123-456-789-000.");
         }
 
         if (request.RegisteredAddress is not null
             && request.RegisteredAddress.Trim().Length > RegisteredAddressMaxLength)
         {
-            return Results.BadRequest(new { error = "Registered address must be 300 characters or fewer." });
+            return HrProblems.Problem(400, "Registered address must be 300 characters or fewer.");
         }
 
         if (request.ZipCode is not null && request.ZipCode.Trim().Length > ZipCodeMaxLength)
         {
-            return Results.BadRequest(new { error = "ZIP code must be 10 characters or fewer." });
+            return HrProblems.Problem(400, "ZIP code must be 10 characters or fewer.");
         }
 
         if (request.Mobile is not null)
@@ -470,7 +470,7 @@ public static class EmployeeDirectoryEndpoints
             {
                 if (!Enum.IsDefined(role))
                 {
-                    return Results.BadRequest(new { error = "Unknown role." });
+                    return HrProblems.Problem(400, "Unknown role.");
                 }
 
                 staff.Role = role;
@@ -501,8 +501,7 @@ public static class EmployeeDirectoryEndpoints
                 {
                     if (request.SeparationReason.Trim().Length > 200)
                     {
-                        return Results.BadRequest(
-                            new { error = "Separation reason must be 200 characters or fewer." });
+                        return HrProblems.Problem(400, "Separation reason must be 200 characters or fewer.");
                     }
 
                     staff.SeparationReason = BlankToNull(request.SeparationReason);
@@ -583,7 +582,7 @@ public static class EmployeeDirectoryEndpoints
         var restDays = RestDayList.ParseUpdate(request.RestDays, request.ClearRestDays);
         if (restDays.Error is not null)
         {
-            return Results.BadRequest(new { error = restDays.Error });
+            return HrProblems.Problem(400, restDays.Error);
         }
 
         if (restDays.Changed)
@@ -637,7 +636,7 @@ public static class EmployeeDirectoryEndpoints
         {
             if (request.Role != StaffRole.Owner)
             {
-                return (null, Results.BadRequest(new { error = "Home branch is required." }));
+                return (null, HrProblems.Problem(400, "Home branch is required."));
             }
 
             return (null, null);
@@ -657,7 +656,7 @@ public static class EmployeeDirectoryEndpoints
                 || branch.OrganizationId != PlatformIds.OrganizationId
                 || branch.Code == BranchCodes.Demo)
             {
-                return (null, Results.BadRequest(new { error = "Home branch must be one of your shops." }));
+                return (null, HrProblems.Problem(400, "Home branch must be one of your shops."));
             }
 
             return (requested, null);
@@ -831,32 +830,32 @@ public static class EmployeeDirectoryEndpoints
     {
         if (mobile is not null && mobile.Trim().Length > MobileMaxLength)
         {
-            return Results.BadRequest(new { error = "Mobile must be 40 characters or fewer." });
+            return HrProblems.Problem(400, "Mobile must be 40 characters or fewer.");
         }
 
         if (emergencyName is not null && emergencyName.Trim().Length > EmergencyNameMaxLength)
         {
-            return Results.BadRequest(new { error = "Emergency contact name must be 200 characters or fewer." });
+            return HrProblems.Problem(400, "Emergency contact name must be 200 characters or fewer.");
         }
 
         if (emergencyPhone is not null && emergencyPhone.Trim().Length > EmergencyPhoneMaxLength)
         {
-            return Results.BadRequest(new { error = "Emergency contact phone must be 40 characters or fewer." });
+            return HrProblems.Problem(400, "Emergency contact phone must be 40 characters or fewer.");
         }
 
         if (position is not null && position.Trim().Length > PositionMaxLength)
         {
-            return Results.BadRequest(new { error = "Position must be 100 characters or fewer." });
+            return HrProblems.Problem(400, "Position must be 100 characters or fewer.");
         }
 
         if (department is not null && department.Trim().Length > DepartmentMaxLength)
         {
-            return Results.BadRequest(new { error = "Department must be 100 characters or fewer." });
+            return HrProblems.Problem(400, "Department must be 100 characters or fewer.");
         }
 
         if (employeeNo is not null && employeeNo.Trim().Length > EmployeeNoMaxLength)
         {
-            return Results.BadRequest(new { error = "Employee number must be 100 characters or fewer." });
+            return HrProblems.Problem(400, "Employee number must be 100 characters or fewer.");
         }
 
         var statutory = StatutoryLength(tin, "TIN")
@@ -870,7 +869,7 @@ public static class EmployeeDirectoryEndpoints
     {
         if (value is not null && value.Trim().Length > StatutoryIdMaxLength)
         {
-            return Results.BadRequest(new { error = $"{label} must be {StatutoryIdMaxLength} characters or fewer." });
+            return HrProblems.Problem(400, $"{label} must be {StatutoryIdMaxLength} characters or fewer.");
         }
 
         return null;
@@ -880,7 +879,7 @@ public static class EmployeeDirectoryEndpoints
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static IResult Forbidden(string error) =>
-        Results.Json(new { error }, statusCode: StatusCodes.Status403Forbidden);
+        HrProblems.Problem(StatusCodes.Status403Forbidden, error);
 
     internal static EmployeeDirectoryCard ToCard(
         Domain.Staff staff,
