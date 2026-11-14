@@ -52,14 +52,15 @@ public static class EmployeeDirectoryEndpoints
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
         var branch = await db.Branches.AsNoTracking()
             .FirstAsync(b => b.Id == branchId, cancellationToken);
+        // The company owner (no branch) covers every shop, so is listed in each one.
         var scoped = db.Staff.AsNoTracking()
             .Include(s => s.Profile)
             .Include(s => s.Branch)
-            .Where(s => s.BranchId == branchId);
+            .Where(s => s.BranchId == branchId || (s.BranchId == null && s.Role == StaffRole.Owner));
         // Current ops shop only. When that shop is not Demo, also drop Demo people.
         if (!string.Equals(branch.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase))
         {
-            scoped = scoped.Where(s => s.Branch!.Code != BranchCodes.Demo);
+            scoped = scoped.Where(s => s.BranchId == null || s.Branch!.Code != BranchCodes.Demo);
         }
 
         var headcount = await scoped.CountAsync(s => s.Active, cancellationToken);
@@ -125,7 +126,10 @@ public static class EmployeeDirectoryEndpoints
             .Include(s => s.Profile)
             .Include(s => s.Branch)
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
-        if (staff is null || staff.BranchId != branchId)
+        // The company owner (no branch) opens from every shop, as in the list.
+        var inThisShop = staff is not null
+            && (staff.BranchId == branchId || (staff.BranchId == null && staff.Role == StaffRole.Owner));
+        if (staff is null || !inThisShop)
         {
             return Results.NotFound();
         }

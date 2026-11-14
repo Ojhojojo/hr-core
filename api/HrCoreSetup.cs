@@ -19,7 +19,8 @@ public static class HrCoreSetup
     /// Registers HR services. <typeparamref name="TDb"/> is the app's DbContext; it must implement
     /// <see cref="IHrDb"/> and call <see cref="HrModel.Configure"/>. The app also registers
     /// <see cref="IStaffInvite"/>, <see cref="IFileStore"/>, <see cref="IHrFileStore"/> and
-    /// <see cref="DemoBranchOptions"/>; <see cref="IStaffWorkHooks"/> is optional.
+    /// <see cref="DemoBranchOptions"/>; <see cref="IStaffWorkHooks"/>, <see cref="IHrStaffResolver"/>
+    /// and <see cref="HrCoreOptions"/> are optional. Register the optional ones before this call.
     /// </summary>
     public static IServiceCollection AddHrCore<TDb>(
         this IServiceCollection services,
@@ -36,6 +37,9 @@ public static class HrCoreSetup
         }
 
         services.AddScoped<IHrDb>(sp => sp.GetRequiredService<TDb>());
+        // Host switches default to the safe value. A host that wants one registers it before AddHrCore.
+        services.TryAddSingleton(new HrCoreOptions());
+        services.TryAddScoped<IHrStaffResolver, DefaultHrStaffResolver>();
         services.AddScoped<StaffAuthorizationFilter>();
         services.AddScoped<BranchResolver>();
         services.AddScoped<SettingsChangeLogService>();

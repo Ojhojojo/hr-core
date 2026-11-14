@@ -1,17 +1,13 @@
-using System.Security.Claims;
-using Microsoft.EntityFrameworkCore;
-
 namespace HrCore.Infrastructure;
 
-public sealed class StaffAuthorizationFilter(IHrDb db, IWebHostEnvironment environment) : IEndpointFilter
+public sealed class StaffAuthorizationFilter(IHrDb db, IHrStaffResolver resolver, HrCoreOptions options) : IEndpointFilter
 {
     public const string StaffItemKey = "Staff";
     public const string TestAuthUserHeader = "X-Test-Auth-User-Id";
 
     /// <summary>
     /// #322: marks a request whose caller is authenticated (test auth header or JWT) but has no
-    /// active staff profile. Role checks must treat this caller as having no privileges instead
-    /// of falling back to the unauthenticated (legacy test) path.
+    /// active staff profile. Role checks must treat this caller as having no privileges.
     /// </summary>
     public const string NoStaffItemKey = "AuthenticatedWithoutStaff";
 
@@ -19,37 +15,43 @@ public sealed class StaffAuthorizationFilter(IHrDb db, IWebHostEnvironment envir
         EndpointFilterInvocationContext context,
         EndpointFilterDelegate next)
     {
-        if (environment.IsEnvironment("Testing"))
+        var http = context.HttpContext;
+
+        // The test header signs a request in with no token. Only a host that opts in (the hr-core
+        // test host) honours it. The environment name is never enough, so a deployed app that
+        // happens to run as "Testing" stays closed.
+        if (options.AllowTestAuthHeader)
         {
-            var testAuth = context.HttpContext.Request.Headers[TestAuthUserHeader].FirstOrDefault();
+            var testAuth = http.Request.Headers[TestAuthUserHeader].FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(testAuth))
             {
-                await BindStaffAsync(context.HttpContext, db, testAuth, context.HttpContext.RequestAborted);
-                MarkIfAuthenticatedWithoutStaff(context.HttpContext);
+                await BindStaffAsync(http, db, testAuth, http.RequestAborted);
+                MarkIfAuthenticatedWithoutStaff(http);
                 return await next(context);
             }
         }
 
-        var authUserId = context.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
-                         ?? context.HttpContext.User.FindFirstValue("sub");
-
-        if (!string.IsNullOrWhiteSpace(authUserId))
-        {
-            await BindStaffAsync(context.HttpContext, db, authUserId, context.HttpContext.RequestAborted);
-            MarkIfAuthenticatedWithoutStaff(context.HttpContext);
-        }
-
-        if (environment.IsEnvironment("Testing"))
-        {
-            return await next(context);
-        }
-
-        if (string.IsNullOrWhiteSpace(authUserId))
+        // No token and no honoured header: nobody is signed in, so there is nothing to check.
+        if (string.IsNullOrWhiteSpace(http.User.AuthUserId()))
         {
             return Results.Unauthorized();
         }
 
-        if (!context.HttpContext.Items.ContainsKey(StaffItemKey))
+        // The host decides which staff row this sign-in is (IHrStaffResolver). The default matches
+        // by sign-in id only.
+        var staff = await resolver.FindAsync(http, http.RequestAborted);
+        if (staff is not null)
+        {
+            http.Items[StaffItemKey] = staff;
+        }
+        else
+        {
+            http.Items.Remove(StaffItemKey);
+        }
+
+        MarkIfAuthenticatedWithoutStaff(http);
+
+        if (!http.Items.ContainsKey(StaffItemKey))
         {
             return Results.Json(
                 new { error = "Staff access required. Your account is not linked to an active staff profile." },
@@ -65,9 +67,7 @@ public sealed class StaffAuthorizationFilter(IHrDb db, IWebHostEnvironment envir
         string authUserId,
         CancellationToken cancellationToken)
     {
-        var staff = await db.Staff.AsNoTracking()
-            .Include(s => s.Profile)
-            .FirstOrDefaultAsync(s => s.Profile!.AuthUserId == authUserId && s.Active, cancellationToken);
+        var staff = await DefaultHrStaffResolver.FindActiveByAuthUserIdAsync(db, authUserId, cancellationToken);
         if (staff is not null)
         {
             http.Items[StaffItemKey] = staff;

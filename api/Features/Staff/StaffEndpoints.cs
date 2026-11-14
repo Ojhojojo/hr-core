@@ -481,7 +481,8 @@ public static class StaffEndpoints
         }
 
         var inviteResult = await invite.InviteAsync(staff.Profile.Email, staff.Profile.DisplayName, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(inviteResult.AuthUserId)
+        if (inviteResult.AccountConfirmed
+            && !string.IsNullOrWhiteSpace(inviteResult.AuthUserId)
             && (string.IsNullOrWhiteSpace(staff.Profile.AuthUserId)
                 || !string.Equals(staff.Profile.AuthUserId, inviteResult.AuthUserId, StringComparison.Ordinal)))
         {
@@ -773,7 +774,8 @@ public static class StaffEndpoints
         await db.SaveChangesAsync(cancellationToken);
 
         var inviteResult = await invite.InviteAsync(normalized, profile.DisplayName, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(inviteResult.AuthUserId)
+        if (inviteResult.AccountConfirmed
+            && !string.IsNullOrWhiteSpace(inviteResult.AuthUserId)
             && (string.IsNullOrWhiteSpace(profile.AuthUserId)
                 || !string.Equals(profile.AuthUserId, inviteResult.AuthUserId, StringComparison.Ordinal)))
         {

@@ -379,6 +379,7 @@ public sealed class DepositApp : IAsyncLifetime
             options.UseInMemoryDatabase(databaseName, databaseRoot)
                 .UseHrCoreFeatures(features)
                 .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning)));
+        builder.Services.AddSingleton(new HrCoreOptions { AllowTestAuthHeader = true });
         builder.Services.AddHrCore<TestHrDb>(features);
         builder.Services.AddSingleton(new DemoBranchOptions { Enabled = false });
         builder.Services.AddSingleton<IStaffInvite, NoStaffInvite>();

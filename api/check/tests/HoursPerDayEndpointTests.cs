@@ -40,6 +40,7 @@ public sealed class HoursPerDayApp : IAsyncLifetime
         var databaseRoot = new Microsoft.EntityFrameworkCore.Storage.InMemoryDatabaseRoot();
         builder.Services.AddDbContext<TestHrDb>(options =>
             options.UseInMemoryDatabase(databaseName, databaseRoot));
+        builder.Services.AddSingleton(new HrCoreOptions { AllowTestAuthHeader = true });
         builder.Services.AddHrCore<TestHrDb>();
         builder.Services.AddSingleton(new DemoBranchOptions { Enabled = false });
         builder.Services.AddSingleton<IStaffInvite, NoStaffInvite>();

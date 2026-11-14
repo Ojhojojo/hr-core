@@ -401,6 +401,7 @@ public sealed class StatutoryRateApp : IAsyncLifetime
         var databaseRoot = new InMemoryDatabaseRoot();
         builder.Services.AddDbContext<TestHrDb>(options =>
             options.UseInMemoryDatabase(databaseName, databaseRoot).UseHrCoreFeatures(features));
+        builder.Services.AddSingleton(new HrCoreOptions { AllowTestAuthHeader = true });
         builder.Services.AddHrCore<TestHrDb>(features);
         builder.Services.AddSingleton(new DemoBranchOptions { Enabled = false });
         builder.Services.AddSingleton<IStaffInvite, NoStaffInvite>();

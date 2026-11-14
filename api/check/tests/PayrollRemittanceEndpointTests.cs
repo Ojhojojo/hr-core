@@ -51,6 +51,7 @@ public class RemittanceApp : IAsyncLifetime
             options.UseInMemoryDatabase(databaseName, databaseRoot).UseHrCoreFeatures(features));
         ConfigureAccess(builder.Services);
         ConfigureReview(builder.Services);
+        builder.Services.AddSingleton(new HrCoreOptions { AllowTestAuthHeader = true });
         builder.Services.AddHrCore<TestHrDb>(features);
         builder.Services.AddSingleton(new DemoBranchOptions { Enabled = false });
         builder.Services.AddSingleton<IStaffInvite, NoStaffInvite>();

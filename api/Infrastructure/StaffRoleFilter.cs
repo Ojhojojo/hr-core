@@ -21,16 +21,11 @@ public sealed partial class StaffRoleFilter(params StaffRole[] allowed) : IEndpo
         var staff = context.HttpContext.GetStaff();
         if (staff is null)
         {
-            // #322: an authenticated caller with no staff profile has no role — deny.
-            // The unauthenticated (legacy test) caller keeps the previous pass-through.
-            if (context.HttpContext.IsAuthenticatedWithoutStaff())
-            {
-                return Results.Json(
-                    new { error = "This screen is not available for your role." },
-                    statusCode: StatusCodes.Status403Forbidden);
-            }
-
-            return await next(context);
+            // StaffAuthorizationFilter already rejects callers with no token (401) and callers with no
+            // staff row (403). Reaching here without a staff row means no role: deny.
+            return Results.Json(
+                new { error = "This screen is not available for your role." },
+                statusCode: StatusCodes.Status403Forbidden);
         }
 
         if (!allowed.Contains(staff.Role))
