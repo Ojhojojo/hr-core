@@ -27,7 +27,6 @@ import { AttendanceMe, AttendancePunch, KioskStaff } from './clock.models';
 import {
   DEFAULT_CLOCK_RADIUS_METERS,
   OFFSITE_REASON_REQUIRED,
-  OFFSITE_WARNING,
   GpsReading,
   OffsitePunchInput,
   ShopPin,
@@ -117,7 +116,8 @@ export class ClockPage {
   }));
   protected readonly needsReason = computed(() => needsOffsiteReason(this.offsiteInput()));
   protected readonly canSubmitNow = computed(() => canSubmitPunch(this.offsiteInput()));
-  protected readonly offsiteWarning = OFFSITE_WARNING;
+  /** OFFSITE_WARNING's text with the host's place word, so it reads the same as the rest of the page. */
+  protected readonly offsiteWarning = `You're not at the ${this.words.placeSentenceWord}`;
   protected readonly offsiteReasonRequired = OFFSITE_REASON_REQUIRED;
   protected readonly punchStatusLabel = punchStatusLabel;
   protected readonly punchStatusTone = punchStatusTone;
@@ -342,7 +342,7 @@ export class ClockPage {
       if (!this.allowOffsite() && !coords) {
         this.error.set(side === 'in' ? GPS_IN : GPS_OUT);
       } else if (!this.allowOffsite()) {
-        this.error.set(OFFSITE_WARNING);
+        this.error.set(this.offsiteWarning);
       }
       this.busy.set(false);
       this.busyMessage.set('');

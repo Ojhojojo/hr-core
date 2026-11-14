@@ -131,6 +131,13 @@ handover dialog and the KPI scorecards tab, and another app can supply stubs. Th
 mounts `hrRoutes` from `hr.routes.ts` under its HR area. See Rakkii's
 `apps/ops/src/app/hr-host.ts` for the full list.
 
+## Before promoting develop to main
+
+These `develop` changes need a host-side step before a `main` host (Rakkii) takes them:
+
+- **Invite linking needs `AccountConfirmed`.** hr-core now writes `AuthUserId` from an invite only when `StaffInviteResult.AccountConfirmed` is `true`. A host that returns an id without setting it gets unlinked new hires (403 on HR screens) until it either sets `AccountConfirmed = true` for an account it has confirmed, or supplies an `IHrStaffResolver` that links on first verified sign-in.
+- **Test hosts opt in to the test header.** `X-Test-Auth-User-Id` works only with `HrCoreOptions { AllowTestAuthHeader = true }` registered before `AddHrCore`. A test host that relied on the `Testing` environment alone now gets 401.
+
 ## Names kept for compatibility
 
 Some names stay as they were so Rakkii's ops app and stored data keep working:
