@@ -90,14 +90,14 @@ public static class AttendanceEndpoints
         // #384: the owner has no personal time clock, same as leave. Kiosk punch-for is unchanged.
         if (actor.Role == StaffRole.Owner)
         {
-            return Results.Json(new { error = "Owners do not clock in." }, statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, "Owners do not clock in.");
         }
 
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
         var body = await ReadPunchAsync(http.Request, cancellationToken);
         if (body.Error is not null)
         {
-            return Results.BadRequest(new { error = body.Error });
+            return HrProblems.Problem(400, body.Error);
         }
 
         try
@@ -135,13 +135,13 @@ public static class AttendanceEndpoints
         // #384: the owner has no personal time clock, same as leave. Kiosk punch-for is unchanged.
         if (actor.Role == StaffRole.Owner)
         {
-            return Results.Json(new { error = "Owners do not clock in." }, statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, "Owners do not clock in.");
         }
 
         var body = await ReadPunchAsync(http.Request, cancellationToken);
         if (body.Error is not null)
         {
-            return Results.BadRequest(new { error = body.Error });
+            return HrProblems.Problem(400, body.Error);
         }
 
         try
@@ -204,7 +204,7 @@ public static class AttendanceEndpoints
         var body = await ReadPunchAsync(http.Request, cancellationToken);
         if (body.Error is not null)
         {
-            return Results.BadRequest(new { error = body.Error });
+            return HrProblems.Problem(400, body.Error);
         }
 
         try
@@ -235,7 +235,7 @@ public static class AttendanceEndpoints
         var body = await ReadPunchAsync(http.Request, cancellationToken);
         if (body.Error is not null)
         {
-            return Results.BadRequest(new { error = body.Error });
+            return HrProblems.Problem(400, body.Error);
         }
 
         try
@@ -270,12 +270,12 @@ public static class AttendanceEndpoints
         }
         catch (JsonException)
         {
-            return Results.BadRequest(new { error = "Could not read the punch." });
+            return HrProblems.Problem(400, "Could not read the punch.");
         }
 
         if (request is null || request.StaffId == Guid.Empty)
         {
-            return Results.BadRequest(new { error = "Choose a staff member." });
+            return HrProblems.Problem(400, "Choose a staff member.");
         }
 
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
@@ -320,7 +320,7 @@ public static class AttendanceEndpoints
         }
         catch (JsonException)
         {
-            return Results.BadRequest(new { error = "Could not read the close request." });
+            return HrProblems.Problem(400, "Could not read the close request.");
         }
 
         request ??= new ClosePunchRequest();
@@ -382,7 +382,7 @@ public static class AttendanceEndpoints
         }
         catch (JsonException)
         {
-            return Results.BadRequest(new { error = "Could not read the review." });
+            return HrProblems.Problem(400, "Could not read the review.");
         }
 
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
@@ -400,13 +400,11 @@ public static class AttendanceEndpoints
 
     private static IResult MapError(Exception ex) => ex switch
     {
-        AttendanceForbiddenException => Results.Json(
-            new { error = ex.Message },
-            statusCode: StatusCodes.Status403Forbidden),
-        AttendanceBadRequestException => Results.BadRequest(new { error = ex.Message }),
-        ClockPhotoException => Results.BadRequest(new { error = ex.Message }),
-        KeyNotFoundException => Results.NotFound(new { error = ex.Message }),
-        InvalidOperationException => Results.Conflict(new { error = ex.Message }),
+        AttendanceForbiddenException => HrProblems.Problem(StatusCodes.Status403Forbidden, ex.Message),
+        AttendanceBadRequestException => HrProblems.Problem(400, ex.Message),
+        ClockPhotoException => HrProblems.Problem(400, ex.Message),
+        KeyNotFoundException => HrProblems.Problem(404, ex.Message),
+        InvalidOperationException => HrProblems.Problem(409, ex.Message),
         _ => throw ex
     };
 
@@ -445,7 +443,7 @@ public static class AttendanceEndpoints
         var normalized = side.Trim().ToLowerInvariant();
         if (normalized is not "in" and not "out")
         {
-            return Results.BadRequest(new { error = "Photo side must be in or out." });
+            return HrProblems.Problem(400, "Photo side must be in or out.");
         }
 
         var punch = await db.AttendancePunches.AsNoTracking()
@@ -474,9 +472,7 @@ public static class AttendanceEndpoints
 
         if (punch.StaffId != actor.Id)
         {
-            return Results.Json(
-                new { error = "You cannot open another staff member's photo." },
-                statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, "You cannot open another staff member's photo.");
         }
 
         return await OpenPhotoAsync(punch, normalized, files, cancellationToken);
@@ -493,12 +489,12 @@ public static class AttendanceEndpoints
         var fileName = side == "out" ? punch.OutPhotoFileName : punch.InPhotoFileName;
         if (string.IsNullOrWhiteSpace(storagePath))
         {
-            return Results.NotFound(new { error = "No clock photo on this punch." });
+            return HrProblems.Problem(404, "No clock photo on this punch.");
         }
 
         var stream = await files.OpenAsync(storagePath, cancellationToken);
         return stream is null
-            ? Results.NotFound(new { error = "No clock photo on this punch." })
+            ? HrProblems.Problem(404, "No clock photo on this punch.")
             : Results.File(
                 stream,
                 string.IsNullOrWhiteSpace(contentType) ? "image/jpeg" : contentType,
@@ -615,12 +611,12 @@ public static class AttendanceEndpoints
         }
         catch (JsonException)
         {
-            return Results.BadRequest(new { error = "Could not read the overtime request." });
+            return HrProblems.Problem(400, "Could not read the overtime request.");
         }
 
         if (request is null)
         {
-            return Results.BadRequest(new { error = "Could not read the overtime request." });
+            return HrProblems.Problem(400, "Could not read the overtime request.");
         }
 
         try
@@ -672,7 +668,7 @@ public static class AttendanceEndpoints
             }
             catch (JsonException)
             {
-                return Results.BadRequest(new { error = "Could not read the decision." });
+                return HrProblems.Problem(400, "Could not read the decision.");
             }
         }
 
@@ -736,7 +732,7 @@ public static class AttendanceEndpoints
                 }
                 catch (AttendanceBadRequestException ex)
                 {
-                    return Results.BadRequest(new { error = ex.Message });
+                    return HrProblems.Problem(400, ex.Message);
                 }
             },
             cancellationToken);
@@ -777,7 +773,7 @@ public static class AttendanceEndpoints
                 }
                 catch (AttendanceBadRequestException ex)
                 {
-                    return Results.BadRequest(new { error = ex.Message });
+                    return HrProblems.Problem(400, ex.Message);
                 }
             },
             cancellationToken);

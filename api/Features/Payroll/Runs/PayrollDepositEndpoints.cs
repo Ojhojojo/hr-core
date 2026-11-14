@@ -94,7 +94,7 @@ public static class PayrollDepositEndpoints
         }
 
         return result.Saved is null
-            ? Results.NotFound(new { error = result.Error ?? "That payroll run is not on this shop scope." })
+            ? HrProblems.Problem(404, result.Error ?? "That payroll run is not on this shop scope.")
             : Results.Ok(result.Saved);
     }
 }

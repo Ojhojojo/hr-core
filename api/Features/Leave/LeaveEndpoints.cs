@@ -188,22 +188,22 @@ public static class LeaveEndpoints
     {
         if (request.StaffId == Guid.Empty)
         {
-            return Results.BadRequest(new { error = "Staff is required." });
+            return HrProblems.Problem(400, "Staff is required.");
         }
 
         if (request.Year < 1 || request.Year > 9999)
         {
-            return Results.BadRequest(new { error = "Year is required." });
+            return HrProblems.Problem(400, "Year is required.");
         }
 
         if (request.LeaveType is null || !Enum.IsDefined(request.LeaveType.Value))
         {
-            return Results.BadRequest(new { error = "Leave type is required." });
+            return HrProblems.Problem(400, "Leave type is required.");
         }
 
         if (request.Days is null || request.Days < 0)
         {
-            return Results.BadRequest(new { error = "Days must be zero or more." });
+            return HrProblems.Problem(400, "Days must be zero or more.");
         }
 
         if (await FindOnShopAsync(request.StaffId, http, branches, db, cancellationToken) is null)
@@ -217,10 +217,7 @@ public static class LeaveEndpoints
                 db, request.StaffId, request.Year, request.LeaveType.Value, cancellationToken);
             if (request.Days.Value < balance.Used)
             {
-                return Results.BadRequest(new
-                {
-                    error = $"Days can't be less than the {balance.Used:0.#} already approved this year."
-                });
+                return HrProblems.Problem(400, $"Days can't be less than the {balance.Used:0.#} already approved this year.");
             }
         }
 
@@ -286,24 +283,24 @@ public static class LeaveEndpoints
         // A staff id in the body is ignored. The request is always for the signed-in person.
         if (request.LeaveType is null || !Enum.IsDefined(request.LeaveType.Value))
         {
-            return Results.BadRequest(new { error = "Leave type is required." });
+            return HrProblems.Problem(400, "Leave type is required.");
         }
 
         if (request.StartDate is null || request.EndDate is null)
         {
-            return Results.BadRequest(new { error = "Start and end dates are required." });
+            return HrProblems.Problem(400, "Start and end dates are required.");
         }
 
         var start = request.StartDate.Value;
         var end = request.EndDate.Value;
         if (end < start)
         {
-            return Results.BadRequest(new { error = "End date must be on or after the start date." });
+            return HrProblems.Problem(400, "End date must be on or after the start date.");
         }
 
         if (start.Year != end.Year)
         {
-            return Results.BadRequest(new { error = "Start and end must be in the same calendar year." });
+            return HrProblems.Problem(400, "Start and end must be in the same calendar year.");
         }
 
         if (HalfDayError(request.HalfDay, start, end) is { } halfDayError)
@@ -314,19 +311,19 @@ public static class LeaveEndpoints
         var note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
         if (note is { Length: > NoteMaxLength })
         {
-            return Results.BadRequest(new { error = "Note must be 500 characters or fewer." });
+            return HrProblems.Problem(400, "Note must be 500 characters or fewer.");
         }
 
         var calendar = await LeaveDayContext.LoadAsync(db, actor.Id, start, end, cancellationToken);
         var days = calendar.Count(start, end, request.HalfDay);
         if (days == 0m)
         {
-            return Results.BadRequest(new { error = "Those dates are all rest days or holidays." });
+            return HrProblems.Problem(400, "Those dates are all rest days or holidays.");
         }
 
         if (await OverlapsAsync(db, actor.Id, start, end, cancellationToken))
         {
-            return Results.BadRequest(new { error = "This overlaps another leave request." });
+            return HrProblems.Problem(400, "This overlaps another leave request.");
         }
 
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
@@ -365,29 +362,29 @@ public static class LeaveEndpoints
 
         if (request.StaffId == Guid.Empty)
         {
-            return Results.BadRequest(new { error = "Staff is required." });
+            return HrProblems.Problem(400, "Staff is required.");
         }
 
         if (request.LeaveType is null || !Enum.IsDefined(request.LeaveType.Value))
         {
-            return Results.BadRequest(new { error = "Leave type is required." });
+            return HrProblems.Problem(400, "Leave type is required.");
         }
 
         if (request.StartDate is null || request.EndDate is null)
         {
-            return Results.BadRequest(new { error = "Start and end dates are required." });
+            return HrProblems.Problem(400, "Start and end dates are required.");
         }
 
         var start = request.StartDate.Value;
         var end = request.EndDate.Value;
         if (end < start)
         {
-            return Results.BadRequest(new { error = "End date must be on or after the start date." });
+            return HrProblems.Problem(400, "End date must be on or after the start date.");
         }
 
         if (start.Year != end.Year)
         {
-            return Results.BadRequest(new { error = "Start and end must be in the same calendar year." });
+            return HrProblems.Problem(400, "Start and end must be in the same calendar year.");
         }
 
         if (HalfDayError(request.HalfDay, start, end) is { } halfDayError)
@@ -398,7 +395,7 @@ public static class LeaveEndpoints
         var note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
         if (note is { Length: > NoteMaxLength })
         {
-            return Results.BadRequest(new { error = "Note must be 500 characters or fewer." });
+            return HrProblems.Problem(400, "Note must be 500 characters or fewer.");
         }
 
         var targetStaff = await db.Staff
@@ -411,19 +408,19 @@ public static class LeaveEndpoints
 
         if (targetStaff.Role == StaffRole.Owner)
         {
-            return Results.BadRequest(new { error = "Cannot record leave for owner." });
+            return HrProblems.Problem(400, "Cannot record leave for owner.");
         }
 
         var calendar = await LeaveDayContext.LoadAsync(db, targetStaff.Id, start, end, cancellationToken);
         var days = calendar.Count(start, end, request.HalfDay);
         if (days == 0m)
         {
-            return Results.BadRequest(new { error = "Those dates are all rest days or holidays." });
+            return HrProblems.Problem(400, "Those dates are all rest days or holidays.");
         }
 
         if (await OverlapsAsync(db, targetStaff.Id, start, end, cancellationToken))
         {
-            return Results.BadRequest(new { error = "This overlaps another leave request." });
+            return HrProblems.Problem(400, "This overlaps another leave request.");
         }
 
         var year = start.Year;
@@ -432,7 +429,7 @@ public static class LeaveEndpoints
             var balance = await BalanceForTypeAsync(db, targetStaff.Id, year, request.LeaveType.Value, cancellationToken);
             if (balance.Allotment - balance.Used - days < 0)
             {
-                return Results.BadRequest(new { error = "That leave would make the balance negative." });
+                return HrProblems.Problem(400, "That leave would make the balance negative.");
             }
         }
 
@@ -477,7 +474,7 @@ public static class LeaveEndpoints
 
         if (request.Decision is not (LeaveRequestStatus.Approved or LeaveRequestStatus.Rejected))
         {
-            return Results.BadRequest(new { error = "Decision must be approved or rejected." });
+            return HrProblems.Problem(400, "Decision must be approved or rejected.");
         }
 
         var row = await db.LeaveRequests
@@ -498,18 +495,18 @@ public static class LeaveEndpoints
 
         if (row.Status != LeaveRequestStatus.Pending)
         {
-            return Results.BadRequest(new { error = "This request is already decided." });
+            return HrProblems.Problem(400, "This request is already decided.");
         }
 
         var reassignments = request.Reassignments ?? [];
         if (reassignments.Count > 0 && request.Decision != LeaveRequestStatus.Approved)
         {
-            return Results.BadRequest(new { error = "Job reassignments only apply when approving leave." });
+            return HrProblems.Problem(400, "Job reassignments only apply when approving leave.");
         }
 
         if (await PayrollRunService.IsPeriodLockedAsync(db, row.StaffId, row.StartDate, row.EndDate, cancellationToken))
         {
-            return Results.Conflict(new { error = PayrollRunService.LockedPeriodMessage });
+            return HrProblems.Problem(409, PayrollRunService.LockedPeriodMessage);
         }
 
         var year = row.StartDate.Year;
@@ -520,7 +517,7 @@ public static class LeaveEndpoints
             var balance = await BalanceForTypeAsync(db, row.StaffId, year, row.LeaveType, cancellationToken);
             if (balance.Allotment - balance.Used - days < 0)
             {
-                return Results.BadRequest(new { error = "That approval would make the balance negative." });
+                return HrProblems.Problem(400, "That approval would make the balance negative.");
             }
         }
 
@@ -558,7 +555,7 @@ public static class LeaveEndpoints
 
         if (error is not null)
         {
-            return Results.BadRequest(new { error });
+            return HrProblems.Problem(400, error);
         }
 
         return Results.Ok(ToResponse(row, row.Staff.Profile.DisplayName, days));
@@ -600,7 +597,7 @@ public static class LeaveEndpoints
         var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
         if (reason is { Length: > CancelReasonMaxLength })
         {
-            return Results.BadRequest(new { error = "Reason must be 500 characters or fewer." });
+            return HrProblems.Problem(400, "Reason must be 500 characters or fewer.");
         }
 
         var row = await db.LeaveRequests
@@ -614,7 +611,7 @@ public static class LeaveEndpoints
 
         if (row.Status is LeaveRequestStatus.Rejected or LeaveRequestStatus.Cancelled)
         {
-            return Results.BadRequest(new { error = "This request can't be cancelled." });
+            return HrProblems.Problem(400, "This request can't be cancelled.");
         }
 
         if (row.StaffId == actor.Id)
@@ -634,13 +631,13 @@ public static class LeaveEndpoints
 
             if (row.Status == LeaveRequestStatus.Approved && reason is null)
             {
-                return Results.BadRequest(new { error = "A reason is required to cancel approved leave." });
+                return HrProblems.Problem(400, "A reason is required to cancel approved leave.");
             }
         }
 
         if (await PayrollRunService.IsPeriodLockedAsync(db, row.StaffId, row.StartDate, row.EndDate, cancellationToken))
         {
-            return Results.Conflict(new { error = PayrollRunService.LockedPeriodMessage });
+            return HrProblems.Problem(409, PayrollRunService.LockedPeriodMessage);
         }
 
         var year = row.StartDate.Year;
@@ -811,11 +808,11 @@ public static class LeaveEndpoints
 
         if (!Enum.IsDefined(halfDay.Value))
         {
-            return Results.BadRequest(new { error = "Half day must be am or pm." });
+            return HrProblems.Problem(400, "Half day must be am or pm.");
         }
 
         return start != end
-            ? Results.BadRequest(new { error = "A half day must be a single date." })
+            ? HrProblems.Problem(400, "A half day must be a single date.")
             : null;
     }
 
@@ -861,7 +858,7 @@ public static class LeaveEndpoints
     {
         if (year is < 1 or > 9999)
         {
-            return Results.BadRequest(new { error = "Year is required." });
+            return HrProblems.Problem(400, "Year is required.");
         }
 
         return null;
@@ -881,7 +878,7 @@ public static class LeaveEndpoints
         row.CancelReason);
 
     private static IResult Forbidden(string error) =>
-        Results.Json(new { error }, statusCode: StatusCodes.Status403Forbidden);
+        HrProblems.Problem(StatusCodes.Status403Forbidden, error);
 
     private readonly record struct ShopContext(Guid BranchId, string Code);
 

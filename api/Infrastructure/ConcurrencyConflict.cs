@@ -74,8 +74,7 @@ public sealed class ConcurrencyConflictHandler : IExceptionHandler
             return false;
         }
 
-        httpContext.Response.StatusCode = StatusCodes.Status409Conflict;
-        await httpContext.Response.WriteAsJsonAsync(new { error = ConcurrencyConflict.Message }, cancellationToken);
+        await HrProblems.Problem(StatusCodes.Status409Conflict, ConcurrencyConflict.Message).ExecuteAsync(httpContext);
         return true;
     }
 }

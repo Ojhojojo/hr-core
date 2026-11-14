@@ -122,24 +122,24 @@ public static class EmploymentDocumentEndpoints
 
         if (!http.Request.HasFormContentType)
         {
-            return Results.BadRequest(new { error = "Send a file as multipart form data." });
+            return HrProblems.Problem(400, "Send a file as multipart form data.");
         }
 
         var form = await http.Request.ReadFormAsync(cancellationToken);
         var upload = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
         if (upload is null || upload.Length == 0)
         {
-            return Results.BadRequest(new { error = "Choose a file." });
+            return HrProblems.Problem(400, "Choose a file.");
         }
 
         if (upload.Length > MaxBytes)
         {
-            return Results.BadRequest(new { error = "File must be 10 MB or smaller." });
+            return HrProblems.Problem(400, "File must be 10 MB or smaller.");
         }
 
         if (!TryParseDocType(form["docType"], out var docType))
         {
-            return Results.BadRequest(new { error = "Unknown document type." });
+            return HrProblems.Problem(400, "Unknown document type.");
         }
 
         string? note = null;
@@ -149,7 +149,7 @@ public static class EmploymentDocumentEndpoints
             note = rawNote.Trim();
             if (note.Length > NoteMaxLength)
             {
-                return Results.BadRequest(new { error = "Note must be 500 characters or fewer." });
+                return HrProblems.Problem(400, "Note must be 500 characters or fewer.");
             }
         }
 
@@ -161,13 +161,13 @@ public static class EmploymentDocumentEndpoints
 
         if (fileName.Length > FileNameMaxLength)
         {
-            return Results.BadRequest(new { error = "File name must be 260 characters or fewer." });
+            return HrProblems.Problem(400, "File name must be 260 characters or fewer.");
         }
 
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
         if (!FileTypesByExtension.TryGetValue(ext, out var extensionContentType))
         {
-            return Results.BadRequest(new { error = UnsupportedFileError });
+            return HrProblems.Problem(400, UnsupportedFileError);
         }
 
         await using var read = upload.OpenReadStream();
@@ -175,19 +175,19 @@ public static class EmploymentDocumentEndpoints
         await read.CopyToAsync(buffer, cancellationToken);
         if (buffer.Length == 0)
         {
-            return Results.BadRequest(new { error = "Choose a file." });
+            return HrProblems.Problem(400, "Choose a file.");
         }
 
         if (buffer.Length > MaxBytes)
         {
-            return Results.BadRequest(new { error = "File must be 10 MB or smaller." });
+            return HrProblems.Problem(400, "File must be 10 MB or smaller.");
         }
 
         // The stored type comes from the bytes, not the browser header, and must match the extension.
         var contentType = DetectContentType(buffer.GetBuffer().AsSpan(0, (int)Math.Min(buffer.Length, 12)));
         if (contentType is null || contentType != extensionContentType)
         {
-            return Results.BadRequest(new { error = UnsupportedFileError });
+            return HrProblems.Problem(400, UnsupportedFileError);
         }
 
         var storagePath = $"{onShop.BranchId}/{staffId}/{Guid.NewGuid():N}{ext}";
@@ -364,7 +364,7 @@ public static class EmploymentDocumentEndpoints
         row.CreatedAtUtc);
 
     private static IResult Forbidden(string error) =>
-        Results.Json(new { error }, statusCode: StatusCodes.Status403Forbidden);
+        HrProblems.Problem(StatusCodes.Status403Forbidden, error);
 
     private sealed record ShopStaff(Guid BranchId);
 }

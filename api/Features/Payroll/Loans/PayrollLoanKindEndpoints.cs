@@ -122,7 +122,7 @@ public static class PayrollLoanKindEndpoints
 
         return result.Deleted
             ? Results.NoContent()
-            : Results.NotFound(new { error = "Loan kind not found." });
+            : HrProblems.Problem(404, "Loan kind not found.");
     }
 
     private static IResult ToWriteResult(LoanKindWriteResult result)
@@ -138,7 +138,7 @@ public static class PayrollLoanKindEndpoints
         }
 
         return result.Saved is null
-            ? Results.NotFound(new { error = "Loan kind not found." })
+            ? HrProblems.Problem(404, "Loan kind not found.")
             : Results.Ok(result.Saved);
     }
 

@@ -100,7 +100,7 @@ public static class PayrollRemittanceEndpoints
             {
                 var report = await remittance.GetAsync(shops, currentId, year, monthNumber, ct);
                 return report is null
-                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    ? HrProblems.Problem(404, "That shop is not on your payroll scope.")
                     : Results.Ok(report);
             },
             cancellationToken);
@@ -134,13 +134,11 @@ public static class PayrollRemittanceEndpoints
                     shops, currentId, year, monthNumber, http.ActorStaffId(), ct);
                 if (error is not null)
                 {
-                    return Results.Json(
-                        new { error, blockingRuns = blocking },
-                        statusCode: StatusCodes.Status409Conflict);
+                    return HrProblems.Problem(StatusCodes.Status409Conflict, error, new Dictionary<string, object?> { ["blockingRuns"] = blocking });
                 }
 
                 return file is null
-                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    ? HrProblems.Problem(404, "That shop is not on your payroll scope.")
                     : Results.File(file.Bytes, "text/csv; charset=utf-8", file.FileName);
             },
             cancellationToken);
@@ -173,7 +171,7 @@ public static class PayrollRemittanceEndpoints
                 }
 
                 return saved is null
-                    ? Results.NotFound(new { error = "That shop is not on your payroll scope." })
+                    ? HrProblems.Problem(404, "That shop is not on your payroll scope.")
                     : Results.Ok(saved);
             },
             cancellationToken);
@@ -200,7 +198,7 @@ public static class PayrollRemittanceEndpoints
             {
                 var body = await remittance.GetReviewAsync(shops, id, IncludeUnscopedOwners(http), ct);
                 return body is null
-                    ? Results.NotFound(new { error = "That payroll run is not on this shop scope." })
+                    ? HrProblems.Problem(404, "That payroll run is not on this shop scope.")
                     : Results.Ok(body);
             },
             cancellationToken);
@@ -230,7 +228,7 @@ public static class PayrollRemittanceEndpoints
                     shops, id, body, http.ActorStaffId(), IncludeUnscopedOwners(http), ct);
                 if (conflict is not null)
                 {
-                    return Results.Json(new { error = conflict }, statusCode: StatusCodes.Status409Conflict);
+                    return HrProblems.Problem(StatusCodes.Status409Conflict, conflict);
                 }
 
                 if (errors is not null)
@@ -239,7 +237,7 @@ public static class PayrollRemittanceEndpoints
                 }
 
                 return saved is null
-                    ? Results.NotFound(new { error = "That payroll run is not on this shop scope." })
+                    ? HrProblems.Problem(404, "That payroll run is not on this shop scope.")
                     : Results.Ok(saved);
             },
             cancellationToken);

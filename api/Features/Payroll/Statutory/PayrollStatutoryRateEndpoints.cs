@@ -71,7 +71,7 @@ public static class PayrollStatutoryRateEndpoints
         var result = await payroll.DeleteStatutoryRateAsync(id, http.ActorStaffId(), cancellationToken);
         return result.Deleted
             ? Results.NoContent()
-            : Results.NotFound(new { error = "Statutory rate row not found." });
+            : HrProblems.Problem(404, "Statutory rate row not found.");
     }
 
     private static IResult ToWriteResult(StatutoryRateWriteResult result)
@@ -82,7 +82,7 @@ public static class PayrollStatutoryRateEndpoints
         }
 
         return result.Saved is null
-            ? Results.NotFound(new { error = "Statutory rate row not found." })
+            ? HrProblems.Problem(404, "Statutory rate row not found.")
             : Results.Ok(result.Saved);
     }
 }

@@ -53,9 +53,7 @@ public sealed class StaffAuthorizationFilter(IHrDb db, IHrStaffResolver resolver
 
         if (!http.Items.ContainsKey(StaffItemKey))
         {
-            return Results.Json(
-                new { error = "Staff access required. Your account is not linked to an active staff profile." },
-                statusCode: StatusCodes.Status403Forbidden);
+            return HrProblems.Problem(StatusCodes.Status403Forbidden, "Staff access required. Your account is not linked to an active staff profile.");
         }
 
         return await next(context);
