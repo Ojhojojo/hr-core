@@ -7,6 +7,7 @@ import { PageHeaderComponent, StatusBadgeComponent } from '@hr-host';
 import { Bir2316Dialog } from './bir-2316-dialog';
 import { HrDocumentDialog } from './hr-document-dialog';
 import { HR_TEMPLATES, HrTemplateRow } from './hr-templates';
+import { HR_HOST_WORDS } from '../hr-words';
 
 @Component({
   selector: 'app-hr-documents',
@@ -15,6 +16,7 @@ import { HR_TEMPLATES, HrTemplateRow } from './hr-templates';
 })
 export class HrDocumentsPage {
   private readonly dialog = inject(MatDialog);
+  protected readonly words = inject(HR_HOST_WORDS);
 
   protected readonly columns = ['title', 'description', 'status', 'action'];
   protected readonly templates = HR_TEMPLATES;

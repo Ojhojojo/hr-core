@@ -22,6 +22,8 @@ import {
 import { PayrollApi } from '../payroll/payroll.api';
 import { MyPayslipDetail, MyPayslipSummary, Payslip } from '../payroll/payroll.models';
 import { myPayslipDetailToPayslip } from './my-payslip.format';
+import { formatDayRange } from '../hr-dates';
+import { HR_HOST_WORDS } from '../hr-words';
 
 /**
  * Worker self-service: a history of the caller's own finalised payslips. Every row comes from a
@@ -77,7 +79,7 @@ import { myPayslipDetailToPayslip } from './my-payslip.format';
     }
   `,
   template: `
-    <ops-page-header title="My payslip" />
+    <ops-page-header [title]="words.titles.myPayslips" />
 
     <ops-card>
       @if (error()) {
@@ -93,7 +95,7 @@ import { myPayslipDetailToPayslip } from './my-payslip.format';
           <ng-container matColumnDef="period">
             <th mat-header-cell *matHeaderCellDef>Period</th>
             <td mat-cell *matCellDef="let row" data-label="Period">
-              {{ row.periodFrom }} → {{ row.periodTo }}
+              {{ formatDayRange(row.periodFrom, row.periodTo) }}
             </td>
           </ng-container>
 
@@ -130,7 +132,7 @@ import { myPayslipDetailToPayslip } from './my-payslip.format';
     } @else if (selectedPayslip(); as slip) {
       <ops-card>
         <p class="ops-payslip-meta" data-payslip-period>
-          {{ slip.from }} → {{ slip.to }}
+          {{ formatDayRange(slip.from, slip.to) }}
           @if (slip.basis) {
             · {{ basisLabel(slip.basis) }}
             @if (slip.ratePhp) {
@@ -230,6 +232,8 @@ import { myPayslipDetailToPayslip } from './my-payslip.format';
 export class MyPayslipPage {
   private readonly api = inject(PayrollApi);
   private readonly shopApi = inject(ShopApiService);
+  protected readonly words = inject(HR_HOST_WORDS);
+  protected readonly formatDayRange = formatDayRange;
 
   protected readonly columns = ['period', 'gross', 'net'] as const;
   protected readonly payslips = signal<MyPayslipSummary[]>([]);

@@ -29,6 +29,8 @@ import {
   KpiScorecardsPanel,
   ScorecardPeriod,
 } from '@hr-host';
+import { HR_HOST_WORDS } from '../hr-words';
+import { leaveStatusLabel } from '../leave/leave-status';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTableModule } from '@angular/material/table';
@@ -246,6 +248,8 @@ export class EmployeeDetailPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly availabilityApi = inject(StaffAvailabilityApi);
   private readonly hostRoles = inject(HR_DIRECTORY_ROLES, { optional: true });
+  protected readonly words = inject(HR_HOST_WORDS);
+  protected readonly leaveStatusLabel = leaveStatusLabel;
   private readonly base = environment.apiBaseUrl;
 
   protected readonly id = signal('');

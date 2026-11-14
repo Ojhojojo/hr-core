@@ -3,14 +3,17 @@
 } @else if (error()) {
   <ops-page-header
     [backLink]="selfProfile() ? undefined : '/hr/employee-directory'"
-    backLabel="Directory"
-    [title]="selfProfile() ? 'My profile' : 'Employee record'"
+    [backLabel]="words.titles.directory"
+    [title]="
+      person()?.displayName ||
+      (selfProfile() ? words.titles.myProfile : words.titles.employeeRecord)
+    "
   />
   <ops-banner tone="danger" role="alert" [message]="error()" />
 } @else if (person(); as p) {
   <ops-page-header
     [backLink]="selfProfile() ? undefined : '/hr/employee-directory'"
-    backLabel="Directory"
+    [backLabel]="words.titles.directory"
     [title]="p.displayName"
     [subtitle]="(p.position || roleLabel(p.role)) + (p.department ? ' · ' + p.department : '')"
   >
@@ -33,8 +36,8 @@
         </button>
         <mat-menu #moreMenu="matMenu">
           <button mat-menu-item [matMenuTriggerFor]="letterMenu">Issue letter</button>
-          @if (p.active) {
-            <button mat-menu-item type="button" (click)="openMoveJobs()">Move open jobs to…</button>
+          @if (p.active && words.moveOpenJobsLabel; as moveLabel) {
+            <button mat-menu-item type="button" (click)="openMoveJobs()">{{ moveLabel }}</button>
           }
           @if (isOwner() && p.active) {
             <button mat-menu-item type="button" (click)="toggleActive(false)">Deactivate</button>
@@ -561,7 +564,10 @@
                   <ng-container matColumnDef="status">
                     <th mat-header-cell *matHeaderCellDef>Status</th>
                     <td mat-cell *matCellDef="let req" data-label="Status">
-                      <ops-status-badge [tone]="leaveTone(req.status)" [label]="req.status" />
+                      <ops-status-badge
+                        [tone]="leaveTone(req.status)"
+                        [label]="leaveStatusLabel(req.status)"
+                      />
                     </td>
                   </ng-container>
                   <ng-container matColumnDef="note">
