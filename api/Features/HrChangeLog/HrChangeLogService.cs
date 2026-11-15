@@ -152,7 +152,30 @@ public sealed class HrChangeLogService(IHrDb db)
         DateOnly? from,
         DateOnly? to,
         int take,
+        CancellationToken cancellationToken) =>
+        ListAsync(FilteredQuery(subjectStaffIds, field, from, to), take, cancellationToken);
+
+    /// <summary>One page of rows, newest first, with the same filters as <see cref="ListAsync"/>.</summary>
+    public async Task<HrPage<HrChangeLogRow>> ListPageAsync(
+        IReadOnlyCollection<Guid> subjectStaffIds,
+        string? field,
+        DateOnly? from,
+        DateOnly? to,
+        int? page,
+        int? pageSize,
         CancellationToken cancellationToken)
+    {
+        var paged = await Ordered(FilteredQuery(subjectStaffIds, field, from, to))
+            .ToPageAsync(page, pageSize, cancellationToken);
+        return new HrPage<HrChangeLogRow>(
+            paged.Items.Select(ToRow).ToList(), paged.Total, paged.PageNumber, paged.PageSize);
+    }
+
+    private IQueryable<Domain.HrChangeLog> FilteredQuery(
+        IReadOnlyCollection<Guid> subjectStaffIds,
+        string? field,
+        DateOnly? from,
+        DateOnly? to)
     {
         var query = db.HrChangeLogs.Where(row => subjectStaffIds.Contains(row.SubjectStaffId));
 
@@ -173,8 +196,19 @@ public sealed class HrChangeLogService(IHrDb db)
             query = query.Where(row => row.AtUtc < toUtc);
         }
 
-        return ListAsync(query, take, cancellationToken);
+        return query;
     }
+
+    /// <summary>Includes names and orders newest first, with the id as the tie-break.</summary>
+    private static IQueryable<Domain.HrChangeLog> Ordered(IQueryable<Domain.HrChangeLog> query) =>
+        query
+            .AsNoTracking()
+            .Include(row => row.ActorStaff)
+            .ThenInclude(staff => staff!.Profile)
+            .Include(row => row.SubjectStaff)
+            .ThenInclude(staff => staff.Profile)
+            .OrderByDescending(row => row.AtUtc)
+            .ThenByDescending(row => row.Id);
 
     private static async Task<IReadOnlyList<HrChangeLogRow>> ListAsync(
         IQueryable<Domain.HrChangeLog> query,
@@ -182,31 +216,26 @@ public sealed class HrChangeLogService(IHrDb db)
         CancellationToken cancellationToken)
     {
         var capped = Math.Clamp(take, 1, MaxTake);
-        var rows = await query
-            .AsNoTracking()
-            .Include(row => row.ActorStaff)
-            .ThenInclude(staff => staff!.Profile)
-            .Include(row => row.SubjectStaff)
-            .ThenInclude(staff => staff.Profile)
-            .OrderByDescending(row => row.AtUtc)
-            .ThenByDescending(row => row.Id)
+        var rows = await Ordered(query)
             .Take(capped)
             .ToListAsync(cancellationToken);
 
-        return rows.Select(row => new HrChangeLogRow(
-            row.Id,
-            row.ActorStaffId,
-            row.ActorStaff?.Profile.DisplayName,
-            row.SubjectStaffId,
-            row.SubjectStaff.Profile.DisplayName,
-            row.AtUtc,
-            row.Field,
-            row.OldValue,
-            row.NewValue,
-            row.PeriodFrom,
-            row.PeriodTo,
-            row.Year,
-            row.RefType,
-            row.RefId)).ToList();
+        return rows.Select(ToRow).ToList();
     }
+
+    private static HrChangeLogRow ToRow(Domain.HrChangeLog row) => new(
+        row.Id,
+        row.ActorStaffId,
+        row.ActorStaff?.Profile.DisplayName,
+        row.SubjectStaffId,
+        row.SubjectStaff.Profile.DisplayName,
+        row.AtUtc,
+        row.Field,
+        row.OldValue,
+        row.NewValue,
+        row.PeriodFrom,
+        row.PeriodTo,
+        row.Year,
+        row.RefType,
+        row.RefId);
 }

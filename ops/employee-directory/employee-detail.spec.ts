@@ -135,7 +135,9 @@ async function mountDetail(role: string, tab = 'overview', employee: EmployeeCar
     listReq.flush([]);
   } else if (tab === 'history' && (role === 'owner' || role === 'admin')) {
     const histReq = http.expectOne((req) => req.url.includes('/api/hr/change-log'));
-    histReq.flush({ rows: [] });
+    expect(histReq.request.params.get('page')).toBe('1');
+    expect(histReq.request.params.get('pageSize')).toBe('50');
+    histReq.flush({ items: [], total: 0, pageNumber: 1, pageSize: 50 });
   }
 
   fixture.detectChanges();

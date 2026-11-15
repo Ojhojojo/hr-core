@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatCheckbox } from '@angular/material/checkbox';
@@ -7,7 +7,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
-import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -180,22 +180,6 @@ export class EmployeeDirectoryPage {
     this.headcountLoaded() ? `${this.headcount()} active` : this.error() ? '' : 'Loading…',
   );
 
-  protected readonly visible = computed(() => {
-    const term = this.search().trim().toLowerCase();
-    return this.people().filter((person) => {
-      if (!this.includeInactive() && !person.active) {
-        return false;
-      }
-      if (!term) {
-        return true;
-      }
-      return (
-        person.displayName.toLowerCase().includes(term) ||
-        (person.mobile ?? '').toLowerCase().includes(term)
-      );
-    });
-  });
-
   protected readonly columns = [
     'name',
     'position',
@@ -205,18 +189,19 @@ export class EmployeeDirectoryPage {
     'hireDate',
     'actions',
   ];
+  /** The rows are the current page. The server filters and pages, so the table does not slice. */
   protected readonly table = new MatTableDataSource<EmployeeCard>([]);
-  private readonly pager = viewChild(MatPaginator);
+  protected readonly pageIndex = signal(0);
+  protected readonly pageSize = signal(50);
+  protected readonly pageSizeOptions = [25, 50, 100];
+  protected readonly total = signal(0);
+  private editDeepLinkDone = false;
   private presetOwnerShop: string | null = null;
 
   constructor() {
     this.presetOwnerShop = this.route?.snapshot.queryParamMap.get('addOwnerShop') ?? null;
     effect(() => {
-      this.table.data = this.visible();
-      const pager = this.pager();
-      if (pager) {
-        this.table.paginator = pager;
-      }
+      this.table.data = this.people();
     });
     this.reload();
     if (this.presetOwnerShop && this.isOwner()) {
@@ -250,37 +235,71 @@ export class EmployeeDirectoryPage {
     void this.router.navigate(['/hr/employee-directory', person.id]);
   }
 
-  protected onIncludeInactive(checked: boolean): void {
+  onIncludeInactive(checked: boolean): void {
     this.includeInactive.set(checked);
+    this.pageIndex.set(0);
     this.reload();
   }
 
-  protected onSearch(value: string): void {
+  onSearch(value: string): void {
     this.search.set(value);
+    this.pageIndex.set(0);
+    this.reload();
+  }
+
+  onPage(event: PageEvent): void {
+    this.pageIndex.set(event.pageIndex);
+    this.pageSize.set(event.pageSize);
     this.reload();
   }
 
   reload(): void {
     this.loading.set(true);
-    this.api.list(this.includeInactive(), this.search()).subscribe({
-      next: (body) => {
-        this.people.set(body.items);
-        this.configHealth.set(body.configHealth ?? []);
-        this.headcount.set(body.headcount);
-        this.headcountLoaded.set(true);
-        this.loading.set(false);
-        const editId = this.route?.snapshot.queryParamMap.get('edit');
-        if (editId) {
-          const match = body.items.find((p) => p.id === editId);
-          if (match && this.canEditPerson(match)) {
-            this.beginEdit(match);
-          }
+    this.api
+      .listPage(this.includeInactive(), this.search(), this.pageIndex() + 1, this.pageSize())
+      .subscribe({
+        next: (body) => {
+          this.people.set(body.items);
+          this.total.set(body.total);
+          this.configHealth.set(body.configHealth ?? []);
+          this.headcount.set(body.headcount);
+          this.headcountLoaded.set(true);
+          this.loading.set(false);
+          this.openDeepLinkedEdit(body.items);
+        },
+        error: (err: unknown) => {
+          this.error.set(apiErrorMessage(err));
+          this.loading.set(false);
+        },
+      });
+  }
+
+  /**
+   * `?edit=<id>` opens that person's edit dialog once. The person may be on a later page, so when
+   * they are not on this page the record is fetched by id.
+   */
+  private openDeepLinkedEdit(items: EmployeeCard[]): void {
+    const editId = this.route?.snapshot.queryParamMap.get('edit');
+    if (!editId || this.editDeepLinkDone) {
+      return;
+    }
+
+    this.editDeepLinkDone = true;
+    const match = items.find((p) => p.id === editId);
+    if (match) {
+      if (this.canEditPerson(match)) {
+        this.beginEdit(match);
+      }
+      return;
+    }
+
+    this.api.get(editId).subscribe({
+      next: (person) => {
+        if (this.canEditPerson(person)) {
+          this.beginEdit(person);
         }
       },
-      error: (err: unknown) => {
-        this.error.set(apiErrorMessage(err));
-        this.loading.set(false);
-      },
+      error: () => undefined,
     });
   }
 

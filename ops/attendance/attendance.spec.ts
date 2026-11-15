@@ -1,5 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+  type TestRequest,
+} from '@angular/common/http/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
@@ -7,8 +11,8 @@ import { provideRouter } from '@angular/router';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AuthService } from '@hr-host';
 import { MEMBER_ROLE, specUser, type SpecUser } from '../host-spec-fixtures';
-import { AttendancePage, manilaWeekRange } from './attendance';
-import { AttendanceRegisterResponse, OvertimeListResponse } from './attendance.models';
+import { AttendancePage, emptyPunchesMessage, manilaWeekRange } from './attendance';
+import { AttendanceRegisterPage, OvertimeListResponse } from './attendance.models';
 
 const ownerMe: SpecUser = specUser('owner', {
   authUserId: 'owner',
@@ -70,10 +74,15 @@ const closedRow = {
   isOpen: false,
 };
 
-const register: AttendanceRegisterResponse = {
+/** One page of the register: the default page is 1 of 25, and the request sends `page` and `pageSize`. */
+const register: AttendanceRegisterPage = {
   from: '2026-09-13',
   to: '2026-09-19',
-  rows: [openRow, closedRow],
+  items: [openRow, closedRow],
+  total: 2,
+  pageNumber: 1,
+  pageSize: 25,
+  pendingTotal: 0,
 };
 
 const emptyOvertime = (from: string, to: string): OvertimeListResponse => ({
@@ -81,6 +90,11 @@ const emptyOvertime = (from: string, to: string): OvertimeListResponse => ({
   to,
   rows: [],
 });
+
+/** The paged register request. Matches on `page`, so the CSV download is not picked up. */
+function expectRegisterPage(http: HttpTestingController): TestRequest {
+  return http.expectOne((r) => r.url === '/api/ops/attendance/register' && r.params.has('page'));
+}
 
 /** After register succeeds, AttendancePage calls GET /api/ops/attendance/overtime. */
 function flushOvertime(
@@ -128,11 +142,15 @@ describe('AttendancePage', () => {
     const fixture = TestBed.createComponent(AttendancePage);
     fixture.detectChanges();
 
-    http.expectOne('/api/ops/attendance/register').flush({
+    expectRegisterPage(http).flush({
       from: '2026-09-13',
       to: '2026-09-19',
-      rows: [{ ...openRow, punchId: 'punch-1', hasInPhoto: true }],
-    } satisfies AttendanceRegisterResponse);
+      items: [{ ...openRow, punchId: 'punch-1', hasInPhoto: true }],
+      total: 1,
+      pageNumber: 1,
+      pageSize: 25,
+      pendingTotal: 0,
+    } satisfies AttendanceRegisterPage);
     flushOvertime(http, '2026-09-13', '2026-09-19');
     fixture.detectChanges();
 
@@ -169,7 +187,7 @@ describe('AttendancePage', () => {
     const fixture = TestBed.createComponent(AttendancePage);
     fixture.detectChanges();
     http.expectOne('/api/staff').flush([]);
-    http.expectOne('/api/ops/attendance/register').flush(register);
+    expectRegisterPage(http).flush(register);
     flushOvertime(http, '2026-09-13', '2026-09-19');
     fixture.detectChanges();
 
@@ -209,7 +227,7 @@ describe('AttendancePage', () => {
     const fixture = TestBed.createComponent(AttendancePage);
     fixture.detectChanges();
     http.expectOne('/api/staff').flush([]);
-    http.expectOne('/api/ops/attendance/register').flush(register);
+    expectRegisterPage(http).flush(register);
     flushOvertime(http, '2026-09-13', '2026-09-19');
     fixture.detectChanges();
 
@@ -227,7 +245,11 @@ describe('AttendancePage', () => {
     reloadReq.flush({
       from: '2026-10-01',
       to: '2026-10-07',
-      rows: [],
+      items: [],
+      total: 0,
+      pageNumber: 1,
+      pageSize: 25,
+      pendingTotal: 0,
     });
     flushOvertime(http, '2026-10-01', '2026-10-07');
   });
@@ -236,6 +258,14 @@ describe('AttendancePage', () => {
     expect(manilaWeekRange('2026-09-17')).toEqual({ from: '2026-09-14', to: '2026-09-20' });
     expect(manilaWeekRange('2026-09-20')).toEqual({ from: '2026-09-14', to: '2026-09-20' });
     expect(manilaWeekRange('2026-09-14')).toEqual({ from: '2026-09-14', to: '2026-09-20' });
+  });
+
+  it('emptyPunchesMessage says "Try another date range." only when the range is entirely in the past', () => {
+    const yet = 'No punches yet. They show here once someone clocks in.';
+    expect(emptyPunchesMessage('2026-09-19', '2026-09-20')).toBe('Try another date range.');
+    expect(emptyPunchesMessage('2026-09-20', '2026-09-20')).toBe(yet);
+    expect(emptyPunchesMessage('2026-09-27', '2026-09-20')).toBe(yet);
+    expect(emptyPunchesMessage('', '2026-09-20')).toBe(yet);
   });
 
   it('paginates punches across multiple pages', async () => {
@@ -256,29 +286,92 @@ describe('AttendancePage', () => {
     fixture.detectChanges();
 
     http.expectOne('/api/staff').flush([]);
-    const manyRows = Array.from({ length: 15 }, (_, i) => ({
-      ...closedRow,
-      staffId: `staff-${i + 1}`,
-      staffName: `Worker ${String(i + 1).padStart(2, '0')}`,
-    }));
-    http.expectOne('/api/ops/attendance/register').flush({
+    const workers = (from: number, to: number) =>
+      Array.from({ length: to - from + 1 }, (_, i) => ({
+        ...closedRow,
+        staffId: `staff-${from + i}`,
+        staffName: `Worker ${String(from + i).padStart(2, '0')}`,
+      }));
+    expectRegisterPage(http).flush({
       from: '2026-09-13',
       to: '2026-09-19',
-      rows: manyRows,
-    });
+      items: workers(1, 10),
+      total: 15,
+      pageNumber: 1,
+      pageSize: 25,
+      pendingTotal: 0,
+    } satisfies AttendanceRegisterPage);
     flushOvertime(http, '2026-09-13', '2026-09-19');
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Worker 01');
     expect(fixture.nativeElement.textContent).toContain('Worker 10');
-    expect(fixture.nativeElement.textContent).not.toContain('Worker 11');
 
+    // The next page is a new request for page 2, not a client-side slice.
     fixture.componentInstance.onPage({ pageIndex: 1, pageSize: 10, length: 15 });
+    const next = http.expectOne(
+      (r) =>
+        r.url === '/api/ops/attendance/register' &&
+        r.params.get('page') === '2' &&
+        r.params.get('pageSize') === '10',
+    );
+    next.flush({
+      from: '2026-09-13',
+      to: '2026-09-19',
+      items: workers(11, 15),
+      total: 15,
+      pageNumber: 2,
+      pageSize: 10,
+      pendingTotal: 0,
+    } satisfies AttendanceRegisterPage);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).not.toContain('Worker 01');
     expect(fixture.nativeElement.textContent).toContain('Worker 11');
     expect(fixture.nativeElement.textContent).toContain('Worker 15');
+  });
+
+  it('asks for page 1 again when a filter changes', async () => {
+    await TestBed.configureTestingModule({
+      imports: [AttendancePage],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideNoopAnimations(),
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: AuthService, useValue: authStub(ownerMe) },
+      ],
+    }).compileComponents();
+
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(AttendancePage);
+    fixture.detectChanges();
+    http.expectOne('/api/staff').flush([]);
+    expectRegisterPage(http).flush(register);
+    flushOvertime(http, '2026-09-13', '2026-09-19');
+    fixture.detectChanges();
+
+    fixture.componentInstance.onPage({ pageIndex: 2, pageSize: 25, length: 80 });
+    const page3 = expectRegisterPage(http);
+    expect(page3.request.params.get('page')).toBe('3');
+    page3.flush({
+      ...register,
+      items: [],
+      total: 80,
+      pageNumber: 3,
+      pageSize: 25,
+      pendingTotal: 0,
+    });
+    fixture.detectChanges();
+
+    fixture.componentInstance.setStaff('staff-2');
+    const reset = expectRegisterPage(http);
+    expect(reset.request.params.get('page')).toBe('1');
+    expect(reset.request.params.get('staffId')).toBe('staff-2');
+    reset.flush({ ...register, total: 2, pendingTotal: 0 });
+    flushOvertime(http, '2026-09-13', '2026-09-19');
+    fixture.detectChanges();
   });
 
   it('admin loads shop-wide overtime and own overtime with mine=true', async () => {
@@ -299,7 +392,7 @@ describe('AttendancePage', () => {
     fixture.detectChanges();
 
     http.expectOne('/api/staff').flush([]);
-    http.expectOne('/api/ops/attendance/register').flush(register);
+    expectRegisterPage(http).flush(register);
 
     const shopOtReq = http.expectOne(
       (r) =>

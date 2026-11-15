@@ -51,7 +51,7 @@
 
 @if (loading()) {
   <ops-skeleton variant="table" [rows]="5" />
-} @else if (visible().length === 0) {
+} @else if (people().length === 0) {
   <ops-empty-state
     title="No people to show"
     message="Clear the search or include inactive people."
@@ -128,7 +128,14 @@
         ></tr>
       </table>
     </div>
-    <mat-paginator [pageSize]="25" [pageSizeOptions]="[10, 25, 50]" />
+    <mat-paginator
+      [length]="total()"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="pageSizeOptions"
+      showFirstLastButtons
+      (page)="onPage($event)"
+    />
   </ops-card>
 }
 

@@ -64,6 +64,20 @@ public sealed record AttendanceRegisterResponse(
     DateOnly To,
     IReadOnlyList<AttendanceRegisterRowDto> Rows);
 
+/// <summary>
+/// Paged register: the rows of one page as <c>items</c>, the range the screen needs for its
+/// period label (<c>from</c>, <c>to</c>), the paging fields, and <c>pendingTotal</c>, the number of
+/// punches waiting for review in the range (for the Pending badge).
+/// </summary>
+public sealed record AttendanceRegisterPageResponse(
+    DateOnly From,
+    DateOnly To,
+    IReadOnlyList<AttendanceRegisterRowDto> Items,
+    int Total,
+    int PageNumber,
+    int PageSize,
+    int PendingTotal);
+
 /// <summary>A punch with no clock-out yet. Used by the payroll lock warning.</summary>
 public sealed record OpenPunchDto(
     Guid PunchId,

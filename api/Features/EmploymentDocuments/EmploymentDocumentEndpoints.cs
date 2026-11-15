@@ -93,7 +93,7 @@ public static class EmploymentDocumentEndpoints
 
         if (await FindOnShopAsync(staffId, http, branches, db, cancellationToken) is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at a shop you can see. Check the shop and try again.");
         }
 
         return Results.Ok(await ListAsync(db, staffId, cancellationToken));
@@ -117,7 +117,7 @@ public static class EmploymentDocumentEndpoints
         var onShop = await FindOnShopAsync(staffId, http, branches, db, cancellationToken);
         if (onShop is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at a shop you can see. Check the shop and try again.");
         }
 
         if (!http.Request.HasFormContentType)
@@ -239,7 +239,7 @@ public static class EmploymentDocumentEndpoints
             .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
         if (row is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That document was not found. It may have been removed.");
         }
 
         var actor = http.GetStaff();
@@ -259,7 +259,7 @@ public static class EmploymentDocumentEndpoints
         {
             if (await FindOnShopAsync(row.StaffId, http, branches, db, cancellationToken) is null)
             {
-                return Results.NotFound();
+                return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at a shop you can see. Check the shop and try again.");
             }
         }
         else
@@ -269,7 +269,7 @@ public static class EmploymentDocumentEndpoints
 
         var stream = await files.OpenAsync(row.StoragePath, cancellationToken);
         return stream is null
-            ? Results.NotFound()
+            ? HrProblems.Problem(StatusCodes.Status404NotFound, "The file for that document is missing. Upload it again.")
             : Results.File(stream, row.ContentType, row.FileName);
     }
 

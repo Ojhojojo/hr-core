@@ -35,6 +35,88 @@ public sealed class ProblemDetailsTests(HoursPerDayApp app) : IClassFixture<Hour
         Assert.Equal("That email is already on staff.", problem.GetProperty("detail").GetString());
     }
 
+    [Fact]
+    public async Task Attendance_missing_punch_is_a_problem_with_a_plain_sentence()
+    {
+        using var response = await app.SendAsync(
+            HoursPerDayApp.OwnerId,
+            HttpMethod.Get,
+            $"/api/ops/attendance/punches/{Guid.NewGuid()}/photos/in");
+
+        var problem = await AssertProblemAsync(response, HttpStatusCode.NotFound);
+        Assert.Equal("That punch was not found. It may have been removed.", problem.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Employee_directory_missing_person_is_a_problem_with_a_plain_sentence()
+    {
+        using var response = await app.SendAsync(
+            HoursPerDayApp.OwnerId,
+            HttpMethod.Get,
+            $"/api/employee-directory/{Guid.NewGuid()}");
+
+        var problem = await AssertProblemAsync(response, HttpStatusCode.NotFound);
+        Assert.False(string.IsNullOrWhiteSpace(problem.GetProperty("detail").GetString()));
+    }
+
+    [Fact]
+    public async Task Employment_documents_missing_document_is_a_problem_with_a_plain_sentence()
+    {
+        using var response = await app.SendAsync(
+            HoursPerDayApp.OwnerId,
+            HttpMethod.Get,
+            $"/api/employee-documents/{Guid.NewGuid()}");
+
+        var problem = await AssertProblemAsync(response, HttpStatusCode.NotFound);
+        Assert.Equal("That document was not found. It may have been removed.", problem.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Leave_missing_request_is_a_problem_with_a_plain_sentence()
+    {
+        using var response = await app.SendAsync(
+            HoursPerDayApp.OwnerId,
+            HttpMethod.Get,
+            $"/api/leave/{Guid.NewGuid()}/affected-jobs");
+
+        var problem = await AssertProblemAsync(response, HttpStatusCode.NotFound);
+        Assert.Equal("That leave request was not found. It may have been removed.", problem.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Staff_missing_person_is_a_problem_with_a_plain_sentence()
+    {
+        using var response = await app.SendAsync(
+            HoursPerDayApp.OwnerId,
+            HttpMethod.Post,
+            $"/api/staff/{Guid.NewGuid()}",
+            new { displayName = "Nobody Here" });
+
+        var problem = await AssertProblemAsync(response, HttpStatusCode.NotFound);
+        Assert.Equal("That person was not found. They may have been removed.", problem.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Payroll_missing_run_is_a_problem_with_detail()
+    {
+        using var response = await app.SendAsync(
+            HoursPerDayApp.OwnerId,
+            HttpMethod.Get,
+            $"/api/ops/payroll/runs/{Guid.NewGuid()}");
+
+        var problem = await AssertProblemAsync(response, HttpStatusCode.NotFound);
+        Assert.False(string.IsNullOrWhiteSpace(problem.GetProperty("detail").GetString()));
+    }
+
+    [Fact]
+    public async Task Missing_sign_in_is_a_problem_asking_the_user_to_sign_in_again()
+    {
+        using var response = await app.Client.GetAsync("/api/leave/");
+
+        var problem = await AssertProblemAsync(response, HttpStatusCode.Unauthorized);
+        Assert.Equal("Sign in again to continue.", problem.GetProperty("detail").GetString());
+    }
+
     private static async Task<JsonElement> AssertProblemAsync(HttpResponseMessage response, HttpStatusCode status)
     {
         Assert.Equal(status, response.StatusCode);

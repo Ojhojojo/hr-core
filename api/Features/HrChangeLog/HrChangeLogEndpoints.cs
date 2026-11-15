@@ -20,7 +20,8 @@ public static class HrChangeLogEndpoints
             .WithSummary("People change history")
             .WithDescription(
                 "Query: staffId (optional), field (optional), from, to (YYYY-MM-DD, Asia/Manila), " +
-                "take (default 100, max 500). " +
+                "take (default 100, max 500). Add page (1-based) and pageSize (default 50, max 200) to get " +
+                "{ items, total, pageNumber, pageSize } instead of { rows }. " +
                 OpsReportScope.QueryDoc +
                 " Owner and admin read the rows for staff in the shop scope; a technician or sales " +
                 "member reads only their own rows. Rows are append-only: there is no edit or delete.");
@@ -34,6 +35,8 @@ public static class HrChangeLogEndpoints
         DateOnly? from,
         DateOnly? to,
         int? take,
+        int? page,
+        int? pageSize,
         HttpContext http,
         BranchResolver branches,
         IHrDb db,
@@ -51,7 +54,7 @@ public static class HrChangeLogEndpoints
         if (actor.Role is not (StaffRole.Owner or StaffRole.Admin))
         {
             // A worker reads their own rows only. Any staffId filter is ignored.
-            return RespondAsync(hr, [actor.Id], field, from, to, capped, cancellationToken);
+            return RespondAsync(hr, [actor.Id], field, from, to, capped, page, pageSize, cancellationToken);
         }
 
         return OpsReportScope.MapAsync(
@@ -73,17 +76,18 @@ public static class HrChangeLogEndpoints
                 if (staffId is Guid one)
                 {
                     return scopedStaffIds.Contains(one)
-                        ? await RespondAsync(hr, [one], field, from, to, capped, ct)
+                        ? await RespondAsync(hr, [one], field, from, to, capped, page, pageSize, ct)
                         : HrProblems.Problem(404, "That person is not in this shop scope.");
                 }
 
                 return scopedStaffIds.Count == 0
-                    ? Results.Ok(new HrChangeLogListResponse([]))
-                    : await RespondAsync(hr, scopedStaffIds, field, from, to, capped, ct);
+                    ? RespondEmpty(page, pageSize)
+                    : await RespondAsync(hr, scopedStaffIds, field, from, to, capped, page, pageSize, ct);
             },
             cancellationToken);
     }
 
+    /// <summary>Without <c>page</c> the old <c>{ rows }</c> shape; with it, one page as <c>{ items, total, pageNumber, pageSize }</c>.</summary>
     private static async Task<IResult> RespondAsync(
         HrChangeLogService hr,
         IReadOnlyCollection<Guid> subjectStaffIds,
@@ -91,10 +95,29 @@ public static class HrChangeLogEndpoints
         DateOnly? from,
         DateOnly? to,
         int take,
+        int? page,
+        int? pageSize,
         CancellationToken cancellationToken)
     {
+        if (HrPaging.Requested(page))
+        {
+            return Results.Ok(await hr.ListPageAsync(subjectStaffIds, field, from, to, page, pageSize, cancellationToken));
+        }
+
         var rows = await hr.ListAsync(subjectStaffIds, field, from, to, take, cancellationToken);
         return Results.Ok(new HrChangeLogListResponse(rows));
+    }
+
+    /// <summary>No person in scope: the same empty answer as a query would give, in the requested shape.</summary>
+    private static IResult RespondEmpty(int? page, int? pageSize)
+    {
+        if (!HrPaging.Requested(page))
+        {
+            return Results.Ok(new HrChangeLogListResponse([]));
+        }
+
+        var (pageNumber, size) = HrPaging.Normalize(page, pageSize);
+        return Results.Ok(new HrPage<HrChangeLogRow>([], 0, pageNumber, size));
     }
 
     private static IResult Forbidden(string error) =>

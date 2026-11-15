@@ -17,6 +17,33 @@ describe('AttendanceApi', () => {
     return { api: TestBed.inject(AttendanceApi), http: TestBed.inject(HttpTestingController) };
   }
 
+  it('GETs one page of the register with page and pageSize, and no page params without them', () => {
+    const { api, http } = setup();
+    api.registerPage({ from: '2026-09-13', to: '2026-09-19', page: 3, pageSize: 25 }).subscribe();
+
+    const req = http.expectOne(
+      '/api/ops/attendance/register?from=2026-09-13&to=2026-09-19&page=3&pageSize=25',
+    );
+    expect(req.request.params.get('page')).toBe('3');
+    expect(req.request.params.get('pageSize')).toBe('25');
+    req.flush({
+      from: '2026-09-13',
+      to: '2026-09-19',
+      items: [],
+      total: 0,
+      pageNumber: 3,
+      pageSize: 25,
+      pendingTotal: 0,
+    });
+
+    api.register({ from: '2026-09-13', to: '2026-09-19' }).subscribe();
+    http.expectOne('/api/ops/attendance/register?from=2026-09-13&to=2026-09-19').flush({
+      from: '2026-09-13',
+      to: '2026-09-19',
+      rows: [],
+    });
+  });
+
   it('GETs the register with approval=pending', () => {
     const { api, http } = setup();
     api.register({ from: '2026-09-13', to: '2026-09-19', approval: 'pending' }).subscribe();

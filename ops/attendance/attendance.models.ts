@@ -37,12 +37,26 @@ export interface AttendanceRegisterResponse {
   rows: AttendanceRegisterRow[];
 }
 
+/** One page of the register, from `page` and `pageSize` on the request. */
+export interface AttendanceRegisterPage {
+  from: string;
+  to: string;
+  items: AttendanceRegisterRow[];
+  total: number;
+  pageNumber: number;
+  pageSize: number;
+  /** Punches waiting for review in the whole range, for the Pending badge. */
+  pendingTotal: number;
+}
+
 export interface AttendanceRegisterQuery {
   from?: string;
   to?: string;
   staffId?: string | null;
   scope?: 'shop' | 'owned' | 'franchise' | 'all';
   approval?: AttendanceApprovalFilter | null;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface ReviewPunchBody {

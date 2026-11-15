@@ -330,7 +330,7 @@
       <p class="ops-empty leave-empty-msg">No decision history this year.</p>
     } @else {
       <div class="ops-table-wrap">
-        <table mat-table [dataSource]="pagedHistoryRequests()" class="ops-table">
+        <table mat-table [dataSource]="historyRequests()" class="ops-table">
           <ng-container matColumnDef="staff">
             <th mat-header-cell *matHeaderCellDef>Staff</th>
             <td mat-cell *matCellDef="let row" data-label="Staff">
@@ -395,7 +395,7 @@
         </table>
       </div>
       <mat-paginator
-        [length]="historyRequests().length"
+        [length]="historyTotal()"
         [pageIndex]="historyPageIndex()"
         [pageSize]="historyPageSize()"
         [pageSizeOptions]="historyPageSizeOptions"

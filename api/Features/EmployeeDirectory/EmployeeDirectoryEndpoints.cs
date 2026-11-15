@@ -47,7 +47,9 @@ public static class EmployeeDirectoryEndpoints
         IHrDb db,
         CancellationToken cancellationToken,
         bool includeInactive = false,
-        string? search = null)
+        string? search = null,
+        int? page = null,
+        int? pageSize = null)
     {
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
         var branch = await db.Branches.AsNoTracking()
@@ -82,11 +84,14 @@ public static class EmployeeDirectoryEndpoints
             .OrderBy(s => s.Profile.DisplayName)
             .ThenBy(s => s.Id)
             .ToListAsync(cancellationToken);
+        // Config health checks the whole scope, so every row is still read. Paging trims the cards.
+        var paged = HrPaging.Requested(page) ? HrPaging.ToPage(items, page, pageSize) : null;
+        var shown = paged?.Items ?? items;
         var actor = http.GetStaff();
         var canManage = actor?.Role is StaffRole.Owner or StaffRole.Admin;
         var revealPayAndAccess = actor?.Role == StaffRole.Owner;
-        var onLeave = await OnLeaveTodayIdsAsync(db, items.Select(s => s.Id).ToArray(), cancellationToken);
-        var cards = items.Select(s => ToCard(
+        var onLeave = await OnLeaveTodayIdsAsync(db, shown.Select(s => s.Id).ToArray(), cancellationToken);
+        var cards = shown.Select(s => ToCard(
             s,
             onLeave.Contains(s.Id),
             revealStatutoryIds: canManage || (actor is not null && s.Id == actor.Id),
@@ -99,7 +104,13 @@ public static class EmployeeDirectoryEndpoints
         var health = canManage
             ? BuildConfigHealth(items, branch.MinimumDailyWagePhp, silAllotted.ToHashSet(), today)
             : null;
-        return Results.Ok(new EmployeeDirectoryListResponse(headcount, cards, health));
+        if (paged is null)
+        {
+            return Results.Ok(new EmployeeDirectoryListResponse(headcount, cards, health));
+        }
+
+        return Results.Ok(new EmployeeDirectoryPageResponse(
+            cards, paged.Total, paged.PageNumber, paged.PageSize, headcount, health));
     }
 
     /// <summary>The caller's own finalised scorecards. Any staff role; never another person's, never a draft or reopened card.</summary>
@@ -113,7 +124,7 @@ public static class EmployeeDirectoryEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         if (!HrRoles.IsDesk(actor.Role) && actor.Id != id)
@@ -131,7 +142,7 @@ public static class EmployeeDirectoryEndpoints
             && (staff.BranchId == branchId || (staff.BranchId == null && staff.Role == StaffRole.Owner));
         if (staff is null || !inThisShop)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at this shop. Check the shop picker and try again.");
         }
 
         var branch = await db.Branches.AsNoTracking()
@@ -139,7 +150,7 @@ public static class EmployeeDirectoryEndpoints
         if (!string.Equals(branch.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase)
             && string.Equals(staff.Branch?.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase))
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at this shop. Check the shop picker and try again.");
         }
 
         var onLeave = await IsOnLeaveTodayAsync(db, staff.Id, cancellationToken);
@@ -307,7 +318,7 @@ public static class EmployeeDirectoryEndpoints
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
         if (staff is null || staff.BranchId != branchId)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at this shop. Check the shop picker and try again.");
         }
 
         var branch = await db.Branches.AsNoTracking()
@@ -315,7 +326,7 @@ public static class EmployeeDirectoryEndpoints
         if (!string.Equals(branch.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase)
             && string.Equals(staff.Branch?.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase))
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at this shop. Check the shop picker and try again.");
         }
 
         if (actor.Role != StaffRole.Owner && staff.Role == StaffRole.Owner)
@@ -1023,6 +1034,18 @@ public sealed record EmployeeDirectoryListResponse(
     int Headcount,
     IReadOnlyList<EmployeeDirectoryCard> Items,
     IReadOnlyList<DirectoryConfigIssue>? ConfigHealth = null);
+
+/// <summary>
+/// Paged directory: the same card type as the list, plus the headcount and config health the
+/// screen shows above the list. Health covers the whole scope, not just this page.
+/// </summary>
+public sealed record EmployeeDirectoryPageResponse(
+    IReadOnlyList<EmployeeDirectoryCard> Items,
+    int Total,
+    int PageNumber,
+    int PageSize,
+    int Headcount,
+    IReadOnlyList<DirectoryConfigIssue>? ConfigHealth);
 
 public sealed record EmployeeDirectoryCard(
     Guid Id,

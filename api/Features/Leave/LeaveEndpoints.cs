@@ -50,7 +50,10 @@ public static class LeaveEndpoints
         IHrDb db,
         CancellationToken cancellationToken,
         int? year = null,
-        bool mine = false)
+        bool mine = false,
+        string? status = null,
+        int? page = null,
+        int? pageSize = null)
     {
         var actor = http.GetStaff();
         if (actor is null)
@@ -61,6 +64,12 @@ public static class LeaveEndpoints
         if (YearError(year) is { } yearError)
         {
             return yearError;
+        }
+
+        var statusFilter = status?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(statusFilter) && statusFilter is not ("pending" or "decided"))
+        {
+            return HrProblems.Problem(400, "Status must be pending or decided.");
         }
 
         var resolvedYear = ResolveYear(year);
@@ -85,12 +94,38 @@ public static class LeaveEndpoints
             query = query.Where(r => r.StaffId == actor.Id);
         }
 
-        var rows = await query
+        // "pending" is the decision list; "decided" is everything else (approved, rejected, cancelled).
+        if (statusFilter == "pending")
+        {
+            query = query.Where(r => r.Status == LeaveRequestStatus.Pending);
+        }
+        else if (statusFilter == "decided")
+        {
+            query = query.Where(r => r.Status != LeaveRequestStatus.Pending);
+        }
+
+        var ordered = query
             .OrderByDescending(r => r.StartDate)
             .ThenByDescending(r => r.CreatedAtUtc)
-            .ThenBy(r => r.Id)
-            .ToListAsync(cancellationToken);
+            .ThenBy(r => r.Id);
 
+        if (HrPaging.Requested(page))
+        {
+            var paged = await ordered.ToPageAsync(page, pageSize, cancellationToken);
+            var pagedResponses = await ToResponsesAsync(db, paged.Items, resolvedYear, cancellationToken);
+            return Results.Ok(new HrPage<LeaveRequestResponse>(pagedResponses, paged.Total, paged.PageNumber, paged.PageSize));
+        }
+
+        var rows = await ordered.ToListAsync(cancellationToken);
+        return Results.Ok(await ToResponsesAsync(db, rows, resolvedYear, cancellationToken));
+    }
+
+    private static async Task<List<LeaveRequestResponse>> ToResponsesAsync(
+        IHrDb db,
+        IReadOnlyList<Domain.LeaveRequest> rows,
+        int resolvedYear,
+        CancellationToken cancellationToken)
+    {
         var calendars = new Dictionary<Guid, LeaveDayContext>();
         var responses = new List<LeaveRequestResponse>(rows.Count);
         foreach (var row in rows)
@@ -104,7 +139,7 @@ public static class LeaveEndpoints
             responses.Add(ToResponse(row, row.Staff.Profile.DisplayName, calendar.Count(row.StartDate, row.EndDate, row.HalfDay)));
         }
 
-        return Results.Ok(responses);
+        return responses;
     }
 
     private static async Task<IResult> Balances(
@@ -164,7 +199,7 @@ public static class LeaveEndpoints
         {
             if (await FindOnShopAsync(requested, http, branches, db, cancellationToken) is null)
             {
-                return Results.NotFound();
+                return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at a shop you can see. Check the shop and try again.");
             }
 
             subjectId = requested;
@@ -208,7 +243,7 @@ public static class LeaveEndpoints
 
         if (await FindOnShopAsync(request.StaffId, http, branches, db, cancellationToken) is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at a shop you can see. Check the shop and try again.");
         }
 
         if (HasDayLimit(request.LeaveType.Value))
@@ -403,7 +438,7 @@ public static class LeaveEndpoints
             .FirstOrDefaultAsync(s => s.Id == request.StaffId, cancellationToken);
         if (targetStaff is null || await FindOnShopAsync(targetStaff.Id, http, branches, db, cancellationToken) is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at a shop you can see. Check the shop and try again.");
         }
 
         if (targetStaff.Role == StaffRole.Owner)
@@ -485,7 +520,7 @@ public static class LeaveEndpoints
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (row is null || await FindOnShopAsync(row.StaffId, http, branches, db, cancellationToken) is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That leave request was not found. It may have been removed.");
         }
 
         if (row.StaffId == actor.Id)
@@ -573,7 +608,7 @@ public static class LeaveEndpoints
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (row is null || await FindOnShopAsync(row.StaffId, http, branches, db, cancellationToken) is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That leave request was not found. It may have been removed.");
         }
 
         return Results.Ok(await work.ListOpenWorkAsync(row.StaffId, cancellationToken));
@@ -606,7 +641,7 @@ public static class LeaveEndpoints
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (row is null || await FindOnShopAsync(row.StaffId, http, branches, db, cancellationToken) is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That leave request was not found. It may have been removed.");
         }
 
         if (row.Status is LeaveRequestStatus.Rejected or LeaveRequestStatus.Cancelled)

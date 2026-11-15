@@ -34,7 +34,7 @@ public sealed class StaffAuthorizationFilter(IHrDb db, IHrStaffResolver resolver
         // No token and no honoured header: nobody is signed in, so there is nothing to check.
         if (string.IsNullOrWhiteSpace(http.User.AuthUserId()))
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         // The host decides which staff row this sign-in is (IHrStaffResolver). The default matches

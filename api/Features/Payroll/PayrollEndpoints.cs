@@ -854,7 +854,7 @@ public static class PayrollEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         if (actor.BranchId is null)
@@ -876,7 +876,7 @@ public static class PayrollEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         return Results.Ok(await runs.ListMyPayslipsAsync(actor.Id, cancellationToken));
@@ -891,7 +891,7 @@ public static class PayrollEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         var result = await runs.GetMyPayslipAsync(actor.Id, lineId, cancellationToken);
@@ -1009,7 +1009,7 @@ public static class PayrollEndpoints
                 }
 
                 return error is null
-                    ? Results.NotFound()
+                    ? HrProblems.Problem(StatusCodes.Status404NotFound, "That shop was not found. Check the shop and try again.")
                     : HrProblems.Problem(status, error);
             },
             cancellationToken);
