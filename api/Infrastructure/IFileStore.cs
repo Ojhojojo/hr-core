@@ -2,6 +2,7 @@ namespace HrCore.Infrastructure;
 
 public interface IFileStore
 {
+    /// <summary>Saves the file at <paramref name="storagePath"/>, replacing a file already there.</summary>
     Task<string> SaveAsync(string storagePath, Stream content, string contentType, CancellationToken cancellationToken);
     Task<Stream?> OpenAsync(string storagePath, CancellationToken cancellationToken);
 }
@@ -56,6 +57,8 @@ public sealed class SupabaseStorageStore(
             $"{url}/storage/v1/object/{Bucket}/{storagePath}");
         request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {key}");
         request.Headers.TryAddWithoutValidation("apikey", key);
+        // Replace a file already at this path (a replaced shop QR); without it Storage answers 409.
+        request.Headers.TryAddWithoutValidation("x-upsert", "true");
         request.Content = new StreamContent(content);
         request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
             string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType);
