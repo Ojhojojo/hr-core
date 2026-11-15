@@ -47,7 +47,9 @@ public static class EmployeeDirectoryEndpoints
         IHrDb db,
         CancellationToken cancellationToken,
         bool includeInactive = false,
-        string? search = null)
+        string? search = null,
+        int? page = null,
+        int? pageSize = null)
     {
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
         var branch = await db.Branches.AsNoTracking()
@@ -82,11 +84,14 @@ public static class EmployeeDirectoryEndpoints
             .OrderBy(s => s.Profile.DisplayName)
             .ThenBy(s => s.Id)
             .ToListAsync(cancellationToken);
+        // Config health checks the whole scope, so every row is still read. Paging trims the cards.
+        var paged = HrPaging.Requested(page) ? HrPaging.ToPage(items, page, pageSize) : null;
+        var shown = paged?.Items ?? items;
         var actor = http.GetStaff();
         var canManage = actor?.Role is StaffRole.Owner or StaffRole.Admin;
         var revealPayAndAccess = actor?.Role == StaffRole.Owner;
-        var onLeave = await OnLeaveTodayIdsAsync(db, items.Select(s => s.Id).ToArray(), cancellationToken);
-        var cards = items.Select(s => ToCard(
+        var onLeave = await OnLeaveTodayIdsAsync(db, shown.Select(s => s.Id).ToArray(), cancellationToken);
+        var cards = shown.Select(s => ToCard(
             s,
             onLeave.Contains(s.Id),
             revealStatutoryIds: canManage || (actor is not null && s.Id == actor.Id),
@@ -99,7 +104,13 @@ public static class EmployeeDirectoryEndpoints
         var health = canManage
             ? BuildConfigHealth(items, branch.MinimumDailyWagePhp, silAllotted.ToHashSet(), today)
             : null;
-        return Results.Ok(new EmployeeDirectoryListResponse(headcount, cards, health));
+        if (paged is null)
+        {
+            return Results.Ok(new EmployeeDirectoryListResponse(headcount, cards, health));
+        }
+
+        return Results.Ok(new EmployeeDirectoryPageResponse(
+            cards, paged.Total, paged.PageNumber, paged.PageSize, headcount, health));
     }
 
     /// <summary>The caller's own finalised scorecards. Any staff role; never another person's, never a draft or reopened card.</summary>
@@ -1023,6 +1034,18 @@ public sealed record EmployeeDirectoryListResponse(
     int Headcount,
     IReadOnlyList<EmployeeDirectoryCard> Items,
     IReadOnlyList<DirectoryConfigIssue>? ConfigHealth = null);
+
+/// <summary>
+/// Paged directory: the same card type as the list, plus the headcount and config health the
+/// screen shows above the list. Health covers the whole scope, not just this page.
+/// </summary>
+public sealed record EmployeeDirectoryPageResponse(
+    IReadOnlyList<EmployeeDirectoryCard> Items,
+    int Total,
+    int PageNumber,
+    int PageSize,
+    int Headcount,
+    IReadOnlyList<DirectoryConfigIssue>? ConfigHealth);
 
 public sealed record EmployeeDirectoryCard(
     Guid Id,

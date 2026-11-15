@@ -427,9 +427,32 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
         CancellationToken cancellationToken)
     {
         var (start, end, fromUtc, toExclusiveUtc) = ResolveWeekRange(from, to);
-        var rows = await QueryRowsAsync(
-            actor, shops, fromUtc, toExclusiveUtc, staffId, branchId, approval, cancellationToken);
+        var (rows, _) = await QueryRowsAsync(
+            actor, shops, fromUtc, toExclusiveUtc, staffId, branchId, approval, null, null, cancellationToken);
         return new AttendanceRegisterResponse(start, end, rows);
+    }
+
+    /// <summary>The register for one page of rows, plus the range it covers (the default week when no dates were sent).</summary>
+    public async Task<AttendanceRegisterPageResponse> GetRegisterPageAsync(
+        Domain.Staff? actor,
+        IReadOnlyList<Branch>? shops,
+        DateOnly? from,
+        DateOnly? to,
+        Guid? staffId,
+        Guid? branchId,
+        string? approval,
+        int? page,
+        int? pageSize,
+        CancellationToken cancellationToken)
+    {
+        var (start, end, fromUtc, toExclusiveUtc) = ResolveWeekRange(from, to);
+        var (rows, total) = await QueryRowsAsync(
+            actor, shops, fromUtc, toExclusiveUtc, staffId, branchId, approval, page, pageSize, cancellationToken);
+        // The Pending badge counts the whole range, not the page or the chosen approval filter.
+        var (_, pendingTotal) = await QueryRowsAsync(
+            actor, shops, fromUtc, toExclusiveUtc, staffId, branchId, "pending", 1, 1, cancellationToken);
+        var (pageNumber, size) = HrPaging.Normalize(page, pageSize);
+        return new AttendanceRegisterPageResponse(start, end, rows, total, pageNumber, size, pendingTotal);
     }
 
     public async Task<AttendanceCsvFile> BuildRegisterCsvAsync(
@@ -516,7 +539,11 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
         return (start, end, ManilaTime.StartOfDayUtc(start), ManilaTime.StartOfDayUtc(end.AddDays(1)));
     }
 
-    private async Task<IReadOnlyList<AttendanceRegisterRowDto>> QueryRowsAsync(
+    /// <summary>
+    /// Rows in the range. With no <paramref name="page"/> every row is returned; with one, only that
+    /// page. <paramref name="total"/> counts every row that matches the filters.
+    /// </summary>
+    private async Task<(IReadOnlyList<AttendanceRegisterRowDto> Rows, int Total)> QueryRowsAsync(
         Domain.Staff? actor,
         IReadOnlyList<Branch>? shops,
         DateTime fromUtc,
@@ -524,6 +551,8 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
         Guid? staffId,
         Guid? branchId,
         string? approval,
+        int? page,
+        int? pageSize,
         CancellationToken cancellationToken)
     {
         var query = db.AttendancePunches.AsNoTracking()
@@ -548,7 +577,7 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
 
             if (shopIds.Count == 0)
             {
-                return [];
+                return ([], 0);
             }
 
             query = query.Where(p => shopIds.Contains(p.BranchId));
@@ -558,9 +587,11 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
             }
         }
 
-        var raw = await query
+        // Id is the last tie-break, so a page boundary never repeats or skips a punch.
+        var ordered = query
             .OrderBy(p => p.InAtUtc)
             .ThenBy(p => p.Staff.Profile.DisplayName)
+            .ThenBy(p => p.Id)
             .Select(p => new
             {
                 p.StaffId,
@@ -584,10 +615,9 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
                 p.ReviewNote,
                 ReviewedBy = p.ReviewedByStaff != null ? p.ReviewedByStaff.Profile.DisplayName : null,
                 p.ReviewedAtUtc
-            })
-            .ToListAsync(cancellationToken);
+            });
 
-        return raw.Select(p => MapRegisterRow(
+        return await ReadRowsAsync(ordered, p => MapRegisterRow(
             p.StaffId,
             p.StaffName,
             p.BranchId,
@@ -608,7 +638,25 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
             p.OffsiteReason,
             p.ReviewNote,
             p.ReviewedBy,
-            p.ReviewedAtUtc)).ToList();
+            p.ReviewedAtUtc), page, pageSize, cancellationToken);
+    }
+
+    /// <summary>Maps the ordered projection to rows: all of them with no page, otherwise one page.</summary>
+    private static async Task<(IReadOnlyList<AttendanceRegisterRowDto> Rows, int Total)> ReadRowsAsync<T>(
+        IQueryable<T> ordered,
+        Func<T, AttendanceRegisterRowDto> map,
+        int? page,
+        int? pageSize,
+        CancellationToken cancellationToken)
+    {
+        if (!HrPaging.Requested(page))
+        {
+            var all = await ordered.ToListAsync(cancellationToken);
+            return (all.Select(map).ToList(), all.Count);
+        }
+
+        var paged = await ordered.ToPageAsync(page, pageSize, cancellationToken);
+        return (paged.Items.Select(map).ToList(), paged.Total);
     }
 
     private static AttendanceRegisterRowDto MapRegisterRow(

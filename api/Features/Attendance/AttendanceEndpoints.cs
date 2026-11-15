@@ -716,6 +716,8 @@ public static class AttendanceEndpoints
         Guid? staffId,
         Guid? branchId,
         string? approval,
+        int? page,
+        int? pageSize,
         HttpContext http,
         BranchResolver branches,
         AttendanceService attendance,
@@ -727,6 +729,12 @@ public static class AttendanceEndpoints
             {
                 try
                 {
+                    if (HrPaging.Requested(page))
+                    {
+                        return Results.Ok(await attendance.GetRegisterPageAsync(
+                            actor, (IReadOnlyList<Branch>?)shops, from, to, staffId, branchId, approval, page, pageSize, ct));
+                    }
+
                     return Results.Ok(await attendance.GetRegisterAsync(
                         actor, (IReadOnlyList<Branch>?)shops, from, to, staffId, branchId, approval, ct));
                 }
