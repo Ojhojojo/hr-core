@@ -89,6 +89,7 @@ import {
   hrChangeValue,
   sortChangeLogNewestFirst,
 } from './hr-change-log';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { formatPayslipMoney } from '../payroll/payroll-payslip';
 import { formatDay, formatDayRange } from '../hr-dates';
 
@@ -113,6 +114,7 @@ const DOC_LABELS: Record<EmploymentDocType, string> = {
     MatIconButton,
     MatIconModule,
     MatMenuModule,
+    MatPaginatorModule,
     MatTableModule,
     MatTabsModule,
     PageHeaderComponent,
@@ -375,9 +377,13 @@ export class EmployeeDetailPage implements OnInit {
   protected readonly leaveRequests = signal<LeaveRequestRow[]>([]);
   protected readonly leaveColumns = ['leaveType', 'dates', 'status', 'note'];
 
-  // History data
+  // History data. Paged by the server: `history` is the current page, `historyTotal` the whole trail.
   protected readonly historyLoading = signal(false);
   protected readonly history = signal<HrChangeLogRow[]>([]);
+  protected readonly historyTotal = signal(0);
+  protected readonly historyPageIndex = signal(0);
+  protected readonly historyPageSize = signal(50);
+  protected readonly historyPageSizeOptions = [25, 50, 100];
 
   ngOnInit(): void {
     const routeId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -462,6 +468,7 @@ export class EmployeeDetailPage implements OnInit {
     } else if (tab === 'leave') {
       this.loadLeave();
     } else if (tab === 'history' && this.isManager()) {
+      this.historyPageIndex.set(0);
       this.loadHistory();
     }
   }
@@ -737,13 +744,22 @@ export class EmployeeDetailPage implements OnInit {
     const p = this.person();
     if (!p) return;
     this.historyLoading.set(true);
-    this.api.listChangeLog(p.id).subscribe({
-      next: (body) => {
-        this.history.set(sortChangeLogNewestFirst(body.rows ?? []));
-        this.historyLoading.set(false);
-      },
-      error: () => this.historyLoading.set(false),
-    });
+    this.api
+      .listChangeLogPage(p.id, this.historyPageIndex() + 1, this.historyPageSize())
+      .subscribe({
+        next: (body) => {
+          this.history.set(sortChangeLogNewestFirst(body.items ?? []));
+          this.historyTotal.set(body.total);
+          this.historyLoading.set(false);
+        },
+        error: () => this.historyLoading.set(false),
+      });
+  }
+
+  protected onHistoryPage(event: PageEvent): void {
+    this.historyPageIndex.set(event.pageIndex);
+    this.historyPageSize.set(event.pageSize);
+    this.loadHistory();
   }
 
   protected openEdit(): void {

@@ -91,10 +91,17 @@ async function mount(
   expect(initial.request.method).toBe('GET');
   expect(initial.request.params.get('includeInactive')).toBe('false');
   expect(initial.request.params.has('search')).toBe(false);
+  expect(initial.request.params.get('page')).toBe('1');
+  expect(initial.request.params.get('pageSize')).toBe('50');
   beforeFlush?.(fixture.nativeElement as HTMLElement);
+  // The server drops inactive people unless includeInactive is on, so the page holds only active rows.
+  const shown = structuredClone(people.filter((p) => p.active));
   initial.flush({
     headcount: people.filter((p) => p.active).length,
-    items: structuredClone(people),
+    items: shown,
+    total: shown.length,
+    pageNumber: 1,
+    pageSize: 50,
     configHealth: healthIssues,
   });
 
@@ -144,6 +151,9 @@ describe('Employee directory', () => {
       headcount: 1,
       items: structuredClone([activePerson, inactivePerson]),
       configHealth: [],
+      total: 2,
+      pageNumber: 1,
+      pageSize: 50,
     });
     fixture.detectChanges();
     await fixture.whenStable();
@@ -193,7 +203,14 @@ describe('Employee directory', () => {
     const reload = http.expectOne(
       (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
     );
-    reload.flush({ headcount: 1, items: [activePerson], configHealth: [] });
+    reload.flush({
+      headcount: 1,
+      items: [activePerson],
+      configHealth: [],
+      total: 1,
+      pageNumber: 1,
+      pageSize: 50,
+    });
   });
 
   it('owner edit prefills pay and permissions and omits clear flags when untouched', async () => {
@@ -240,7 +257,14 @@ describe('Employee directory', () => {
     const reload = http.expectOne(
       (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
     );
-    reload.flush({ headcount: 1, items: [activePerson], configHealth: [] });
+    reload.flush({
+      headcount: 1,
+      items: [activePerson],
+      configHealth: [],
+      total: 1,
+      pageNumber: 1,
+      pageSize: 50,
+    });
   });
 
   const hostRoles: DirectoryRoleOption[] = [
@@ -281,7 +305,14 @@ describe('Employee directory', () => {
     const reload = http.expectOne(
       (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
     );
-    reload.flush({ headcount: 1, items: [activePerson], configHealth: [] });
+    reload.flush({
+      headcount: 1,
+      items: [activePerson],
+      configHealth: [],
+      total: 1,
+      pageNumber: 1,
+      pageSize: 50,
+    });
   });
 
   it('owner edit sends role when it changed', async () => {
@@ -303,7 +334,14 @@ describe('Employee directory', () => {
     const reload = http.expectOne(
       (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
     );
-    reload.flush({ headcount: 1, items: [{ ...activePerson, role: 'admin' }], configHealth: [] });
+    reload.flush({
+      headcount: 1,
+      items: [{ ...activePerson, role: 'admin' }],
+      configHealth: [],
+      total: 1,
+      pageNumber: 1,
+      pageSize: 50,
+    });
   });
 
   it('owner add sends the default technician role', async () => {
@@ -356,6 +394,9 @@ describe('Employee directory', () => {
       headcount: 2,
       items: [activePerson, { ...activePerson, id: 'p-new', displayName: 'Nia New' }],
       configHealth: [],
+      total: 2,
+      pageNumber: 1,
+      pageSize: 50,
     });
   });
 
@@ -407,6 +448,9 @@ describe('Employee directory', () => {
       headcount: 2,
       items: [activePerson, { ...activePerson, id: 'p-new', displayName: 'Nia New' }],
       configHealth: [],
+      total: 2,
+      pageNumber: 1,
+      pageSize: 50,
     });
   });
 
@@ -469,6 +513,9 @@ describe('Employee directory', () => {
       headcount: 2,
       items: [activePerson, { ...activePerson, id: 'p-new', displayName: 'Nia New' }],
       configHealth: [],
+      total: 2,
+      pageNumber: 1,
+      pageSize: 50,
     });
   });
 
@@ -509,7 +556,14 @@ describe('Employee directory', () => {
     const reload = http.expectOne(
       (req) => req.url.includes('/api/employee-directory') && !req.url.includes('/documents'),
     );
-    reload.flush({ headcount: 1, items: [activePerson], configHealth: [] });
+    reload.flush({
+      headcount: 1,
+      items: [activePerson],
+      configHealth: [],
+      total: 1,
+      pageNumber: 1,
+      pageSize: 50,
+    });
   });
 
   it('owner row has no edit button for admin, but has edit button for owner', async () => {
@@ -532,5 +586,90 @@ describe('Employee directory', () => {
     ownerFix.detectChanges();
     await ownerFix.whenStable();
     expect(document.body.querySelector('button[name="edit"]')).not.toBeNull();
+  });
+
+  it('asks the server for the page the paginator is on', async () => {
+    const { http, fixture } = await mount('owner');
+
+    fixture.componentInstance.onPage({ pageIndex: 1, pageSize: 25, length: 60 });
+    const page2 = http.expectOne(
+      (req) => req.url.includes('/api/employee-directory') && req.params.get('page') === '2',
+    );
+    expect(page2.request.params.get('pageSize')).toBe('25');
+    page2.flush({
+      headcount: 1,
+      items: [activePerson],
+      configHealth: [],
+      total: 60,
+      pageNumber: 2,
+      pageSize: 25,
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+  });
+
+  it('goes back to page 1 when the search or the inactive filter changes', async () => {
+    const { http, fixture } = await mount('owner');
+
+    fixture.componentInstance.onPage({ pageIndex: 2, pageSize: 25, length: 80 });
+    http
+      .expectOne(
+        (req) => req.url.includes('/api/employee-directory') && req.params.get('page') === '3',
+      )
+      .flush({
+        headcount: 1,
+        items: [activePerson],
+        configHealth: [],
+        total: 80,
+        pageNumber: 3,
+        pageSize: 25,
+      });
+    fixture.detectChanges();
+
+    fixture.componentInstance.onSearch('ana');
+    const searched = http.expectOne((req) => req.url.includes('/api/employee-directory'));
+    expect(searched.request.params.get('page')).toBe('1');
+    expect(searched.request.params.get('search')).toBe('ana');
+    searched.flush({
+      headcount: 1,
+      items: [activePerson],
+      configHealth: [],
+      total: 1,
+      pageNumber: 1,
+      pageSize: 25,
+    });
+    fixture.detectChanges();
+
+    fixture.componentInstance.onPage({ pageIndex: 1, pageSize: 25, length: 60 });
+    http
+      .expectOne(
+        (req) => req.url.includes('/api/employee-directory') && req.params.get('page') === '2',
+      )
+      .flush({
+        headcount: 1,
+        items: [activePerson],
+        configHealth: [],
+        total: 60,
+        pageNumber: 2,
+        pageSize: 25,
+      });
+    fixture.detectChanges();
+
+    fixture.componentInstance.onIncludeInactive(true);
+    const reset = http.expectOne(
+      (req) =>
+        req.url.includes('/api/employee-directory') && req.params.get('includeInactive') === 'true',
+    );
+    expect(reset.request.params.get('page')).toBe('1');
+    reset.flush({
+      headcount: 1,
+      items: [activePerson, inactivePerson],
+      configHealth: [],
+      total: 2,
+      pageNumber: 1,
+      pageSize: 25,
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
   });
 });

@@ -176,8 +176,8 @@ export class LeavePage {
   protected readonly acting = signal(false);
   /** Signed-in user's own rows (`mine=true`). Empty for the owner, who has no personal leave. */
   protected readonly ownRequests = signal<LeaveRequestRow[]>([]);
-  /** Shop rows for the decision list and history. Owner and admin only. */
-  protected readonly shopRequests = signal<LeaveRequestRow[]>([]);
+  /** Shop requests still pending, for the decision list. Owner and admin only. Not paged. */
+  protected readonly pendingRequests = signal<LeaveRequestRow[]>([]);
   protected readonly balances = signal<LeaveBalance[]>([]);
   protected readonly teamBalances = signal<StaffLeaveBalances[]>([]);
   protected readonly people = signal<LeavePerson[]>([]);
@@ -236,13 +236,6 @@ export class LeavePage {
     return false;
   }
 
-  protected readonly pendingRequests = computed(() =>
-    this.shopRequests().filter((r) => r.status === 'pending'),
-  );
-  protected readonly historyRequests = computed(() =>
-    this.shopRequests().filter((r) => r.status !== 'pending'),
-  );
-
   protected readonly teamRows = computed(() => {
     const team = this.teamBalances().filter((t) => !!t.staffId && !!t.displayName);
     if (team.length > 0) {
@@ -296,18 +289,13 @@ export class LeavePage {
     'actions',
   ];
 
-  // Pagination
+  // Pagination. History is paged by the server: historyRequests is the current page.
+  /** Decided requests on the current page (approved, rejected, cancelled). */
+  protected readonly historyRequests = signal<LeaveRequestRow[]>([]);
+  protected readonly historyTotal = signal(0);
   protected readonly historyPageIndex = signal(0);
-  protected readonly historyPageSize = signal(10);
-  protected readonly historyPageSizeOptions = [5, 10, 25];
-  protected readonly pagedHistoryRequests = computed(() => {
-    const items = this.historyRequests();
-    const size = this.historyPageSize();
-    const maxPage = Math.max(0, Math.ceil(items.length / size) - 1);
-    const page = Math.min(this.historyPageIndex(), maxPage);
-    const start = page * size;
-    return items.slice(start, start + size);
-  });
+  protected readonly historyPageSize = signal(25);
+  protected readonly historyPageSizeOptions = [25, 50, 100];
 
   protected readonly myRequestsPageIndex = signal(0);
   protected readonly myRequestsPageSize = signal(10);
@@ -324,6 +312,7 @@ export class LeavePage {
   onHistoryPage(event: PageEvent): void {
     this.historyPageIndex.set(event.pageIndex);
     this.historyPageSize.set(event.pageSize);
+    this.loadHistory();
   }
 
   onMyRequestsPage(event: PageEvent): void {
@@ -645,6 +634,23 @@ export class LeavePage {
     this.toast.error(message);
   }
 
+  /** Loads the history page the paginator is on. `done` runs once it answers or fails. */
+  private loadHistory(done?: () => void): void {
+    this.api
+      .listPage(this.year, 'decided', this.historyPageIndex() + 1, this.historyPageSize())
+      .subscribe({
+        next: (body) => {
+          this.historyRequests.set(body.items);
+          this.historyTotal.set(body.total);
+          done?.();
+        },
+        error: (err) => {
+          this.error.set(apiErrorMessage(err));
+          done?.();
+        },
+      });
+  }
+
   private reload(initial: boolean): void {
     if (initial) {
       this.loading.set(true);
@@ -693,9 +699,9 @@ export class LeavePage {
 
     if (decide) {
       pendingLists += 1;
-      this.api.list(this.year).subscribe({
+      this.api.list(this.year, false, 'pending').subscribe({
         next: (rows) => {
-          this.shopRequests.set(rows);
+          this.pendingRequests.set(rows);
           finishList();
         },
         error: (err) => {
@@ -703,8 +709,12 @@ export class LeavePage {
           finishList();
         },
       });
+      pendingLists += 1;
+      this.loadHistory(finishList);
     } else {
-      this.shopRequests.set([]);
+      this.pendingRequests.set([]);
+      this.historyRequests.set([]);
+      this.historyTotal.set(0);
     }
 
     if (!owner) {

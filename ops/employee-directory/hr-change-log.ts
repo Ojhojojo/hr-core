@@ -20,6 +20,14 @@ export interface HrChangeLogList {
   rows: HrChangeLogRow[];
 }
 
+/** One page of the change log, when the request carries `page`. */
+export interface HrChangeLogPage {
+  items: HrChangeLogRow[];
+  total: number;
+  pageNumber: number;
+  pageSize: number;
+}
+
 /** Dotted keys written by HrChangeField on the API. Unknown keys fall back to the raw key. */
 const FIELD_LABELS: Record<string, string> = {
   'staff.role': 'Role',

@@ -207,17 +207,11 @@ export class AttendancePage {
   /** True while a review, overtime decision or close is open or saving, so a second tap does nothing. */
   protected readonly acting = signal(false);
 
+  /** Server paging: `rows` is the current page, `total` the whole range after the filters. */
   protected readonly pageIndex = signal(0);
-  protected readonly pageSize = signal(10);
-  protected readonly pageSizeOptions = [10, 25, 50];
-  protected readonly pagedRows = computed(() => {
-    const items = this.rows();
-    const size = this.pageSize();
-    const maxPage = Math.max(0, Math.ceil(items.length / size) - 1);
-    const page = Math.min(this.pageIndex(), maxPage);
-    const start = page * size;
-    return items.slice(start, start + size);
-  });
+  protected readonly pageSize = signal(25);
+  protected readonly pageSizeOptions = [25, 50, 100];
+  protected readonly total = signal(0);
 
   protected readonly role = computed(() => this.auth.me()?.staffRole);
   protected readonly canManage = computed(() => {
@@ -228,9 +222,8 @@ export class AttendancePage {
   protected readonly punchStaff = computed(() =>
     this.staff().filter((person) => person.mustClock === true && person.role !== 'owner'),
   );
-  protected readonly pendingCount = computed(
-    () => this.rows().filter((row) => row.approvalStatus === 'pending').length,
-  );
+  /** Punches waiting for review in the whole range, from the server. */
+  protected readonly pendingCount = signal(0);
   /** Empty register text: a range that is entirely past says to try another range. */
   protected readonly emptyMessage = computed(() => emptyPunchesMessage(this.to(), manilaToday()));
   protected readonly punchStatusLabel = punchStatusLabel;
@@ -261,20 +254,38 @@ export class AttendancePage {
     this.overtimeLoading.set(true);
     this.error.set('');
     this.pageIndex.set(0);
-    this.api.register(this.registerQuery()).subscribe({
-      next: (body) => {
-        this.from.set(body.from);
-        this.to.set(body.to);
-        this.rows.set(body.rows);
-        this.loading.set(false);
-        this.loadOvertime(body.from, body.to);
-      },
-      error: (err: unknown) => {
-        this.error.set(apiErrorMessage(err));
-        this.loading.set(false);
-        this.overtimeLoading.set(false);
-      },
-    });
+    this.fetchPage(true);
+  }
+
+  /** Loads the page the paginator is on. Overtime reloads only when the range or filters change. */
+  private fetchPage(withOvertime: boolean): void {
+    this.loading.set(true);
+    this.api
+      .registerPage({
+        ...this.registerQuery(),
+        page: this.pageIndex() + 1,
+        pageSize: this.pageSize(),
+      })
+      .subscribe({
+        next: (body) => {
+          this.from.set(body.from);
+          this.to.set(body.to);
+          this.rows.set(body.items);
+          this.total.set(body.total);
+          this.pendingCount.set(body.pendingTotal);
+          this.loading.set(false);
+          if (withOvertime) {
+            this.loadOvertime(body.from, body.to);
+          }
+        },
+        error: (err: unknown) => {
+          this.error.set(apiErrorMessage(err));
+          this.loading.set(false);
+          if (withOvertime) {
+            this.overtimeLoading.set(false);
+          }
+        },
+      });
   }
 
   loadOvertime(from: string, to: string): void {
@@ -393,6 +404,7 @@ export class AttendancePage {
   onPage(event: PageEvent): void {
     this.pageIndex.set(event.pageIndex);
     this.pageSize.set(event.pageSize);
+    this.fetchPage(false);
   }
 
   onPeriodChange(range: PeriodRange): void {

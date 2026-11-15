@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '@hr-host';
 import {
+  AttendanceRegisterPage,
   AttendanceRegisterQuery,
   AttendanceRegisterResponse,
   AttendanceStaffOption,
@@ -19,6 +20,13 @@ export class AttendanceApi {
 
   register(query: AttendanceRegisterQuery = {}): Observable<AttendanceRegisterResponse> {
     return this.http.get<AttendanceRegisterResponse>(`${this.base}/api/ops/attendance/register`, {
+      params: toParams(query),
+    });
+  }
+
+  /** One page of the register. `query.page` is 1-based. */
+  registerPage(query: AttendanceRegisterQuery): Observable<AttendanceRegisterPage> {
+    return this.http.get<AttendanceRegisterPage>(`${this.base}/api/ops/attendance/register`, {
       params: toParams(query),
     });
   }
@@ -114,6 +122,12 @@ function toParams(query: AttendanceRegisterQuery): HttpParams {
   }
   if (query.approval) {
     params = params.set('approval', query.approval);
+  }
+  if (query.page != null) {
+    params = params.set('page', String(query.page));
+  }
+  if (query.pageSize != null) {
+    params = params.set('pageSize', String(query.pageSize));
   }
   return params;
 }

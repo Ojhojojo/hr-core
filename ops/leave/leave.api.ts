@@ -35,6 +35,17 @@ export interface LeaveRequestRow {
   cancelReason: string | null;
 }
 
+/** The shop's leave list, one page at a time. The API takes `page` (1-based) and `pageSize`. */
+export interface LeaveRequestPage {
+  items: LeaveRequestRow[];
+  total: number;
+  pageNumber: number;
+  pageSize: number;
+}
+
+/** `pending` is the decision list; `decided` is everything else (approved, rejected, cancelled). */
+export type LeaveStatusFilter = 'pending' | 'decided';
+
 export interface LeaveBalance {
   leaveType: LeaveType;
   allotment: number;
@@ -76,12 +87,26 @@ export class LeaveApi {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiBaseUrl;
 
-  list(year: number, mine = false): Observable<LeaveRequestRow[]> {
+  list(year: number, mine = false, status?: LeaveStatusFilter): Observable<LeaveRequestRow[]> {
     const params: Record<string, string | number> = { year };
     if (mine) {
       params['mine'] = 'true';
     }
+    if (status) {
+      params['status'] = status;
+    }
     return this.http.get<LeaveRequestRow[]>(`${this.base}/api/leave`, { params });
+  }
+
+  /** One page of the shop's requests for a status filter, newest first. */
+  listPage(
+    year: number,
+    status: LeaveStatusFilter,
+    page: number,
+    pageSize: number,
+  ): Observable<LeaveRequestPage> {
+    const params: Record<string, string | number> = { year, status, page, pageSize };
+    return this.http.get<LeaveRequestPage>(`${this.base}/api/leave`, { params });
   }
 
   balances(year: number): Observable<LeaveBalance[]> {

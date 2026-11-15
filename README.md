@@ -131,6 +131,36 @@ handover dialog and the KPI scorecards tab, and another app can supply stubs. Th
 mounts `hrRoutes` from `hr.routes.ts` under its HR area. See Rakkii's
 `apps/ops/src/app/hr-host.ts` for the full list.
 
+## Paged HR lists (host contract)
+
+Four list endpoints can return one page. Hosts that call them directly keep the old response
+unless the request sends `page`. Without `page` nothing changes, so a host that reads `rows` or a
+top-level array keeps working. A host that wants pages sends `page` and reads `items`.
+
+| Endpoint | Without `page` (unchanged) | With `page` |
+| --- | --- | --- |
+| `GET /api/employee-directory` | `{ headcount, items, configHealth }` | `{ items, total, pageNumber, pageSize, headcount, configHealth }` |
+| `GET /api/ops/attendance/register` | `{ from, to, rows }` | `{ items, total, pageNumber, pageSize, from, to, pendingTotal }` |
+| `GET /api/leave` | array | `{ items, total, pageNumber, pageSize }` |
+| `GET /api/hr/change-log` | `{ rows }` | `{ items, total, pageNumber, pageSize }` |
+
+- `page` is 1-based. A value below 1 reads as 1. A page past the end has `items: []` and the real `total`.
+- `pageSize` defaults to 50. A value below 1 reads as 50, and a value above 200 reads as 200.
+- The paged `items` are the same type as the unpaged rows. The extra fields are what the screen
+  already gets from the unpaged response (headcount and config health, or the register period),
+  and `pendingTotal` is the Pending badge count for the whole range.
+- Filters apply before the page. Directory: `includeInactive`, `search`. Register: `approval`,
+  `staffId`, `from`, `to`. Leave: `year`, `mine`, and `status` (`pending` or `decided`, where
+  `decided` is approved, rejected or cancelled). An unknown `status` is 400. Change log: `staffId`,
+  `field`, `from`, `to`.
+- Rows are ordered with a unique tie-breaker (the id), so pages do not repeat or skip rows.
+- Directory config health still reads every person in scope, because it checks them all. Paging
+  only limits the cards. Leave's pending list is not paged: the decision list is every pending request.
+- Without `page`, the change log still takes `take` (default 100, max 500) and returns `rows`.
+
+The ops screens in this repo send `page` and `pageSize`. Rakkii's pinned copy keeps the unpaged
+calls until it bumps the pin and changes its own screens.
+
 ## Before promoting develop to main
 
 These `develop` changes need a host-side step before a `main` host (Rakkii) takes them:

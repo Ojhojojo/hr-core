@@ -81,6 +81,11 @@ function confirmStub(confirmed = true) {
   };
 }
 
+/** A GET to the leave list, not a balances request. */
+function isListRequest(req: { method: string; url: string }): boolean {
+  return req.method === 'GET' && req.url.includes('/api/leave') && !req.url.includes('/balances');
+}
+
 async function mount(
   role: string,
   customRequests?: LeaveRequestRow[],
@@ -126,9 +131,27 @@ async function mount(
   const shopRows = customRequests ?? [pending, approvedHistory];
   const ownRows = customRequests ?? [pending];
   if (decide) {
-    const shopList = http.expectOne((req) => isList(req) && req.params.get('mine') !== 'true');
-    expect(shopList.request.method).toBe('GET');
-    shopList.flush(structuredClone(shopRows));
+    // The decision list is every pending request, unpaged.
+    const pendingList = http.expectOne(
+      (req) =>
+        isList(req) && req.params.get('mine') !== 'true' && req.params.get('status') === 'pending',
+    );
+    expect(pendingList.request.method).toBe('GET');
+    pendingList.flush(structuredClone(shopRows.filter((r) => r.status === 'pending')));
+
+    // History is one page, as the server answers it: the requested page of decided rows.
+    const historyList = http.expectOne(
+      (req) => isList(req) && req.params.get('status') === 'decided',
+    );
+    const size = Number(historyList.request.params.get('pageSize') ?? 25);
+    const pageNumber = Number(historyList.request.params.get('page') ?? 1);
+    const decided = shopRows.filter((r) => r.status !== 'pending');
+    historyList.flush({
+      items: structuredClone(decided.slice((pageNumber - 1) * size, pageNumber * size)),
+      total: decided.length,
+      pageNumber,
+      pageSize: size,
+    });
   }
   if (!owner) {
     const mineList = http.expectOne((req) => isList(req) && req.params.get('mine') === 'true');
@@ -225,10 +248,18 @@ describe('Leave', () => {
     // Triggers reload
     const shopReq = http.expectOne((r) => r.url.includes('/api/leave/balances'));
     shopReq.flush([]);
-    const listReq = http.expectOne(
+    // The decision list and the history page both reload.
+    const listReqs = http.match(
       (r) => r.method === 'GET' && r.url.includes('/api/leave') && !r.url.includes('/balances'),
     );
-    listReq.flush([]);
+    expect(listReqs).toHaveLength(2);
+    for (const listReq of listReqs) {
+      listReq.flush(
+        listReq.request.params.get('status') === 'decided'
+          ? { items: [], total: 0, pageNumber: 1, pageSize: 25 }
+          : [],
+      );
+    }
   });
 
   it('paginates leave history for owner across pages', async () => {
@@ -246,13 +277,26 @@ describe('Leave', () => {
       cancelReason: null,
     }));
 
-    const { fixture, host } = await mount('owner', manyHistory);
-
+    // The first page is 25 rows, so all 15 show; the total comes from the server.
+    const { http, fixture, host } = await mount('owner', manyHistory);
     expect(host.textContent).toContain('Technician 01');
-    expect(host.textContent).toContain('Technician 10');
-    expect(host.textContent).not.toContain('Technician 11');
+    expect(host.textContent).toContain('Technician 15');
 
+    // Changing the page asks the server for that page; the list is not sliced in the browser.
     fixture.componentInstance.onHistoryPage({ pageIndex: 1, pageSize: 10, length: 15 });
+    const next = http.expectOne(
+      (req) =>
+        isListRequest(req) &&
+        req.params.get('status') === 'decided' &&
+        req.params.get('page') === '2' &&
+        req.params.get('pageSize') === '10',
+    );
+    next.flush({
+      items: manyHistory.slice(10),
+      total: 15,
+      pageNumber: 2,
+      pageSize: 10,
+    });
     fixture.detectChanges();
 
     expect(host.textContent).not.toContain('Technician 01');

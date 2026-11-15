@@ -633,6 +633,14 @@
                   </li>
                 }
               </ul>
+              <mat-paginator
+                [length]="historyTotal()"
+                [pageIndex]="historyPageIndex()"
+                [pageSize]="historyPageSize()"
+                [pageSizeOptions]="historyPageSizeOptions"
+                showFirstLastButtons
+                (page)="onHistoryPage($event)"
+              />
             }
           </ops-card>
         </div>

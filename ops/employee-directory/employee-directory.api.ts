@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '@hr-host';
-import { HrChangeLogList } from './hr-change-log';
+import { HrChangeLogList, HrChangeLogPage } from './hr-change-log';
 
 export type DirectoryRole = 'owner' | 'admin' | 'technician' | 'sales';
 export type DirectoryStatus = 'active' | 'on_leave_today' | 'inactive';
@@ -127,6 +127,16 @@ export const HEALTH_LABELS: Record<DirectoryHealthCode, string> = {
   sil_missing_allotment: 'SIL allotment missing',
 };
 
+/** One page of the directory, plus what the screen shows above the list. */
+export interface EmployeeDirectoryPage {
+  items: EmployeeCard[];
+  total: number;
+  pageNumber: number;
+  pageSize: number;
+  headcount: number;
+  configHealth?: DirectoryConfigIssue[];
+}
+
 export interface EmployeeDirectoryList {
   headcount: number;
   items: EmployeeCard[];
@@ -214,6 +224,32 @@ export interface EmploymentDocument {
 export class EmployeeDirectoryApi {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiBaseUrl;
+
+  /** One page of the directory. The filters are applied on the server before paging. `page` is 1-based. */
+  listPage(
+    includeInactive: boolean,
+    search: string,
+    page: number,
+    pageSize: number,
+  ): Observable<EmployeeDirectoryPage> {
+    let params = new HttpParams()
+      .set('includeInactive', String(includeInactive))
+      .set('page', String(page))
+      .set('pageSize', String(pageSize));
+    const term = search.trim();
+    if (term) {
+      params = params.set('search', term);
+    }
+    return this.http
+      .get<EmployeeDirectoryPage>(`${this.base}/api/employee-directory`, { params })
+      .pipe(
+        map((body) => ({
+          ...body,
+          items: body.items ?? [],
+          configHealth: body.configHealth ?? [],
+        })),
+      );
+  }
 
   list(includeInactive: boolean, search = ''): Observable<EmployeeDirectoryList> {
     let params = new HttpParams().set('includeInactive', String(includeInactive));
@@ -303,5 +339,14 @@ export class EmployeeDirectoryApi {
   listChangeLog(staffId: string, take = 200): Observable<HrChangeLogList> {
     const params = new HttpParams().set('staffId', staffId).set('take', String(take));
     return this.http.get<HrChangeLogList>(`${this.base}/api/hr/change-log`, { params });
+  }
+
+  /** One page of the people/HR trail for one person, newest first. `page` is 1-based. */
+  listChangeLogPage(staffId: string, page: number, pageSize: number): Observable<HrChangeLogPage> {
+    const params = new HttpParams()
+      .set('staffId', staffId)
+      .set('page', String(page))
+      .set('pageSize', String(pageSize));
+    return this.http.get<HrChangeLogPage>(`${this.base}/api/hr/change-log`, { params });
   }
 }
