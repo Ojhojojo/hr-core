@@ -7,7 +7,7 @@ import { provideRouter } from '@angular/router';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AuthService } from '@hr-host';
 import { MEMBER_ROLE, specUser, type SpecUser } from '../host-spec-fixtures';
-import { AttendancePage, manilaWeekRange } from './attendance';
+import { AttendancePage, emptyPunchesMessage, manilaWeekRange } from './attendance';
 import { AttendanceRegisterResponse, OvertimeListResponse } from './attendance.models';
 
 const ownerMe: SpecUser = specUser('owner', {
@@ -236,6 +236,14 @@ describe('AttendancePage', () => {
     expect(manilaWeekRange('2026-09-17')).toEqual({ from: '2026-09-14', to: '2026-09-20' });
     expect(manilaWeekRange('2026-09-20')).toEqual({ from: '2026-09-14', to: '2026-09-20' });
     expect(manilaWeekRange('2026-09-14')).toEqual({ from: '2026-09-14', to: '2026-09-20' });
+  });
+
+  it('emptyPunchesMessage says "Try another date range." only when the range is entirely in the past', () => {
+    const yet = 'No punches yet. They show here once someone clocks in.';
+    expect(emptyPunchesMessage('2026-09-19', '2026-09-20')).toBe('Try another date range.');
+    expect(emptyPunchesMessage('2026-09-20', '2026-09-20')).toBe(yet);
+    expect(emptyPunchesMessage('2026-09-27', '2026-09-20')).toBe(yet);
+    expect(emptyPunchesMessage('', '2026-09-20')).toBe(yet);
   });
 
   it('paginates punches across multiple pages', async () => {

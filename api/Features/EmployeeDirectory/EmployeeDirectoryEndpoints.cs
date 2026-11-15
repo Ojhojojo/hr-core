@@ -113,7 +113,7 @@ public static class EmployeeDirectoryEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         if (!HrRoles.IsDesk(actor.Role) && actor.Id != id)
@@ -131,7 +131,7 @@ public static class EmployeeDirectoryEndpoints
             && (staff.BranchId == branchId || (staff.BranchId == null && staff.Role == StaffRole.Owner));
         if (staff is null || !inThisShop)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at this shop. Check the shop picker and try again.");
         }
 
         var branch = await db.Branches.AsNoTracking()
@@ -139,7 +139,7 @@ public static class EmployeeDirectoryEndpoints
         if (!string.Equals(branch.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase)
             && string.Equals(staff.Branch?.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase))
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at this shop. Check the shop picker and try again.");
         }
 
         var onLeave = await IsOnLeaveTodayAsync(db, staff.Id, cancellationToken);
@@ -307,7 +307,7 @@ public static class EmployeeDirectoryEndpoints
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
         if (staff is null || staff.BranchId != branchId)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at this shop. Check the shop picker and try again.");
         }
 
         var branch = await db.Branches.AsNoTracking()
@@ -315,7 +315,7 @@ public static class EmployeeDirectoryEndpoints
         if (!string.Equals(branch.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase)
             && string.Equals(staff.Branch?.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase))
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at this shop. Check the shop picker and try again.");
         }
 
         if (actor.Role != StaffRole.Owner && staff.Role == StaffRole.Owner)

@@ -80,7 +80,7 @@
       <ops-skeleton [rows]="5" />
     </div>
   } @else if (rows().length === 0) {
-    <ops-empty-state title="No punches" message="Try another date range." icon="inbox" />
+    <ops-empty-state title="No punches" [message]="emptyMessage()" icon="inbox" />
   } @else {
     <div class="ops-table-wrap">
       <table mat-table [dataSource]="pagedRows()" class="ops-table ops-attend-table">

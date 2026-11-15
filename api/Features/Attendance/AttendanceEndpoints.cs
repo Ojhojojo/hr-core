@@ -84,7 +84,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         // #384: the owner has no personal time clock, same as leave. Kiosk punch-for is unchanged.
@@ -129,7 +129,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         // #384: the owner has no personal time clock, same as leave. Kiosk punch-for is unchanged.
@@ -173,7 +173,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
@@ -197,7 +197,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
@@ -228,7 +228,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
@@ -260,7 +260,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         PunchForRequest? request;
@@ -310,7 +310,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         ClosePunchRequest? request;
@@ -372,7 +372,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         ReviewPunchRequest? request;
@@ -417,7 +417,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
@@ -437,7 +437,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         var normalized = side.Trim().ToLowerInvariant();
@@ -450,7 +450,7 @@ public static class AttendanceEndpoints
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
         if (punch is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That punch was not found. It may have been removed.");
         }
 
         if (actor.Role is Domain.StaffRole.Owner or Domain.StaffRole.Admin)
@@ -462,7 +462,7 @@ public static class AttendanceEndpoints
                 {
                     if (!shops.Any(s => s.Id == punch.BranchId))
                     {
-                        return Task.FromResult(Results.NotFound());
+                        return Task.FromResult<IResult>(HrProblems.Problem(StatusCodes.Status404NotFound, "That punch is not on a shop you can see. Check the shop and try again."));
                     }
 
                     return OpenPhotoAsync(punch, normalized, files, ct);
@@ -580,7 +580,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         IReadOnlyList<Domain.Branch>? shops = null;
@@ -601,7 +601,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         FileOvertimeRequest? request;
@@ -656,7 +656,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         DecideOvertimeRequest? request = null;
@@ -696,7 +696,7 @@ public static class AttendanceEndpoints
         var actor = http.GetStaff();
         if (actor is null)
         {
-            return Results.Unauthorized();
+            return HrProblems.Problem(StatusCodes.Status401Unauthorized, "Sign in again to continue.");
         }
 
         try

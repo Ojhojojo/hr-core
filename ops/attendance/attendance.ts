@@ -231,6 +231,8 @@ export class AttendancePage {
   protected readonly pendingCount = computed(
     () => this.rows().filter((row) => row.approvalStatus === 'pending').length,
   );
+  /** Empty register text: a range that is entirely past says to try another range. */
+  protected readonly emptyMessage = computed(() => emptyPunchesMessage(this.to(), manilaToday()));
   protected readonly punchStatusLabel = punchStatusLabel;
   protected readonly punchStatusTone = punchStatusTone;
   protected readonly canReviewPunch = canReviewPunch;
@@ -613,6 +615,17 @@ export function manilaWeekRange(anchor = manilaToday()): { from: string; to: str
   const sinceMonday = (dow + 6) % 7;
   const from = addDays(anchor, -sinceMonday);
   return { from, to: addDays(from, 6) };
+}
+
+/**
+ * The empty-register message. A range that ends before today has no punches to show, so "Try another
+ * date range." fits. A range that includes today or a later day has not finished yet, so say nobody has
+ * punched yet. Dates are Manila `yyyy-MM-dd`, so string order is date order.
+ */
+export function emptyPunchesMessage(to: string, today: string): string {
+  return to !== '' && to < today
+    ? 'Try another date range.'
+    : 'No punches yet. They show here once someone clocks in.';
 }
 
 function parseFileName(header: string | null): string | null {

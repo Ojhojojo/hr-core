@@ -316,7 +316,7 @@ public static class StaffEndpoints
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
         if (staff is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found. They may have been removed.");
         }
 
         var lengthError = StaffFieldLengthError(request);
@@ -453,7 +453,7 @@ public static class StaffEndpoints
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
         if (staff is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found. They may have been removed.");
         }
 
         if (actor.IsShopScopedOwner() && staff.BranchId != actor!.BranchId)

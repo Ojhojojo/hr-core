@@ -164,7 +164,7 @@ public static class LeaveEndpoints
         {
             if (await FindOnShopAsync(requested, http, branches, db, cancellationToken) is null)
             {
-                return Results.NotFound();
+                return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at a shop you can see. Check the shop and try again.");
             }
 
             subjectId = requested;
@@ -208,7 +208,7 @@ public static class LeaveEndpoints
 
         if (await FindOnShopAsync(request.StaffId, http, branches, db, cancellationToken) is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at a shop you can see. Check the shop and try again.");
         }
 
         if (HasDayLimit(request.LeaveType.Value))
@@ -403,7 +403,7 @@ public static class LeaveEndpoints
             .FirstOrDefaultAsync(s => s.Id == request.StaffId, cancellationToken);
         if (targetStaff is null || await FindOnShopAsync(targetStaff.Id, http, branches, db, cancellationToken) is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That person was not found at a shop you can see. Check the shop and try again.");
         }
 
         if (targetStaff.Role == StaffRole.Owner)
@@ -485,7 +485,7 @@ public static class LeaveEndpoints
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (row is null || await FindOnShopAsync(row.StaffId, http, branches, db, cancellationToken) is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That leave request was not found. It may have been removed.");
         }
 
         if (row.StaffId == actor.Id)
@@ -573,7 +573,7 @@ public static class LeaveEndpoints
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (row is null || await FindOnShopAsync(row.StaffId, http, branches, db, cancellationToken) is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That leave request was not found. It may have been removed.");
         }
 
         return Results.Ok(await work.ListOpenWorkAsync(row.StaffId, cancellationToken));
@@ -606,7 +606,7 @@ public static class LeaveEndpoints
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (row is null || await FindOnShopAsync(row.StaffId, http, branches, db, cancellationToken) is null)
         {
-            return Results.NotFound();
+            return HrProblems.Problem(StatusCodes.Status404NotFound, "That leave request was not found. It may have been removed.");
         }
 
         if (row.Status is LeaveRequestStatus.Rejected or LeaveRequestStatus.Cancelled)
