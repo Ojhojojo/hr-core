@@ -30,6 +30,9 @@ leaves any of these out.
 
 Then in `Program.cs`, call `services.AddHrCore<AppDbContext>()` and `app.MapHrCore()`.
 
+Opt-in host switches go through `services.AddHrCore<AppDbContext>(o => o.X = true)` (`HrCoreOptions`). All are off by default, so a host that sets none sees no change.
+`SuggestStatutoryInPreview`: an open payroll register shows the statutory pack's suggested SSS, PhilHealth, Pag-IBIG and WHT (prorated like Suggest) for a person with no saved deduction row for the period, marked `statutorySuggested`. A saved row, including zeros, always wins; locking freezes what is shown. No table or column changes.
+
 `api/check/HrCore.Check.csproj` builds the package with a minimal stand-in host
 (`api/check/Host/MinimalHost.cs`). CI runs it on every PR, so nothing app-specific can
 creep in.

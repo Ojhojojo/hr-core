@@ -22,8 +22,21 @@ public static class HrCoreSetup
     /// <see cref="DemoBranchOptions"/>; <see cref="IStaffWorkHooks"/> is optional.
     /// </summary>
     public static IServiceCollection AddHrCore<TDb>(this IServiceCollection services)
+        where TDb : DbContext, IHrDb =>
+        services.AddHrCore<TDb>(_ => { });
+
+    /// <summary>
+    /// Same as <see cref="AddHrCore{TDb}(IServiceCollection)"/>, with opt-in host switches
+    /// (see <see cref="HrCoreOptions"/>). Every switch is off unless set here.
+    /// </summary>
+    public static IServiceCollection AddHrCore<TDb>(
+        this IServiceCollection services,
+        Action<HrCoreOptions> configure)
         where TDb : DbContext, IHrDb
     {
+        var options = new HrCoreOptions();
+        configure(options);
+        services.AddSingleton(options);
         services.AddScoped<IHrDb>(sp => sp.GetRequiredService<TDb>());
         services.AddScoped<StaffAuthorizationFilter>();
         services.AddScoped<BranchResolver>();

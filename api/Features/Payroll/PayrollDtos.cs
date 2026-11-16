@@ -40,7 +40,9 @@ public sealed record PayrollStaffRowDto(
     IReadOnlyList<PayrollLoanItemDto>? LoanItems = null,
     decimal OtPay = 0,
     decimal LeaveDaysPaid = 0m,
-    IReadOnlyList<PayrollDayPayOverrideDto>? DayPayOverrides = null);
+    IReadOnlyList<PayrollDayPayOverrideDto>? DayPayOverrides = null,
+    bool StatutorySuggested = false,
+    string? StatutoryNote = null);
 
 /// <summary>#390: one calendar day's pay override shown on the draft register.</summary>
 public sealed record PayrollDayPayOverrideDto(

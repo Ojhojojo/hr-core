@@ -41,11 +41,7 @@ public sealed partial class PayrollService
         }
 
         var baseAmount = StatutoryBase(row);
-        var sss = StatutoryPack.SssEmployeeShare(monthStart, baseAmount);
-        var philHealth = StatutoryPack.PhilHealthEmployeeShare(monthStart, baseAmount);
-        var pagIbig = StatutoryPack.PagIbigEmployeeShare(monthStart, baseAmount);
-        var whtTaxable = baseAmount - sss - philHealth - pagIbig;
-        var wht = StatutoryPack.MonthlyWithholdingTax(whtTaxable);
+        var (sss, philHealth, pagIbig, whtTaxable, wht) = MonthShares(monthStart, baseAmount);
 
         if (periodFrom is null || periodTo is null)
         {
@@ -96,6 +92,99 @@ public sealed partial class PayrollService
             periodFrom,
             periodTo,
             prorated.Fraction);
+    }
+
+    private static (decimal Sss, decimal PhilHealth, decimal PagIbig, decimal WhtTaxable, decimal Wht)
+        MonthShares(DateOnly monthStart, decimal baseAmount)
+    {
+        var sss = StatutoryPack.SssEmployeeShare(monthStart, baseAmount);
+        var philHealth = StatutoryPack.PhilHealthEmployeeShare(monthStart, baseAmount);
+        var pagIbig = StatutoryPack.PagIbigEmployeeShare(monthStart, baseAmount);
+        var whtTaxable = baseAmount - sss - philHealth - pagIbig;
+        var wht = StatutoryPack.MonthlyWithholdingTax(whtTaxable);
+        return (sss, philHealth, pagIbig, whtTaxable, wht);
+    }
+
+    /// <summary>
+    /// What an open register shows for a person with no saved deduction row. <c>Applied</c> is
+    /// false when the pack cannot suggest (a month before January 2024); the amounts are then zero
+    /// and <c>Note</c> says to enter them by hand.
+    /// </summary>
+    private sealed record PreviewSuggestion(
+        decimal Sss,
+        decimal PhilHealth,
+        decimal PagIbig,
+        decimal Wht,
+        bool Applied,
+        string? Note);
+
+    /// <summary>
+    /// Suggestions for the register's period, one per person in <paramref name="staffIds"/>.
+    /// Same maths as <see cref="GetStatutorySuggestionAsync"/> for that person, month (the one
+    /// containing the period start) and period: the pack on the month's gross, then the period's
+    /// share of it. Two gross-only registers serve everyone, not one per person.
+    /// </summary>
+    private async Task<Dictionary<Guid, PreviewSuggestion>> LoadPreviewSuggestionsAsync(
+        IReadOnlyList<Branch> shops,
+        HashSet<Guid> staffIds,
+        DateOnly start,
+        DateOnly end,
+        bool includeUnscopedOwners,
+        CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<Guid, PreviewSuggestion>();
+        if (staffIds.Count == 0)
+        {
+            return result;
+        }
+
+        var monthStart = new DateOnly(start.Year, start.Month, 1);
+        var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+        if (monthStart < StatutoryPack.EffectiveFrom)
+        {
+            const string note = "The statutory pack covers January 2024 on. Enter the amounts by hand.";
+            foreach (var id in staffIds)
+            {
+                result[id] = new PreviewSuggestion(0m, 0m, 0m, 0m, false, note);
+            }
+
+            return result;
+        }
+
+        var monthRegister = await BuildRegisterAsync(
+            shops, monthStart, monthEnd, true, includeUnscopedOwners, null, false, cancellationToken);
+        var monthRows = monthRegister.Rows.ToDictionary(r => r.StaffId);
+        Dictionary<Guid, PayrollStaffRowDto> periodRows;
+        if (start == monthStart && end == monthEnd)
+        {
+            periodRows = monthRows;
+        }
+        else
+        {
+            var periodRegister = await BuildRegisterAsync(
+                shops, start, end, true, includeUnscopedOwners, null, false, cancellationToken);
+            periodRows = periodRegister.Rows.ToDictionary(r => r.StaffId);
+        }
+
+        foreach (var id in staffIds)
+        {
+            if (!monthRows.TryGetValue(id, out var monthRow))
+            {
+                continue;
+            }
+
+            var baseAmount = StatutoryBase(monthRow);
+            var month = MonthShares(monthStart, baseAmount);
+            var periodBase = periodRows.TryGetValue(id, out var periodRow) ? StatutoryBase(periodRow) : 0m;
+            var prorated = PayrollStatutoryProration.Apportion(
+                new PayrollStatutoryProration.MonthShares(month.Sss, month.PhilHealth, month.PagIbig, month.Wht),
+                baseAmount,
+                periodBase);
+            result[id] = new PreviewSuggestion(
+                prorated.Sss, prorated.PhilHealth, prorated.PagIbig, prorated.Wht, true, null);
+        }
+
+        return result;
     }
 
     private static StatutorySuggestionDto Suggest(
