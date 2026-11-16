@@ -55,6 +55,10 @@ export interface PayrollStaffRow {
   loanDeductions?: number | null;
   loanItems?: PayrollLoanItem[] | null;
   dayPayOverrides?: PayrollDayPayOverride[] | null;
+  /** Host opt-in: SSS, PhilHealth, Pag-IBIG and WHT are the pack's suggestion, not saved yet. */
+  statutorySuggested?: boolean;
+  /** Why the pack could not suggest (for example a month before Jan 2024). */
+  statutoryNote?: string | null;
 }
 
 export type PayrollDayPayMode = 'full' | 'half' | 'none' | 'custom';

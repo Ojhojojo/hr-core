@@ -6,16 +6,35 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HrCore.Features.Payroll;
 
-public sealed partial class PayrollService(IHrDb db)
+public sealed partial class PayrollService(IHrDb db, HrCoreOptions? options = null)
 {
-    public async Task<PayrollRegisterResponse> GetRegisterAsync(
+    private readonly bool suggestStatutoryInPreview = options?.SuggestStatutoryInPreview ?? false;
+
+    public Task<PayrollRegisterResponse> GetRegisterAsync(
         IReadOnlyList<Branch> shops,
         DateOnly? from,
         DateOnly? to,
         bool includeInactive,
         bool includeUnscopedOwners,
         CancellationToken cancellationToken,
-        DateOnly? payFromDate = null)
+        DateOnly? payFromDate = null) =>
+        BuildRegisterAsync(
+            shops, from, to, includeInactive, includeUnscopedOwners, payFromDate,
+            withStatutorySuggestions: true, cancellationToken);
+
+    /// <param name="withStatutorySuggestions">
+    /// False when the caller needs only gross pay (the statutory base), so building suggestions
+    /// does not call back into itself.
+    /// </param>
+    private async Task<PayrollRegisterResponse> BuildRegisterAsync(
+        IReadOnlyList<Branch> shops,
+        DateOnly? from,
+        DateOnly? to,
+        bool includeInactive,
+        bool includeUnscopedOwners,
+        DateOnly? payFromDate,
+        bool withStatutorySuggestions,
+        CancellationToken cancellationToken)
     {
         // Dates left blank use the usual week, moved up to the shop pay-from date when that week starts earlier.
         if (from is null && to is null)
@@ -77,6 +96,18 @@ public sealed partial class PayrollService(IHrDb db)
             : await db.PayrollDeductions.AsNoTracking()
                 .Where(d => staffIds.Contains(d.StaffId) && d.PeriodFrom == start && d.PeriodTo == end)
                 .ToDictionaryAsync(d => d.StaffId, cancellationToken);
+
+        // Host opt-in: no saved deduction row for the period means "never saved", so show the
+        // pack's suggestion. A saved row (even all zeros) is never replaced.
+        var suggestions = suggestStatutoryInPreview && withStatutorySuggestions
+            ? await LoadPreviewSuggestionsAsync(
+                shops,
+                staffList.Where(s => !deductionsByStaff.ContainsKey(s.Id)).Select(s => s.Id).ToHashSet(),
+                start,
+                end,
+                includeUnscopedOwners,
+                cancellationToken)
+            : null;
 
         var monthlyStaffIds = staffList
             .Where(s => s.PayBasis == PayBasis.Monthly)
@@ -150,12 +181,18 @@ public sealed partial class PayrollService(IHrDb db)
             string? notes = hasRate ? null : "No rate";
 
             var deduction = deductionsByStaff.GetValueOrDefault(staff.Id);
+            PreviewSuggestion? suggestion = null;
+            if (deduction is null && hasRate)
+            {
+                suggestions?.TryGetValue(staff.Id, out suggestion);
+            }
+
             var capped = PayrollDeductionCap.Cap(
                 new PayrollDeductionCap.Shares(
-                    deduction?.Sss ?? 0m,
-                    deduction?.PhilHealth ?? 0m,
-                    deduction?.PagIbig ?? 0m,
-                    deduction?.Wht ?? 0m,
+                    deduction?.Sss ?? suggestion?.Sss ?? 0m,
+                    deduction?.PhilHealth ?? suggestion?.PhilHealth ?? 0m,
+                    deduction?.PagIbig ?? suggestion?.PagIbig ?? 0m,
+                    deduction?.Wht ?? suggestion?.Wht ?? 0m,
                     deduction?.Other ?? 0m),
                 amount);
             var sss = capped.Shares.Sss;
@@ -216,7 +253,9 @@ public sealed partial class PayrollService(IHrDb db)
                 AllowancesOverridden: allowance.Overridden,
                 LoanDeductions: loan.LoanDeductions,
                 LoanItems: loan.Items,
-                DayPayOverrides: staffDayOverrides?.Select(ToDayPayOverrideDto).ToList()));
+                DayPayOverrides: staffDayOverrides?.Select(ToDayPayOverrideDto).ToList(),
+                StatutorySuggested: suggestion is { Applied: true },
+                StatutoryNote: suggestion is { Applied: false } ? suggestion.Note : null));
         }
 
         var grandTotal = rows.Sum(r => r.Amount);

@@ -901,6 +901,8 @@ export class PayrollPage {
               pagIbig: saved.pagIbig,
               wht: saved.wht,
               other: saved.other,
+              statutorySuggested: false,
+              statutoryNote: null,
               deductions: roundMoney(saved.deductions + loanAmountOf(item)),
               net: roundMoney((Number(item.amount) || 0) - saved.deductions - loanAmountOf(item)),
             };
@@ -1051,6 +1053,8 @@ export class PayrollPage {
                     pagIbig: saved.pagIbig,
                     wht: saved.wht,
                     other: saved.other,
+                    statutorySuggested: false,
+                    statutoryNote: null,
                     deductions: roundMoney(saved.deductions + loanAmountOf(item)),
                     net: roundMoney(
                       (Number(item.amount) || 0) - saved.deductions - loanAmountOf(item),

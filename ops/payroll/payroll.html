@@ -618,6 +618,11 @@
           <th mat-header-cell *matHeaderCellDef class="num">Deductions</th>
           <td mat-cell *matCellDef="let row" data-label="Deductions" class="num">
             {{ formatMoney(rowDeductions(row.staffId)) }}
+            @if (row.statutorySuggested) {
+              <span class="ops-cell-sub" data-suggested-tag>Suggested, not saved</span>
+            } @else if (row.statutoryNote) {
+              <span class="ops-cell-sub" data-statutory-note>{{ row.statutoryNote }}</span>
+            }
             @if (row.loanDeductions) {
               <span class="ops-cell-sub"
                 >Loans / CA {{ formatOptionalMoney(row.loanDeductions) }}</span
