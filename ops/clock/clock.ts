@@ -36,6 +36,7 @@ import {
 } from './offsite-punch';
 import { punchStatusLabel, punchStatusTone } from '../attendance/punch-review';
 import { formatDay } from '../hr-dates';
+import { isStaleOpenPunch, staleKioskMessage, staleSelfMessage } from './stale-open-punch';
 
 const GPS_IN = 'Turn on location to clock in from your phone.';
 const GPS_OUT = 'Turn on location to clock out from your phone.';
@@ -69,6 +70,13 @@ export function canSelfClockIn(me: Pick<AttendanceMe, 'mustClock'> | null): bool
     StatusBadgeComponent,
   ],
   templateUrl: './clock.html',
+  styles: `
+    /* #685: a forgotten clock-in from an earlier day, on the kiosk. */
+    .ops-kiosk-stale {
+      color: var(--ops-warn, #b54708);
+      font-weight: 700;
+    }
+  `,
 })
 export class ClockPage {
   private readonly api = inject(ClockApi);
@@ -95,6 +103,11 @@ export class ClockPage {
   protected readonly clockedIn = computed(() => this.me()?.clockedIn === true);
   protected readonly canClockIn = computed(() => canSelfClockIn(this.me()));
   protected readonly status = computed(() => this.me()?.status ?? 'Checking…');
+  /** #685: your own clock-in was left open from an earlier day; clocking out would pay days. */
+  protected readonly staleSelf = computed(() => {
+    const open = this.me()?.open;
+    return open && isStaleOpenPunch(open.inAtUtc) ? staleSelfMessage(open.inAtManila) : '';
+  });
   protected readonly today = computed(() => this.me()?.today ?? []);
   protected readonly clockLabel = computed(() => formatManilaClock(this.now()));
   protected readonly requirePhoto = computed(() => this.me()?.requireClockPhoto === true);
@@ -161,8 +174,18 @@ export class ClockPage {
     this.offsiteReason.set((event.target as HTMLInputElement).value);
   }
 
+  /** #685: a forgotten clock-in from an earlier day; the desk closes it on Attendance instead. */
+  protected isKioskStale(person: KioskStaff): boolean {
+    return person.clockedIn && isStaleOpenPunch(person.inAtUtc);
+  }
+
   kioskTap(person: KioskStaff): void {
     if (this.kioskBusy() || !this.isKiosk) {
+      return;
+    }
+
+    if (this.isKioskStale(person)) {
+      this.error.set(staleKioskMessage(person.displayName, person.inAtManila));
       return;
     }
 

@@ -15,7 +15,7 @@
   <ops-skeleton [rows]="3" />
 } @else {
   @if (isSelfClock) {
-    <section class="ops-clock-status" [class.in]="clockedIn()">
+    <section class="ops-clock-status" [class.in]="clockedIn() && !staleSelf()">
       <p class="ops-clock-status-text">{{ status() }}</p>
       @if (me()?.open; as open) {
         <p class="ops-clock-shop">{{ open.branchName }}</p>
@@ -52,7 +52,9 @@
     }
 
     <div class="ops-clock-action">
-      @if (clockedIn()) {
+      @if (staleSelf(); as message) {
+        <ops-banner tone="warn" [message]="message" />
+      } @else if (clockedIn()) {
         <button
           type="button"
           matButton="outlined"
@@ -93,7 +95,11 @@
               (click)="kioskTap(person)"
             >
               <strong>{{ person.displayName }}</strong>
-              @if (person.clockedIn) {
+              @if (isKioskStale(person)) {
+                <span class="ops-kiosk-stale"
+                  >Open since {{ person.inAtManila }} · close it on Attendance first</span
+                >
+              } @else if (person.clockedIn) {
                 <span class="ops-kiosk-in">Clocked in — tap to clock out</span>
               } @else {
                 <span>Clocked out — tap to clock in</span>

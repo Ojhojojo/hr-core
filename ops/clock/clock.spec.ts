@@ -277,7 +277,8 @@ describe('ClockPage', () => {
           staffId: 'tech',
           branchId: 'branch-1',
           branchName: 'Roosevelt',
-          inAtUtc: '2026-10-15T00:02:00Z',
+          // Today's clock-in: an earlier day's would show the #685 forgotten clock-in warning.
+          inAtUtc: new Date().toISOString(),
           outAtUtc: null,
           inAtManila: '8:02 AM',
           outAtManila: null,
