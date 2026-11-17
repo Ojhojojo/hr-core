@@ -13,7 +13,10 @@ function manilaDate(utc: Date): string {
 }
 
 /** True when the open clock-in from `inAtUtc` is from an earlier day and open too long to be a shift. */
-export function isStaleOpenPunch(inAtUtc: string | null | undefined, now: Date = new Date()): boolean {
+export function isStaleOpenPunch(
+  inAtUtc: string | null | undefined,
+  now: Date = new Date(),
+): boolean {
   if (!inAtUtc) {
     return false;
   }
@@ -21,7 +24,10 @@ export function isStaleOpenPunch(inAtUtc: string | null | undefined, now: Date =
   if (Number.isNaN(opened.getTime())) {
     return false;
   }
-  return manilaDate(opened) < manilaDate(now) && now.getTime() - opened.getTime() > STALE_OPEN_HOURS * HOUR_MS;
+  return (
+    manilaDate(opened) < manilaDate(now) &&
+    now.getTime() - opened.getTime() > STALE_OPEN_HOURS * HOUR_MS
+  );
 }
 
 /** What the kiosk says when someone with a forgotten clock-in is tapped (same wording as the API). */
