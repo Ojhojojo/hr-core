@@ -15,7 +15,7 @@
   <ops-skeleton [rows]="3" />
 } @else {
   @if (isSelfClock) {
-    <section class="ops-clock-status" [class.in]="clockedIn()">
+    <section class="ops-clock-status" [class.in]="clockedIn() && !staleSelf()">
       <p class="ops-clock-status-text">{{ status() }}</p>
       @if (me()?.open; as open) {
         <p class="ops-clock-shop">{{ open.branchName }}</p>
