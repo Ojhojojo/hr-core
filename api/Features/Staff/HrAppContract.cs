@@ -23,6 +23,9 @@ public static partial class HrRoles
 
     /// <summary>Role shown on a locked payroll line whose person no longer exists.</summary>
     public static partial StaffRole UnknownPersonRole();
+
+    /// <summary>Roles that may read the daily staff availability snapshot (approved leave and clock-in).</summary>
+    public static partial bool CanSeeStaffAvailability(StaffRole role);
 }
 
 /// <summary>

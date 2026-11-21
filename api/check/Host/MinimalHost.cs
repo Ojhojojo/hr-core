@@ -23,6 +23,8 @@ namespace HrCore.Features.Staff
         public static partial bool SeesOnlySelfInStaffList(StaffRole role) => false;
 
         public static partial StaffRole UnknownPersonRole() => StaffRole.Worker;
+
+        public static partial bool CanSeeStaffAvailability(StaffRole role) => IsDesk(role);
     }
 
     public static partial class StaffAccessFlags

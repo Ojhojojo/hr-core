@@ -12,6 +12,9 @@ public sealed partial class StaffRoleFilter(params StaffRole[] allowed) : IEndpo
     public static StaffRoleFilter AnyStaff { get; } =
         new(Enum.GetValues<StaffRole>());
 
+    public static StaffRoleFilter For(Func<StaffRole, bool> predicate) =>
+        new(Enum.GetValues<StaffRole>().Where(predicate).ToArray());
+
     public bool Allows(StaffRole role) => allowed.Contains(role);
 
     public async ValueTask<object?> InvokeAsync(

@@ -32,7 +32,7 @@ public static class StaffEndpoints
         app.MapGet("/api/ops/staff/availability", StaffAvailability)
             .WithTags("Staff")
             .AddEndpointFilter<StaffAuthorizationFilter>()
-            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin)
+            .AddEndpointFilter(StaffRoleFilter.For(HrRoles.CanSeeStaffAvailability))
             .WithName("StaffAvailability");
         return app;
     }
