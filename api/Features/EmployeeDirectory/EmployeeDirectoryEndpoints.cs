@@ -56,11 +56,6 @@ public static class EmployeeDirectoryEndpoints
             .Include(s => s.Profile)
             .Include(s => s.Branch)
             .Where(s => s.BranchId == branchId);
-        // Current ops shop only. When that shop is not Demo, also drop Demo people.
-        if (!string.Equals(branch.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase))
-        {
-            scoped = scoped.Where(s => s.Branch!.Code != BranchCodes.Demo);
-        }
 
         var headcount = await scoped.CountAsync(s => s.Active, cancellationToken);
         var query = scoped;
@@ -126,14 +121,6 @@ public static class EmployeeDirectoryEndpoints
             .Include(s => s.Branch)
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
         if (staff is null || staff.BranchId != branchId)
-        {
-            return Results.NotFound();
-        }
-
-        var branch = await db.Branches.AsNoTracking()
-            .FirstAsync(b => b.Id == branchId, cancellationToken);
-        if (!string.Equals(branch.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(staff.Branch?.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase))
         {
             return Results.NotFound();
         }
@@ -302,14 +289,6 @@ public static class EmployeeDirectoryEndpoints
         var staff = await db.Staff.Include(s => s.Profile).Include(s => s.Branch)
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
         if (staff is null || staff.BranchId != branchId)
-        {
-            return Results.NotFound();
-        }
-
-        var branch = await db.Branches.AsNoTracking()
-            .FirstAsync(b => b.Id == branchId, cancellationToken);
-        if (!string.Equals(branch.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(staff.Branch?.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase))
         {
             return Results.NotFound();
         }
@@ -650,8 +629,7 @@ public static class EmployeeDirectoryEndpoints
             }
 
             if (branch is null
-                || branch.OrganizationId != PlatformIds.OrganizationId
-                || branch.Code == BranchCodes.Demo)
+                || branch.OrganizationId != PlatformIds.OrganizationId)
             {
                 return (null, Results.BadRequest(new { error = "Home branch must be one of your shops." }));
             }

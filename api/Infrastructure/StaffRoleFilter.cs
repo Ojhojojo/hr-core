@@ -48,7 +48,7 @@ public sealed partial class StaffRoleFilter(params StaffRole[] allowed) : IEndpo
 }
 
 /// <summary>
-/// Settings branch create/edit/delete and Demo flag: unscoped company owner only.
+/// Settings branch create/edit/delete: unscoped company owner only.
 /// Shop-scoped owners stay <see cref="StaffRole.Owner"/> but cannot manage shops.
 /// </summary>
 public sealed class HqOwnerFilter : IEndpointFilter

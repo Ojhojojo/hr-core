@@ -11,7 +11,7 @@ public enum OpsReportScopeKind
 /// <summary>
 /// Query param for owner dashboard / cash / AR / bookkeeper CSV:
 /// <c>scope=shop|owned|franchise|all</c> (default shop) or <c>allShops=true</c> (same as all).
-/// HQ owner: this shop, all live Owned, all live Franchise, or all live shops (excludes Demo).
+/// HQ owner: this shop, all live Owned, all live Franchise, or all live shops.
 /// Admin cannot request owned / franchise / all. Shop-scoped owners stay on HomeBranch
 /// even when they send <c>scope=all</c> or <c>scope=franchise</c>.
 /// </summary>
@@ -25,7 +25,7 @@ public static class OpsReportScope
     public const string All = "all";
     public const string QueryDoc =
         "scope=shop|owned|franchise|all (default shop) or allShops=true. " +
-        "HQ owner: this shop, all live Owned, all live Franchise, or all live shops (excludes Demo). " +
+        "HQ owner: this shop, all live Owned, all live Franchise, or all live shops. " +
         "Shop-scoped owner stays on HomeBranch. Admin stays on the home / header branch.";
 
     public static OpsReportScopeKind Parse(IQueryCollection query)

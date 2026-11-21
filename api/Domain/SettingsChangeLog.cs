@@ -10,7 +10,7 @@ public sealed class SettingsChangeLog
 
     /// <summary>
     /// Shop the change belongs to. Null for company-wide settings (business details, lists, services,
-    /// message templates, the demo toggle). A loose reference with no foreign key, so the trail
+    /// message templates). A loose reference with no foreign key, so the trail
     /// survives when a shop is hard-deleted.
     /// </summary>
     public Guid? BranchId { get; set; }

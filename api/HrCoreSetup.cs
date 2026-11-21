@@ -18,8 +18,8 @@ public static class HrCoreSetup
     /// <summary>
     /// Registers HR services. <typeparamref name="TDb"/> is the app's DbContext; it must implement
     /// <see cref="IHrDb"/> and call <see cref="HrModel.Configure"/>. The app also registers
-    /// <see cref="IStaffInvite"/>, <see cref="IFileStore"/>, <see cref="IHrFileStore"/> and
-    /// <see cref="DemoBranchOptions"/>; <see cref="IStaffWorkHooks"/> is optional.
+    /// <see cref="IStaffInvite"/>, <see cref="IFileStore"/> and <see cref="IHrFileStore"/>;
+    /// <see cref="IStaffWorkHooks"/> is optional.
     /// </summary>
     public static IServiceCollection AddHrCore<TDb>(this IServiceCollection services)
         where TDb : DbContext, IHrDb =>

@@ -289,14 +289,6 @@ public static class EmploymentDocumentEndpoints
             return null;
         }
 
-        var branch = await db.Branches.AsNoTracking()
-            .FirstAsync(b => b.Id == branchId, cancellationToken);
-        if (!string.Equals(branch.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(staff.Branch?.Code, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
         return new ShopStaff(branchId);
     }
 

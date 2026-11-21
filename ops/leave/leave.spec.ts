@@ -19,7 +19,7 @@ const balances: LeaveBalance[] = [
 const pending: LeaveRequestRow = {
   id: 'leave-1',
   staffId: 'tech-1',
-  displayName: 'Demo Tech',
+  displayName: 'Shop Tech',
   leaveType: 'vacation',
   startDate: '2026-06-01',
   endDate: '2026-06-02',
@@ -33,7 +33,7 @@ const pending: LeaveRequestRow = {
 const approvedHistory: LeaveRequestRow = {
   id: 'leave-2',
   staffId: 'tech-1',
-  displayName: 'Demo Tech',
+  displayName: 'Shop Tech',
   leaveType: 'vacation',
   startDate: '2026-05-01',
   endDate: '2026-05-02',
@@ -47,7 +47,7 @@ const approvedHistory: LeaveRequestRow = {
 const teamBalances: StaffLeaveBalances[] = [
   {
     staffId: 'tech-1',
-    displayName: 'Demo Tech',
+    displayName: 'Shop Tech',
     role: 'technician',
     balances: [
       { leaveType: 'vacation', allotment: 10, used: 2, pending: 0, remaining: 8 },
@@ -64,7 +64,7 @@ function me(role: AuthMe['staffRole']): AuthMe {
     profileKind: 'staff',
     staffRole: role,
     branchId: 'branch-1',
-    branchCode: 'demo',
+    branchCode: 'main-roosevelt',
     isStaff: true,
     displayName: 'Tester',
   };
@@ -142,7 +142,7 @@ async function mount(
     const people = http.expectOne((req) => req.url.includes('/api/employee-directory'));
     expect(people.request.method).toBe('GET');
     people.flush([
-      { id: 'tech-1', displayName: 'Demo Tech', role: 'technician', active: true },
+      { id: 'tech-1', displayName: 'Shop Tech', role: 'technician', active: true },
       { id: 'own-1', displayName: 'Owner Apple', role: 'owner', active: true },
     ]);
   } else {

@@ -26,7 +26,6 @@ public static class HrModel
             e.Property(x => x.LegalName).HasMaxLength(200).IsRequired();
             e.Property(x => x.TradingName).HasMaxLength(200).IsRequired();
             e.Property(x => x.Tin).HasMaxLength(40);
-            e.Property(x => x.DemoPublicEnabled).HasDefaultValue(false);
         });
 
         modelBuilder.Entity<Branch>(e =>

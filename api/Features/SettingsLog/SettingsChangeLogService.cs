@@ -19,12 +19,11 @@ public static class SettingsArea
     public const string ExpenseCategory = "expense_category";
     public const string ChecklistTemplate = "checklist_template";
     public const string InsuranceRates = "insurance_rates";
-    public const string Demo = "demo";
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         ShopDesk, ShopPayment, BankAccount, Company, Branch, Service, MessageTemplate,
-        PartGrade, PartCategory, WorkCategory, ExpenseCategory, ChecklistTemplate, InsuranceRates, Demo
+        PartGrade, PartCategory, WorkCategory, ExpenseCategory, ChecklistTemplate, InsuranceRates
     };
 }
 

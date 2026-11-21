@@ -116,21 +116,7 @@ public static class StaffEndpoints
         }
         else if (actor is null || actor.Role == StaffRole.Owner)
         {
-            // Company owner: every live shop, without Demo people. When the desk asks for the Demo
-            // shop (the demo showcase), list the Demo people instead, the same as the directory.
-            var onDemo = string.Equals(
-                http.Request.Headers[BranchResolver.HeaderName].ToString(),
-                BranchCodes.Demo,
-                StringComparison.OrdinalIgnoreCase);
-            if (onDemo)
-            {
-                var demoBranchId = await branches.ResolveOpsAsync(http, cancellationToken);
-                query = query.Where(s => s.BranchId == demoBranchId);
-            }
-            else
-            {
-                query = query.Where(s => s.BranchId == null || s.Branch!.Code != BranchCodes.Demo);
-            }
+            // Company owner sees every shop's staff.
         }
         else
         {
@@ -435,7 +421,7 @@ public static class StaffEndpoints
             return Results.BadRequest(new { error = "Home branch is required." });
         }
 
-        if (role == StaffRole.Owner && staff.BranchId is Guid ownerHome && ownerHome != PlatformIds.DemoBranchId)
+        if (role == StaffRole.Owner && staff.BranchId is Guid ownerHome)
         {
             var shop = await db.Branches.AsNoTracking()
                 .FirstOrDefaultAsync(b => b.Id == ownerHome, cancellationToken);
@@ -604,7 +590,6 @@ public static class StaffEndpoints
     internal static IResult? ShopOwnerBranchError(Branch? branch)
     {
         if (branch is null
-            || branch.Code == BranchCodes.Demo
             || branch.OrganizationId != PlatformIds.OrganizationId)
         {
             return Results.BadRequest(new { error = "Home branch must be one of your shops." });
@@ -985,7 +970,7 @@ public static class StaffEndpoints
 
     private static Task<Branch?> OwnedHomeBranchAsync(IHrDb db, Guid id, CancellationToken cancellationToken) =>
         db.Branches.AsNoTracking().FirstOrDefaultAsync(
-            b => b.Id == id && b.OrganizationId == PlatformIds.OrganizationId && b.Code != BranchCodes.Demo,
+            b => b.Id == id && b.OrganizationId == PlatformIds.OrganizationId,
             cancellationToken);
 
     public sealed class CreateStaffRequest

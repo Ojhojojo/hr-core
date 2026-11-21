@@ -38,7 +38,7 @@ function me(role: AuthMe['staffRole'], staffId?: string | null): AuthMe {
     profileKind: 'staff',
     staffRole: role,
     branchId: 'branch-1',
-    branchCode: 'demo',
+    branchCode: 'main-roosevelt',
     isStaff: true,
     displayName: 'Tester',
     staffId,
@@ -99,8 +99,8 @@ async function mountDetail(
   }
   const shopReq = http.expectOne('/api/shop');
   shopReq.flush({
-    tradingName: 'Demo Shop',
-    legalName: 'Demo Cars Inc.',
+    tradingName: 'Roosevelt Shop',
+    legalName: 'Rakkii Cars OPC',
     address: 'Quezon City',
     phone: '09170000000',
     tin: '000-000-000',
@@ -324,7 +324,7 @@ describe('EmployeeDetailPage', () => {
       } else {
         http.expectNone('/api/settings/branches');
       }
-      http.expectOne('/api/shop').flush({ tradingName: 'Demo Shop' });
+      http.expectOne('/api/shop').flush({ tradingName: 'Roosevelt Shop' });
       fixture.detectChanges();
       await fixture.whenStable();
 
@@ -373,7 +373,7 @@ describe('EmployeeDetailPage', () => {
     const fixture = TestBed.createComponent(EmployeeDetailPage);
     fixture.detectChanges();
     http.expectNone('/api/settings/branches');
-    http.expectOne('/api/shop').flush({ tradingName: 'Demo Shop' });
+    http.expectOne('/api/shop').flush({ tradingName: 'Roosevelt Shop' });
     fixture.detectChanges();
     await fixture.whenStable();
 

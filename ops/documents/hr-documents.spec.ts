@@ -134,7 +134,7 @@ function personAuth(role: AuthMe['staffRole']): AuthMe {
     profileKind: 'staff',
     staffRole: role,
     branchId: 'branch-1',
-    branchCode: 'demo',
+    branchCode: 'main-roosevelt',
     isStaff: true,
     displayName: 'Tester',
   };

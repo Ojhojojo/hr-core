@@ -5,7 +5,6 @@ namespace HrCore.Infrastructure;
 public static class BranchCodes
 {
     public const string Roosevelt = "main-roosevelt";
-    public const string Demo = "demo";
 }
 
 public sealed class PublicBranchException(int statusCode, string message) : Exception(message)
@@ -13,7 +12,7 @@ public sealed class PublicBranchException(int statusCode, string message) : Exce
     public int StatusCode { get; } = statusCode;
 }
 
-public sealed class BranchResolver(IHrDb db, DemoBranchOptions demoOptions)
+public sealed class BranchResolver(IHrDb db)
 {
     public const string HeaderName = "X-Branch-Code";
 
@@ -29,34 +28,16 @@ public sealed class BranchResolver(IHrDb db, DemoBranchOptions demoOptions)
 
     public async Task<Branch> ResolvePublicAsync(string? branchCode, CancellationToken cancellationToken)
     {
-        var org = await OrganizationAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(branchCode))
         {
-            if (org.DemoPublicEnabled && demoOptions.Enabled)
-            {
-                throw new PublicBranchException(
-                    StatusCodes.Status400BadRequest,
-                    "branchCode is required when the company page is on.");
-            }
-
             return await DefaultLiveAsync(cancellationToken);
         }
 
         var code = branchCode.Trim().ToLowerInvariant();
-        if (code == BranchCodes.Demo && (!demoOptions.Enabled || !org.DemoPublicEnabled))
-        {
-            throw new PublicBranchException(StatusCodes.Status404NotFound, "Demo branch is not available.");
-        }
-
         var branch = await db.Branches.FirstOrDefaultAsync(b => b.Code == code, cancellationToken);
-        if (branch is null)
+        if (branch is null || !branch.IsLive)
         {
             throw new PublicBranchException(StatusCodes.Status404NotFound, "Unknown branch.");
-        }
-
-        if (!branch.IsLive && (!demoOptions.Enabled || !org.DemoPublicEnabled))
-        {
-            throw new PublicBranchException(StatusCodes.Status404NotFound, "Demo branch is not available.");
         }
 
         return branch;
@@ -113,7 +94,7 @@ public sealed class BranchResolver(IHrDb db, DemoBranchOptions demoOptions)
 
     /// <summary>
     /// Dashboard / cash / AR / export shop list.
-    /// <c>scope=owned|franchise|all</c> or <c>allShops=true</c> is HQ-owner-only (excludes Demo).
+    /// <c>scope=owned|franchise|all</c> or <c>allShops=true</c> is HQ-owner-only.
     /// Shop-scoped owners stay on HomeBranch even if they send a shop header or a network scope.
     /// Admin (and <c>scope=shop</c>) stay on the resolved home / header branch.
     /// </summary>
@@ -179,18 +160,8 @@ public sealed class BranchResolver(IHrDb db, DemoBranchOptions demoOptions)
             return [await DefaultLiveAsync(cancellationToken)];
         }
 
-        if (staff?.BranchId is Guid ownerHome)
-        {
-            var home = await db.Branches.AsNoTracking()
-                .FirstOrDefaultAsync(b => b.Id == ownerHome, cancellationToken);
-            if (home is not null && home.Code == BranchCodes.Demo && demoOptions.Enabled)
-            {
-                return [home];
-            }
-        }
-
         return await db.Branches.AsNoTracking()
-            .Where(b => b.OrganizationId == PlatformIds.OrganizationId && b.IsLive && b.Code != BranchCodes.Demo)
+            .Where(b => b.OrganizationId == PlatformIds.OrganizationId && b.IsLive)
             .OrderBy(b => b.CreatedAtUtc)
             .ToListAsync(cancellationToken);
     }

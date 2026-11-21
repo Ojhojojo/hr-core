@@ -77,7 +77,7 @@ public static class LeaveEndpoints
         else if (actor.Role is StaffRole.Owner or StaffRole.Admin)
         {
             var shop = await ShopAsync(http, branches, db, cancellationToken);
-            var staffIds = OnShop(db, shop.BranchId, shop.Code).Select(s => s.Id);
+            var staffIds = OnShop(db, shop.BranchId).Select(s => s.Id);
             query = query.Where(r => staffIds.Contains(r.StaffId));
         }
         else
@@ -137,7 +137,7 @@ public static class LeaveEndpoints
             }
 
             var shopContext = await ShopAsync(http, branches, db, cancellationToken);
-            var staffMembers = await OnShop(db, shopContext.BranchId, shopContext.Code)
+            var staffMembers = await OnShop(db, shopContext.BranchId)
                 .Include(s => s.Profile)
                 .Where(s => s.Active && s.Role != StaffRole.Owner)
                 .OrderBy(s => s.Profile.DisplayName)
@@ -831,16 +831,8 @@ public static class LeaveEndpoints
         return new ShopContext(branchId, branch.Code);
     }
 
-    private static IQueryable<Domain.Staff> OnShop(IHrDb db, Guid branchId, string branchCode)
-    {
-        var query = db.Staff.AsNoTracking().Where(s => s.BranchId == branchId);
-        if (!string.Equals(branchCode, BranchCodes.Demo, StringComparison.OrdinalIgnoreCase))
-        {
-            query = query.Where(s => s.Branch!.Code != BranchCodes.Demo);
-        }
-
-        return query;
-    }
+    private static IQueryable<Domain.Staff> OnShop(IHrDb db, Guid branchId) =>
+        db.Staff.AsNoTracking().Where(s => s.BranchId == branchId);
 
     private static async Task<Guid?> FindOnShopAsync(
         Guid staffId,
@@ -850,7 +842,7 @@ public static class LeaveEndpoints
         CancellationToken cancellationToken)
     {
         var shop = await ShopAsync(http, branches, db, cancellationToken);
-        var onShop = await OnShop(db, shop.BranchId, shop.Code)
+        var onShop = await OnShop(db, shop.BranchId)
             .AnyAsync(s => s.Id == staffId, cancellationToken);
         return onShop ? staffId : null;
     }
