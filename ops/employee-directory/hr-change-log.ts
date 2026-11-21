@@ -23,6 +23,7 @@ export interface HrChangeLogList {
 /** Dotted keys written by HrChangeField on the API. Unknown keys fall back to the raw key. */
 const FIELD_LABELS: Record<string, string> = {
   'staff.role': 'Role',
+  'staff.subrole': 'Subrole',
   'staff.active': 'Active',
   'staff.pay_basis': 'Pay basis',
   'staff.rate': 'Pay rate',

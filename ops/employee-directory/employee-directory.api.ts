@@ -35,6 +35,7 @@ export interface EmployeeCard {
   restDays?: number[] | null;
   branchId?: string | null;
   branchName?: string | null;
+  subrole?: string | null;
   canCanvassAndPaySuppliers?: boolean | null;
   canOpenLoaPdf?: boolean | null;
   canSeeLoaPesos?: boolean | null;
@@ -150,6 +151,7 @@ export interface CreateEmployee {
   pagIbig?: string | null;
   branchId?: string | null;
   allShops?: boolean;
+  subrole?: string | null;
   canCanvassAndPaySuppliers?: boolean | null;
   canOpenLoaPdf?: boolean | null;
   canSeeLoaPesos?: boolean | null;
@@ -186,6 +188,7 @@ export interface UpdateEmployee {
   clearRestDays?: boolean;
   branchId?: string | null;
   clearHomeBranch?: boolean;
+  subrole?: string | null;
   canCanvassAndPaySuppliers?: boolean | null;
   canOpenLoaPdf?: boolean | null;
   canSeeLoaPesos?: boolean | null;

@@ -50,6 +50,7 @@ with a lint rule. `hr-host.ts` exports:
 - staff availability, and `canBeAssignedJobs(role)` (who may take over open work)
 - `canPickHomeShop(me)`: whether the signed-in owner may choose a person's home shop
 - `clocksByDefault(role)`: whether a new person of that role starts with Uses time clock on (`mustClock`). Use the same rule as the API's `HrRoles.ClocksByDefault`
+- `subroleOptionsForRole(role)` and `type StaffSubroleOption`: optional per-role subrole choices shown in the employee directory dialog (return `[]` when unused)
 
 It also passes in app-only pieces shown inside HR screens. In Rakkii these are the job
 handover dialog and the KPI scorecards tab, and another app can supply stubs. The app

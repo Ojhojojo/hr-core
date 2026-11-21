@@ -38,5 +38,7 @@ namespace HrCore.Features.Staff
         }
 
         public static partial Dictionary<string, object?>? Describe(Domain.Staff staff) => null;
+
+        public static partial IReadOnlyDictionary<string, string?>? AuditFields(Domain.Staff staff) => null;
     }
 }

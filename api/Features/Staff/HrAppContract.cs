@@ -42,4 +42,10 @@ public static partial class StaffAccessFlags
 
     /// <summary>The switches as response fields, keyed by their JSON names. Null when the app has none.</summary>
     public static partial Dictionary<string, object?>? Describe(Domain.Staff staff);
+
+    /// <summary>
+    /// Auditable values for app-specific fields on <paramref name="staff"/>, keyed by
+    /// <c>HrChangeLog</c> field name (for example <c>staff.subrole</c>). Null when the app audits none.
+    /// </summary>
+    public static partial IReadOnlyDictionary<string, string?>? AuditFields(Domain.Staff staff);
 }

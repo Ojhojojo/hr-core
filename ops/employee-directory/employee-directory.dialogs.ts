@@ -8,8 +8,10 @@ import { MatError, MatFormField, MatHint, MatLabel } from '@angular/material/for
 import { MatInput } from '@angular/material/input';
 import {
   type ScorecardPeriod,
+  type StaffSubroleOption,
   apiErrorMessage,
   clocksByDefault,
+  subroleOptionsForRole,
   TIN_FORMAT_HINT,
   BannerComponent,
   DialogComponent,
@@ -224,6 +226,22 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
                       <mat-option [value]="shop.id">{{ shop.name }}</mat-option>
                     }
                   </mat-select>
+                </mat-form-field>
+              }
+              @if ((data.mode === 'add' || data.isOwner) && subroleOptions().length > 0) {
+                <mat-form-field appearance="outline" class="dir-span-2">
+                  <mat-label>Subrole</mat-label>
+                  <mat-select name="subrole" [(ngModel)]="subrole">
+                    <mat-option [value]="null">
+                      Default (standard {{ roleLabel(role) }})
+                    </mat-option>
+                    @for (opt of subroleOptions(); track opt.value) {
+                      <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                    }
+                  </mat-select>
+                  @if (selectedSubroleHint()) {
+                    <mat-hint>{{ selectedSubroleHint() }}</mat-hint>
+                  }
                 </mat-form-field>
               }
               @if (data.isOwner) {
@@ -547,6 +565,7 @@ export class DirectoryPersonDialog {
   protected displayName = this.data.person?.displayName ?? '';
   protected email = '';
   protected role: DirectoryRole = this.data.person?.role ?? this.data.presetRole ?? 'technician';
+  protected subrole: string | null = this.data.person?.subrole ?? null;
   protected hireDate = this.data.person?.hireDate ?? '';
   protected separationDate = this.data.person?.separationDate ?? '';
   protected separationReason = this.data.person?.separationReason ?? '';
@@ -587,6 +606,7 @@ export class DirectoryPersonDialog {
     displayName: this.displayName,
     email: this.email,
     role: this.role,
+    subrole: this.subrole,
     hireDate: this.hireDate,
     separationDate: this.separationDate,
     separationReason: this.separationReason,
@@ -620,6 +640,7 @@ export class DirectoryPersonDialog {
       this.displayName !== this.initialSnapshot.displayName ||
       this.email !== this.initialSnapshot.email ||
       this.role !== this.initialSnapshot.role ||
+      this.subrole !== this.initialSnapshot.subrole ||
       this.hireDate !== this.initialSnapshot.hireDate ||
       this.separationDate !== this.initialSnapshot.separationDate ||
       this.separationReason !== this.initialSnapshot.separationReason ||
@@ -657,8 +678,23 @@ export class DirectoryPersonDialog {
     return ROLE_HINTS[role] ?? '';
   }
 
+  protected subroleOptions(): readonly StaffSubroleOption[] {
+    return subroleOptionsForRole(this.role);
+  }
+
+  protected selectedSubroleHint(): string {
+    if (!this.subrole) {
+      return '';
+    }
+    return this.subroleOptions().find((opt) => opt.value === this.subrole)?.hint ?? '';
+  }
+
   protected onRoleChange(role: DirectoryRole): void {
     this.role = role;
+    const validSubroles = subroleOptionsForRole(role);
+    if (this.subrole && !validSubroles.some((opt) => opt.value === this.subrole)) {
+      this.subrole = null;
+    }
     if (role === 'owner') {
       this.mustClock = false;
       this.branchId = '';
@@ -760,6 +796,7 @@ export class DirectoryPersonDialog {
           ...(this.branchId && !allShops ? { branchId: this.branchId } : {}),
           ...(this.data.isOwner
             ? {
+                subrole: this.subrole ?? null,
                 canCanvassAndPaySuppliers: this.canCanvassAndPaySuppliers,
                 canOpenLoaPdf: this.canOpenLoaPdf,
                 canSeeLoaPesos: this.canSeeLoaPesos,
@@ -813,6 +850,8 @@ export class DirectoryPersonDialog {
       !sameOptionalNumber(otHours, this.initialSnapshot.otAfterHoursPerDay) ||
       !sameOptionalNumber(otMult, this.initialSnapshot.otMultiplier);
     const accessDirty =
+      this.role !== this.initialSnapshot.role ||
+      this.subrole !== this.initialSnapshot.subrole ||
       this.branchId !== this.initialSnapshot.branchId ||
       this.canCanvassAndPaySuppliers !== this.initialSnapshot.canCanvassAndPaySuppliers ||
       this.canOpenLoaPdf !== this.initialSnapshot.canOpenLoaPdf ||
@@ -847,6 +886,7 @@ export class DirectoryPersonDialog {
                     branchId:
                       this.role === 'owner' && !this.branchId ? null : this.branchId || null,
                     clearHomeBranch: this.role === 'owner' && !this.branchId,
+                    subrole: this.subrole ?? null,
                     canCanvassAndPaySuppliers: this.canCanvassAndPaySuppliers,
                     canOpenLoaPdf: this.canOpenLoaPdf,
                     canSeeLoaPesos: this.canSeeLoaPesos,

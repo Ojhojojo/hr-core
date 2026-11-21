@@ -1105,10 +1105,11 @@ public static class StaffEndpoints
         string? PhilHealth,
         string? PagIbig,
         bool? MustClock,
-        string? RestDays)
+        string? RestDays,
+        IReadOnlyDictionary<string, string?>? AccessFlags = null)
     {
         public static StaffAuditSnapshot Empty { get; } =
-            new(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+            new(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         public static StaffAuditSnapshot Capture(Domain.Staff staff) =>
             new(
@@ -1129,7 +1130,8 @@ public static class StaffEndpoints
                 staff.PhilHealth,
                 staff.PagIbig,
                 staff.MustClock,
-                staff.RestDays);
+                staff.RestDays,
+                StaffAccessFlags.AuditFields(staff));
     }
 
     /// <summary>Writes the append-only HR trail for a staff create or edit.</summary>
@@ -1179,6 +1181,46 @@ public static class StaffEndpoints
             hr.Record(
                 actorStaffId, subject, HrChangeField.StaffMustClock, Text(before.MustClock), Text(staff.MustClock));
             hr.Record(actorStaffId, subject, HrChangeField.StaffRestDays, before.RestDays, staff.RestDays);
+            RecordAccessFlagChanges(hr, actorStaffId, subject, before.AccessFlags, StaffAccessFlags.AuditFields(staff));
+        }
+
+        public static void RecordAccessFlagChanges(
+            HrChangeLogService hr,
+            Guid? actorStaffId,
+            Guid subjectStaffId,
+            IReadOnlyDictionary<string, string?>? before,
+            IReadOnlyDictionary<string, string?>? after)
+        {
+            if ((before is null || before.Count == 0) && (after is null || after.Count == 0))
+            {
+                return;
+            }
+
+            var keys = new HashSet<string>(StringComparer.Ordinal);
+            if (before is not null)
+            {
+                foreach (var key in before.Keys)
+                {
+                    keys.Add(key);
+                }
+            }
+
+            if (after is not null)
+            {
+                foreach (var key in after.Keys)
+                {
+                    keys.Add(key);
+                }
+            }
+
+            foreach (var key in keys.OrderBy(k => k, StringComparer.Ordinal))
+            {
+                string? oldValue = null;
+                before?.TryGetValue(key, out oldValue);
+                string? newValue = null;
+                after?.TryGetValue(key, out newValue);
+                hr.Record(actorStaffId, subjectStaffId, key, oldValue, newValue);
+            }
         }
 
         /// <summary>

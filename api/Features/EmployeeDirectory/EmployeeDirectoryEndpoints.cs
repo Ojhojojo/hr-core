@@ -938,7 +938,8 @@ public static class EmployeeDirectoryEndpoints
         string MustClock,
         string? SeparationDate,
         string? SeparationReason,
-        string? RestDays)
+        string? RestDays,
+        IReadOnlyDictionary<string, string?>? AccessFlags)
     {
         public static DirectoryAuditSnapshot From(Domain.Staff staff) => new(
             staff.Role.ToString(),
@@ -958,7 +959,8 @@ public static class EmployeeDirectoryEndpoints
             staff.MustClock ? "true" : "false",
             staff.SeparationDate?.ToString("yyyy-MM-dd"),
             staff.SeparationReason,
-            staff.RestDays);
+            staff.RestDays,
+            StaffAccessFlags.AuditFields(staff));
     }
 
     private static void RecordDirectoryChanges(
@@ -1001,6 +1003,8 @@ public static class EmployeeDirectoryEndpoints
             actorId, staff.Id, HrChangeField.StaffSeparationReason, before.SeparationReason,
             staff.SeparationReason);
         hr.Record(actorId, staff.Id, HrChangeField.StaffRestDays, before.RestDays, staff.RestDays);
+        StaffEndpoints.StaffAudit.RecordAccessFlagChanges(
+            hr, actorId, staff.Id, before.AccessFlags, StaffAccessFlags.AuditFields(staff));
     }
 }
 
