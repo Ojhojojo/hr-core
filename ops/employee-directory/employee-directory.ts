@@ -34,13 +34,11 @@ import {
   HEALTH_LABELS,
 } from './employee-directory.api';
 import {
-  DIRECTORY_ROLE_LABELS,
   DirectoryPersonDialog,
   DirectoryShopOption,
+  personRoleLabel,
 } from './employee-directory.dialogs';
 import { formatDay } from '../hr-dates';
-
-const ROLE_LABELS = DIRECTORY_ROLE_LABELS;
 
 const STATUS_LABELS: Record<DirectoryStatus, string> = {
   active: 'Active',
@@ -226,8 +224,8 @@ export class EmployeeDirectoryPage {
     }
   }
 
-  protected roleLabel(role: DirectoryRole): string {
-    return ROLE_LABELS[role] ?? role;
+  protected roleLabel(role: DirectoryRole, subrole?: string | null): string {
+    return personRoleLabel(role, subrole);
   }
 
   protected statusKey(person: EmployeeCard): DirectoryStatus {

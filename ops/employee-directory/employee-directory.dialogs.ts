@@ -11,6 +11,7 @@ import {
   type StaffSubroleOption,
   apiErrorMessage,
   clocksByDefault,
+  subroleLabel,
   subroleOptionsForRole,
   TIN_FORMAT_HINT,
   BannerComponent,
@@ -52,6 +53,15 @@ export const DIRECTORY_ROLE_LABELS: Record<DirectoryRole, string> = {
   technician: 'Technician',
   sales: 'Sales',
 };
+
+/** Prefer the user-facing subrole label so internal base roles stay hidden from staff views. */
+export function personRoleLabel(role: DirectoryRole, subrole?: string | null): string {
+  const normalized = (subrole ?? '').trim().toLowerCase();
+  if (normalized && subroleOptionsForRole(role).some((opt) => opt.value === normalized)) {
+    return subroleLabel(normalized);
+  }
+  return DIRECTORY_ROLE_LABELS[role] ?? role;
+}
 
 const ROLE_HINTS: Record<DirectoryRole, string> = {
   owner: 'Full access, including staff and settings.',

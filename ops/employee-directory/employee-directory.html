@@ -73,7 +73,9 @@
         </ng-container>
         <ng-container matColumnDef="role">
           <th mat-header-cell *matHeaderCellDef>Role</th>
-          <td mat-cell *matCellDef="let person" data-label="Role">{{ roleLabel(person.role) }}</td>
+          <td mat-cell *matCellDef="let person" data-label="Role">
+            {{ roleLabel(person.role, person.subrole) }}
+          </td>
         </ng-container>
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef>Status</th>

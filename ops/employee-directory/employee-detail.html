@@ -12,7 +12,9 @@
     [backLink]="selfProfile() ? undefined : '/hr/employee-directory'"
     backLabel="Directory"
     [title]="p.displayName"
-    [subtitle]="(p.position || roleLabel(p.role)) + (p.department ? ' · ' + p.department : '')"
+    [subtitle]="
+      (p.position || roleLabel(p.role, p.subrole)) + (p.department ? ' · ' + p.department : '')
+    "
   >
     <div subhead>
       <ops-status-badge [tone]="statusTone(p)" [label]="statusLabel(p)" />
@@ -88,7 +90,7 @@
 
         <ops-card title="Role and access">
           <ops-key-value-grid>
-            <ops-key-value label="Role" [value]="roleLabel(p.role)" />
+            <ops-key-value label="Role" [value]="roleLabel(p.role, p.subrole)" />
           </ops-key-value-grid>
         </ops-card>
 

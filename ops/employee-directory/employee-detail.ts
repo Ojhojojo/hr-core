@@ -75,10 +75,10 @@ import {
 } from './employee-directory.api';
 import { deactivationNotices } from './open-work';
 import {
-  DIRECTORY_ROLE_LABELS,
   DirectoryPersonDialog,
   DirectoryShopOption,
   EmployeeDocumentUploadDialog,
+  personRoleLabel,
 } from './employee-directory.dialogs';
 import { EmploymentLetterDialog, EmploymentLetterKind } from './employment-letter';
 import {
@@ -1005,8 +1005,8 @@ export class EmployeeDetailPage implements OnInit {
     return p.active ? STATUS_LABELS.active : STATUS_LABELS.inactive;
   }
 
-  protected roleLabel(role: DirectoryRole): string {
-    return DIRECTORY_ROLE_LABELS[role] ?? role;
+  protected roleLabel(role: DirectoryRole, subrole?: string | null): string {
+    return personRoleLabel(role, subrole);
   }
 
   protected docLabel(type: EmploymentDocType): string {
