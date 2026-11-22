@@ -4,6 +4,7 @@ import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatOption, MatSelect } from '@angular/material/select';
 import { BannerComponent, DialogComponent, OpsDateModule, OpsToneDirective } from '@hr-host';
 import { toIsoDate } from '../hr-dates';
 import { AttendanceStaffOption } from './attendance.models';
@@ -65,6 +66,8 @@ export interface ReviewPunchDialogResult {
     MatFormField,
     MatLabel,
     MatInput,
+    MatSelect,
+    MatOption,
     OpsDateModule,
     DialogComponent,
     BannerComponent,
@@ -80,17 +83,16 @@ export interface ReviewPunchDialogResult {
       <form id="punch-for-form" class="punch-dialog-form" (ngSubmit)="save()">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Staff</mat-label>
-          <select
-            matNativeControl
+          <mat-select
             name="punchStaff"
             [value]="staffId()"
-            (change)="setStaff($event)"
+            (selectionChange)="setStaff($event.value)"
           >
-            <option value="">Choose staff</option>
+            <mat-option value="">Choose staff</mat-option>
             @for (person of data.staff; track person.id) {
-              <option [value]="person.id">{{ person.displayName }}</option>
+              <mat-option [value]="person.id">{{ person.displayName }}</mat-option>
             }
-          </select>
+          </mat-select>
         </mat-form-field>
         <div class="punch-datetime-row">
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -181,8 +183,8 @@ export class PunchForDialog {
   protected readonly outTime = signal('');
   protected readonly error = signal('');
 
-  protected setStaff(event: Event): void {
-    this.staffId.set((event.target as HTMLSelectElement).value);
+  protected setStaff(staffId: string): void {
+    this.staffId.set(staffId);
   }
 
   protected setInTime(event: Event): void {

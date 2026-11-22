@@ -80,6 +80,16 @@ import { formatDay, formatDayPrefix } from '../hr-dates';
         gap: var(--space-4);
         margin-bottom: var(--space-6);
       }
+      /* Space Request OT away from the OT card heading (padding so it does not
+         collapse with the header's margin-bottom). */
+      .ops-card .ops-attend-toolbar {
+        padding-top: var(--space-2);
+      }
+      /* Bleed cards drop body padding; keep the Request OT button inset. */
+      .ops-card-bleed .ops-attend-toolbar {
+        padding-left: var(--space-4);
+        padding-right: var(--space-4);
+      }
       .ops-attend-staff-select {
         min-width: 200px;
       }
