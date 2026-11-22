@@ -13,6 +13,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {
   environment,
   AuthService,
+  canManageShopHr,
   canPickHomeShop,
   apiErrorMessage,
   BannerComponent,
@@ -132,19 +133,19 @@ export class EmployeeDirectoryPage {
 
   protected readonly isOwner = computed(() => this.auth.me()?.staffRole === 'owner');
   protected readonly canEdit = computed(() => {
-    const role = this.auth.me()?.staffRole;
-    return role === 'owner' || role === 'admin';
+    const me = this.auth.me();
+    return canManageShopHr(me?.staffRole, me?.subrole);
   });
 
   protected canEditPerson(person?: EmployeeCard | null): boolean {
-    const role = this.auth.me()?.staffRole;
-    if (role === 'owner') {
+    const me = this.auth.me();
+    if (!canManageShopHr(me?.staffRole, me?.subrole)) {
+      return false;
+    }
+    if (me?.staffRole === 'owner') {
       return true;
     }
-    if (role === 'admin') {
-      return person?.role !== 'owner';
-    }
-    return false;
+    return person?.role !== 'owner';
   }
 
   protected readonly showHealth = computed(() => this.canEdit() && this.healthChips().length > 0);
@@ -224,8 +225,12 @@ export class EmployeeDirectoryPage {
     }
   }
 
-  protected roleLabel(role: DirectoryRole, subrole?: string | null): string {
-    return personRoleLabel(role, subrole);
+  protected roleLabel(
+    role: DirectoryRole,
+    subrole?: string | null,
+    position?: string | null,
+  ): string {
+    return personRoleLabel(role, subrole, position);
   }
 
   protected statusKey(person: EmployeeCard): DirectoryStatus {

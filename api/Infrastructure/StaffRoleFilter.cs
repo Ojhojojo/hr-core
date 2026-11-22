@@ -1,3 +1,5 @@
+using HrCore.Features.Staff;
+
 namespace HrCore.Infrastructure;
 
 /// <summary>Allows only the listed roles. The host app adds its own role sets in another part of this class.</summary>
@@ -7,6 +9,9 @@ public sealed partial class StaffRoleFilter(params StaffRole[] allowed) : IEndpo
 
     public static StaffRoleFilter OwnerOrAdmin { get; } =
         new(StaffRole.Owner, StaffRole.Admin);
+
+    /// <summary>#885: Owner or General Manager Access only (not Purchaser / BDO / bare Admin).</summary>
+    public static ShopHrDeskFilter ShopHrDesk { get; } = ShopHrDeskFilter.Instance;
 
     /// <summary>Any active staff role. Used where the handler scopes rows to the caller (commission).</summary>
     public static StaffRoleFilter AnyStaff { get; } =
@@ -40,6 +45,44 @@ public sealed partial class StaffRoleFilter(params StaffRole[] allowed) : IEndpo
         {
             return Results.Json(
                 new { error = "This screen is not available for your role." },
+                statusCode: StatusCodes.Status403Forbidden);
+        }
+
+        return await next(context);
+    }
+}
+
+/// <summary>
+/// Shop HR desk: leave approvals, punch-for, payroll, directory, docs, announcements.
+/// Narrower than <see cref="StaffRoleFilter.OwnerOrAdmin"/> — Access must be General Manager.
+/// </summary>
+public sealed class ShopHrDeskFilter : IEndpointFilter
+{
+    public static ShopHrDeskFilter Instance { get; } = new();
+
+    public const string Error = "Only an owner or general manager can do that.";
+
+    public async ValueTask<object?> InvokeAsync(
+        EndpointFilterInvocationContext context,
+        EndpointFilterDelegate next)
+    {
+        var staff = context.HttpContext.GetStaff();
+        if (staff is null)
+        {
+            if (context.HttpContext.IsAuthenticatedWithoutStaff())
+            {
+                return Results.Json(
+                    new { error = Error },
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            return await next(context);
+        }
+
+        if (!HrRoles.CanManageShopHr(staff))
+        {
+            return Results.Json(
+                new { error = Error },
                 statusCode: StatusCodes.Status403Forbidden);
         }
 

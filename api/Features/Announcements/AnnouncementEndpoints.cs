@@ -13,19 +13,19 @@ public static class AnnouncementEndpoints
             .WithSummary("Active announcements whose dates include today");
 
         api.MapGet("/", ListAll)
-            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin)
+            .AddEndpointFilter(StaffRoleFilter.ShopHrDesk)
             .WithName("ListAnnouncements");
 
         api.MapPost("/", Create)
-            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin)
+            .AddEndpointFilter(StaffRoleFilter.ShopHrDesk)
             .WithName("CreateAnnouncement");
 
         api.MapPut("/{id:guid}", Update)
-            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin)
+            .AddEndpointFilter(StaffRoleFilter.ShopHrDesk)
             .WithName("UpdateAnnouncement");
 
         api.MapDelete("/{id:guid}", Delete)
-            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin)
+            .AddEndpointFilter(StaffRoleFilter.ShopHrDesk)
             .WithName("DeleteAnnouncement");
 
         return app;

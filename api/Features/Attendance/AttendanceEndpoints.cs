@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using HrCore.Features.HrChangeLog;
+using HrCore.Features.Staff;
 using Microsoft.EntityFrameworkCore;
 
 namespace HrCore.Features.Attendance;
@@ -59,7 +60,7 @@ public static class AttendanceEndpoints
                 "Technician/sales: own punches only (staffId/branch filters ignored). " +
                 "Open punches keep Out and Hours null.");
         api.MapGet("/open-punches", OpenPunches)
-            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin)
+            .AddEndpointFilter(StaffRoleFilter.ShopHrDesk)
             .WithName("AttendanceOpenPunches")
             .WithSummary("Open punches in a range")
             .WithDescription(
@@ -455,7 +456,7 @@ public static class AttendanceEndpoints
             return Results.NotFound();
         }
 
-        if (actor.Role is Domain.StaffRole.Owner or Domain.StaffRole.Admin)
+        if (HrRoles.CanManageShopHr(actor))
         {
             return await OpsReportScope.MapAsync(
                 http,
@@ -588,7 +589,7 @@ public static class AttendanceEndpoints
         }
 
         IReadOnlyList<Domain.Branch>? shops = null;
-        if (actor.Role is Domain.StaffRole.Owner or Domain.StaffRole.Admin)
+        if (HrRoles.CanManageShopHr(actor))
         {
             shops = await branches.ResolveOpsReportScopeAsync(http, cancellationToken);
         }
@@ -677,7 +678,7 @@ public static class AttendanceEndpoints
         }
 
         IReadOnlyList<Domain.Branch>? shops = null;
-        if (actor.Role is Domain.StaffRole.Owner or Domain.StaffRole.Admin)
+        if (HrRoles.CanManageShopHr(actor))
         {
             shops = await branches.ResolveOpsReportScopeAsync(http, cancellationToken);
         }
@@ -747,12 +748,27 @@ public static class AttendanceEndpoints
         HttpContext http,
         BranchResolver branches,
         AttendanceService attendance,
-        CancellationToken cancellationToken) =>
-        OpsReportScope.MapAsync(
+        CancellationToken cancellationToken)
+    {
+        var actor = http.GetStaff();
+        if (actor is null)
+        {
+            return Task.FromResult(Results.Unauthorized());
+        }
+
+        if (!HrRoles.CanManageShopHr(actor))
+        {
+            return Task.FromResult(Results.Json(
+                new { error = "Only an owner or general manager can do that." },
+                statusCode: StatusCodes.Status403Forbidden));
+        }
+
+        return OpsReportScope.MapAsync(
             http,
             branches,
             async (shops, _, ct) => Results.Ok(await attendance.ListOpenPunchesAsync(shops, from, to, ct)),
             cancellationToken);
+    }
 
     private static Task<IResult> RegisterCsv(
         DateOnly? from,
@@ -789,7 +805,7 @@ public static class AttendanceEndpoints
         CancellationToken cancellationToken)
     {
         var actor = http.GetStaff();
-        if (actor is not null && actor.Role is not Domain.StaffRole.Owner and not Domain.StaffRole.Admin)
+        if (actor is not null && !HrRoles.CanManageShopHr(actor))
         {
             return next(actor, null, cancellationToken);
         }

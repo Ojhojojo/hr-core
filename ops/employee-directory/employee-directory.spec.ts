@@ -43,12 +43,14 @@ const inactivePerson: EmployeeCard = {
   emergencyContactPhone: null,
 };
 
-function me(role: AuthMe['staffRole']): AuthMe {
+function me(role: AuthMe['staffRole'], subrole?: string | null): AuthMe {
   return {
     authUserId: role ?? 'staff',
     email: `${role}@rakkiicars.ph`,
     profileKind: 'staff',
     staffRole: role,
+    // Directory desk mounts need General Manager Access (#885).
+    subrole: subrole ?? (role === 'admin' ? 'general_manager' : null),
     branchId: 'branch-1',
     branchCode: 'main-roosevelt',
     isStaff: true,
@@ -61,6 +63,7 @@ async function mount(
   people: EmployeeCard[] = [activePerson, inactivePerson],
   healthIssues: any[] = [],
   beforeFlush?: (host: HTMLElement) => void,
+  subrole?: string | null,
 ) {
   const routerSpy = {
     navigate: vi.fn(),
@@ -73,7 +76,7 @@ async function mount(
       provideNoopAnimations(),
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AuthService, useValue: { me: signal(me(role)) } },
+      { provide: AuthService, useValue: { me: signal(me(role, subrole)) } },
       { provide: Router, useValue: routerSpy },
     ],
   }).compileComponents();

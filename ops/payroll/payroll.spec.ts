@@ -45,6 +45,7 @@ const adminMe: AuthMe = {
   ...ownerMe,
   authUserId: 'admin-id',
   staffRole: 'admin',
+  subrole: 'general_manager',
   branchId: 'branch-1',
   branchCode: 'main-roosevelt',
   displayName: 'Admin Rezza',

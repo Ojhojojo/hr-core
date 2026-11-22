@@ -25,6 +25,8 @@ namespace HrCore.Features.Staff
         public static partial StaffRole UnknownPersonRole() => StaffRole.Worker;
 
         public static partial bool CanSeeStaffAvailability(StaffRole role) => IsDesk(role);
+
+        public static partial bool CanManageShopHr(StaffRole role, string? subrole) => IsDesk(role);
     }
 
     public static partial class StaffAccessFlags

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using HrCore.Features.Payroll;
+using HrCore.Features.Staff;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -502,7 +503,7 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
     }
 
     private static bool IsSelfOnly(Domain.Staff? actor) =>
-        actor is not null && actor.Role is not StaffRole.Owner and not StaffRole.Admin;
+        actor is not null && !HrRoles.CanManageShopHr(actor);
 
     private static (DateOnly Start, DateOnly End, DateTime FromUtc, DateTime ToExclusiveUtc) ResolveWeekRange(
         DateOnly? from,
@@ -900,9 +901,10 @@ public sealed class AttendanceService(IHrDb db, IFileStore files, OvertimeServic
 
     private static void EnsureManager(Domain.Staff actor)
     {
-        if (actor.Role is not StaffRole.Owner and not StaffRole.Admin)
+        if (!HrRoles.CanManageShopHr(actor))
         {
-            throw new AttendanceForbiddenException("Only an owner or admin can do that.");
+            throw new AttendanceForbiddenException(
+                "Only an owner or general manager can do that.");
         }
     }
 

@@ -9,7 +9,7 @@ public static class PayrollEndpoints
         var api = app.MapGroup("/api/ops/payroll")
             .WithTags("Payroll")
             .AddEndpointFilter<StaffAuthorizationFilter>()
-            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin);
+            .AddEndpointFilter(StaffRoleFilter.ShopHrDesk);
 
         api.MapGet("/", GetRegister)
             .WithName("PayrollRegister")
@@ -224,7 +224,7 @@ public static class PayrollEndpoints
                 "Register keys in use: \"premium\", \"allowances\", and \"loan:{loanId}\".");
 
         api.MapPut("/day-overrides", SaveDayPayOverride)
-            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin)
+            .AddEndpointFilter(StaffRoleFilter.ShopHrDesk)
             .WithName("PayrollDayPayOverrideSave")
             .WithSummary("Set or clear a per-day pay override")
             .WithDescription(
@@ -1074,12 +1074,14 @@ public static class PayrollEndpoints
             branches,
             async (shops, _, ct) =>
             {
+                var actor = http.GetStaff();
                 var result = await payroll.SaveDayPayOverrideAsync(
                     shops,
                     body,
                     IncludeUnscopedOwners(http),
-                    http.GetStaff()?.Id,
-                    http.GetStaff()?.Role,
+                    actor?.Id,
+                    actor?.Role,
+                    HrCore.Features.Staff.HrRoles.AccessSubrole(actor),
                     ct);
                 if (result.Error is not null)
                 {

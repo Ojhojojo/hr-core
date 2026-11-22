@@ -189,7 +189,7 @@
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef class="text-right">Actions</th>
           <td mat-cell *matCellDef="let row" class="text-right" data-label="">
-            @if (canReviewPunch(role(), row.approvalStatus) && row.punchId) {
+            @if (canReviewPunch(role(), row.approvalStatus, subrole()) && row.punchId) {
               <div class="ops-attend-actions-cell">
                 <button
                   matButton="tonal"
@@ -314,7 +314,7 @@
     }
   </ops-card>
 
-  @if (role() === 'admin') {
+  @if (canManage() && role() === 'admin') {
     <ops-card title="My overtime" [bleed]="myOvertimeRows().length > 0">
       @if (overtimeLoading() && myOvertimeRows().length === 0) {
         <ops-skeleton [rows]="3" label="Loading overtime" />

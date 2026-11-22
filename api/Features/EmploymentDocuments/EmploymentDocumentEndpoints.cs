@@ -76,7 +76,7 @@ public static class EmploymentDocumentEndpoints
             return Forbidden("You cannot open employment documents.");
         }
 
-        if (!HrRoles.IsDesk(actor.Role))
+        if (!HrRoles.CanManageShopHr(actor))
         {
             if (actor.Id != staffId)
             {
@@ -84,11 +84,6 @@ public static class EmploymentDocumentEndpoints
             }
 
             return Results.Ok(await ListAsync(db, staffId, cancellationToken));
-        }
-
-        if (actor.Role is not (StaffRole.Owner or StaffRole.Admin))
-        {
-            return Forbidden("You cannot open employment documents.");
         }
 
         if (await FindOnShopAsync(staffId, http, branches, db, cancellationToken) is null)
@@ -109,7 +104,7 @@ public static class EmploymentDocumentEndpoints
         CancellationToken cancellationToken)
     {
         var actor = http.GetStaff();
-        if (actor is null || actor.Role is not (StaffRole.Owner or StaffRole.Admin))
+        if (actor is null || !HrRoles.CanManageShopHr(actor))
         {
             return Forbidden("You cannot upload employment documents.");
         }
@@ -248,23 +243,16 @@ public static class EmploymentDocumentEndpoints
             return Forbidden("You cannot open employment documents.");
         }
 
-        if (!HrRoles.IsDesk(actor.Role))
+        if (!HrRoles.CanManageShopHr(actor))
         {
             if (actor.Id != row.StaffId)
             {
                 return Forbidden("You cannot open another employee's documents.");
             }
         }
-        else if (actor.Role is StaffRole.Owner or StaffRole.Admin)
+        else if (await FindOnShopAsync(row.StaffId, http, branches, db, cancellationToken) is null)
         {
-            if (await FindOnShopAsync(row.StaffId, http, branches, db, cancellationToken) is null)
-            {
-                return Results.NotFound();
-            }
-        }
-        else
-        {
-            return Forbidden("You cannot open employment documents.");
+            return Results.NotFound();
         }
 
         var stream = await files.OpenAsync(row.StoragePath, cancellationToken);

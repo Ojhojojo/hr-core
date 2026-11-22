@@ -1,3 +1,4 @@
+using HrCore.Features.Staff;
 using Microsoft.EntityFrameworkCore;
 
 namespace HrCore.Features.HrChangeLog;
@@ -48,9 +49,9 @@ public static class HrChangeLogEndpoints
 
         var capped = take ?? DefaultTake;
 
-        if (actor.Role is not (StaffRole.Owner or StaffRole.Admin))
+        if (!HrRoles.CanManageShopHr(actor))
         {
-            // A worker reads their own rows only. Any staffId filter is ignored.
+            // Self-service Access reads their own rows only. Any staffId filter is ignored.
             return RespondAsync(hr, [actor.Id], field, from, to, capped, cancellationToken);
         }
 

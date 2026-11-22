@@ -7,6 +7,7 @@ import {
   AuthService,
   apiErrorMessage,
   BannerComponent,
+  canManageShopHr,
   MetricStripComponent,
   OpsConfirmService,
   OpsToastService,
@@ -182,9 +183,10 @@ export class LeavePage {
   protected readonly teamBalancesLoaded = signal(false);
 
   protected readonly isOwner = computed(() => this.auth.me()?.staffRole === 'owner');
+  /** Team balances + approve/reject: Owner or General Manager only (#885). */
   protected readonly canDecide = computed(() => {
-    const role = this.auth.me()?.staffRole;
-    return role === 'owner' || role === 'admin';
+    const me = this.auth.me();
+    return canManageShopHr(me?.staffRole, me?.subrole);
   });
 
   protected readonly currentStaffId = computed(() => {

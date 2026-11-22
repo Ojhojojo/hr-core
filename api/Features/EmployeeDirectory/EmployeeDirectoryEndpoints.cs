@@ -31,7 +31,7 @@ public static class EmployeeDirectoryEndpoints
             .WithTags("Employee directory")
             .AddEndpointFilter<StaffAuthorizationFilter>();
         api.MapGet("/", List)
-            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin)
+            .AddEndpointFilter(StaffRoleFilter.ShopHrDesk)
             .WithName("ListEmployeeDirectory");
         api.MapGet("/{id:guid}", GetById).WithName("GetEmployeeDirectoryPerson");
         api.MapPost("/", Create)
@@ -77,7 +77,7 @@ public static class EmployeeDirectoryEndpoints
             .ThenBy(s => s.Id)
             .ToListAsync(cancellationToken);
         var actor = http.GetStaff();
-        var canManage = actor?.Role is StaffRole.Owner or StaffRole.Admin;
+        var canManage = actor is not null && HrRoles.CanManageShopHr(actor);
         var revealPayAndAccess = actor?.Role == StaffRole.Owner;
         var onLeave = await OnLeaveTodayIdsAsync(db, items.Select(s => s.Id).ToArray(), cancellationToken);
         var cards = items.Select(s => ToCard(
@@ -110,7 +110,7 @@ public static class EmployeeDirectoryEndpoints
             return Results.Unauthorized();
         }
 
-        if (!HrRoles.IsDesk(actor.Role) && actor.Id != id)
+        if (!HrRoles.CanManageShopHr(actor) && actor.Id != id)
         {
             return Forbidden("You cannot view this employee record.");
         }
@@ -126,7 +126,7 @@ public static class EmployeeDirectoryEndpoints
         }
 
         var onLeave = await IsOnLeaveTodayAsync(db, staff.Id, cancellationToken);
-        var canManage = actor.Role is StaffRole.Owner or StaffRole.Admin;
+        var canManage = HrRoles.CanManageShopHr(actor);
         return Results.Ok(ToCard(
             staff,
             onLeave,
@@ -275,7 +275,7 @@ public static class EmployeeDirectoryEndpoints
         CancellationToken cancellationToken)
     {
         var actor = http.GetStaff();
-        if (actor is null || !HrRoles.IsDesk(actor.Role))
+        if (actor is null || !HrRoles.CanManageShopHr(actor))
         {
             return Forbidden("You cannot change the directory.");
         }

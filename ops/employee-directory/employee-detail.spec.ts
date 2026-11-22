@@ -7,7 +7,7 @@ import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AuthMe, AuthService, OpsConfirmService } from '@hr-host';
+import { AuthMe, AuthService, canManageShopHr, OpsConfirmService } from '@hr-host';
 import { EmployeeCard } from './employee-directory.api';
 import { EmployeeDetailPage } from './employee-detail';
 
@@ -31,12 +31,14 @@ const testEmployee: EmployeeCard = {
   status: 'active',
 };
 
-function me(role: AuthMe['staffRole'], staffId?: string | null): AuthMe {
+function me(role: AuthMe['staffRole'], staffId?: string | null, subrole?: string | null): AuthMe {
   return {
     authUserId: role ?? 'staff',
     email: `${role}@rakkiicars.ph`,
     profileKind: 'staff',
     staffRole: role,
+    // Directory desk mounts need General Manager Access (#885).
+    subrole: subrole ?? (role === 'admin' ? 'general_manager' : null),
     branchId: 'branch-1',
     branchCode: 'main-roosevelt',
     isStaff: true,
@@ -49,6 +51,7 @@ async function mountDetail(
   role: AuthMe['staffRole'],
   tab = 'overview',
   employee: EmployeeCard = testEmployee,
+  subrole?: string | null,
 ) {
   const routerSpy = {
     navigate: vi.fn(),
@@ -68,6 +71,9 @@ async function mountDetail(
     confirm: vi.fn().mockReturnValue(of({ confirmed: true })),
   };
 
+  const authMe = me(role, undefined, subrole);
+  const desk = canManageShopHr(authMe.staffRole, authMe.subrole);
+
   await TestBed.configureTestingModule({
     imports: [EmployeeDetailPage],
     providers: [
@@ -75,7 +81,7 @@ async function mountDetail(
       provideNoopAnimations(),
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AuthService, useValue: { me: signal(me(role)) } },
+      { provide: AuthService, useValue: { me: signal(authMe) } },
       { provide: Router, useValue: routerSpy },
       { provide: ActivatedRoute, useValue: routeStub },
       { provide: OpsConfirmService, useValue: confirmSpy },
@@ -106,8 +112,8 @@ async function mountDetail(
     tin: '000-000-000',
   });
 
-  // Handle tab-specific requests triggered on mount
-  if (tab === 'pay' && (role === 'owner' || role === 'admin')) {
+  // Handle tab-specific requests triggered on mount (shop HR desk only).
+  if (tab === 'pay' && desk) {
     const payReq = http.expectOne(`/api/ops/payroll/rates/${employee.id}`);
     payReq.flush({
       staffId: employee.id,
@@ -124,7 +130,7 @@ async function mountDetail(
     );
     expect(allowanceReq.request.method).toBe('GET');
     allowanceReq.flush({ allowances: [], suggestedNames: [] });
-  } else if (tab === 'loans' && (role === 'owner' || role === 'admin')) {
+  } else if (tab === 'loans' && desk) {
     const loanReq = http.expectOne(
       (req) => req.url === '/api/ops/payroll/loans' && req.params.get('staffId') === employee.id,
     );
@@ -134,12 +140,12 @@ async function mountDetail(
   } else if (tab === 'documents') {
     const docReq = http.expectOne(`/api/employee-directory/${employee.id}/documents`);
     docReq.flush([]);
-  } else if (tab === 'leave' && (role === 'owner' || role === 'admin')) {
+  } else if (tab === 'leave' && desk) {
     const balReq = http.expectOne((req) => req.url.includes('/api/leave/balances'));
     balReq.flush([]);
     const listReq = http.expectOne((req) => req.url.includes('/api/leave'));
     listReq.flush([]);
-  } else if (tab === 'history' && (role === 'owner' || role === 'admin')) {
+  } else if (tab === 'history' && desk) {
     const histReq = http.expectOne((req) => req.url.includes('/api/hr/change-log'));
     histReq.flush({ rows: [] });
   }

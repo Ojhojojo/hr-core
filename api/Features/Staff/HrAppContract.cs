@@ -26,6 +26,24 @@ public static partial class HrRoles
 
     /// <summary>Roles that may read the daily staff availability snapshot (approved leave and clock-in).</summary>
     public static partial bool CanSeeStaffAvailability(StaffRole role);
+
+    /// <summary>
+    /// Who may run the shop HR desk: leave approvals/team balances, punch-for / kiosk for
+    /// others, punch review, and similar manager attendance actions. Host apps with Access
+    /// (subroles) can narrow this below all desk roles.
+    /// </summary>
+    public static partial bool CanManageShopHr(StaffRole role, string? subrole);
+
+    /// <summary>Reads the app-supplied subrole from <see cref="StaffAccessFlags.Describe"/> when present.</summary>
+    internal static string? AccessSubrole(Domain.Staff? staff) =>
+        staff is not null
+        && StaffAccessFlags.Describe(staff) is { } fields
+        && fields.TryGetValue("subrole", out var raw)
+            ? raw as string
+            : null;
+
+    internal static bool CanManageShopHr(Domain.Staff staff) =>
+        CanManageShopHr(staff.Role, AccessSubrole(staff));
 }
 
 /// <summary>

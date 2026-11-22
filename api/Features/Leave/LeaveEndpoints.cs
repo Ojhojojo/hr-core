@@ -35,10 +35,10 @@ public static class LeaveEndpoints
             .AddEndpointFilter(StaffRoleFilter.OwnerOnly)
             .WithName("CreateStaffLeave");
         api.MapGet("/{id:guid}/affected-jobs", AffectedJobs)
-            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin)
+            .AddEndpointFilter(StaffRoleFilter.ShopHrDesk)
             .WithName("ListLeaveAffectedJobs");
         api.MapPost("/{id:guid}/decision", Decide)
-            .AddEndpointFilter(StaffRoleFilter.OwnerOrAdmin)
+            .AddEndpointFilter(StaffRoleFilter.ShopHrDesk)
             .WithName("DecideLeaveRequest");
         api.MapPost("/{id:guid}/cancel", Cancel).WithName("CancelLeaveRequest");
         return app;
@@ -69,20 +69,16 @@ public static class LeaveEndpoints
             .ThenInclude(s => s.Profile)
             .Where(r => r.StartDate.Year == resolvedYear);
 
-        // mine=true is "My requests" for every role, including owner and admin.
-        if (mine || !HrRoles.IsDesk(actor.Role))
+        // mine=true is "My requests" for every role. Shop-wide list is leave managers only.
+        if (mine || !HrRoles.CanManageShopHr(actor))
         {
             query = query.Where(r => r.StaffId == actor.Id);
         }
-        else if (actor.Role is StaffRole.Owner or StaffRole.Admin)
+        else
         {
             var shop = await ShopAsync(http, branches, db, cancellationToken);
             var staffIds = OnShop(db, shop.BranchId).Select(s => s.Id);
             query = query.Where(r => staffIds.Contains(r.StaffId));
-        }
-        else
-        {
-            query = query.Where(r => r.StaffId == actor.Id);
         }
 
         var rows = await query
@@ -131,9 +127,9 @@ public static class LeaveEndpoints
 
         if (shop == 1)
         {
-            if (actor.Role is not (StaffRole.Owner or StaffRole.Admin))
+            if (!HrRoles.CanManageShopHr(actor))
             {
-                return Forbidden("Shop balances are only available to owners and admins.");
+                return Forbidden("Shop balances are only available to owners and general managers.");
             }
 
             var shopContext = await ShopAsync(http, branches, db, cancellationToken);
@@ -158,7 +154,7 @@ public static class LeaveEndpoints
         }
 
         Guid subjectId;
-        if (actor.Role is StaffRole.Owner or StaffRole.Admin
+        if (HrRoles.CanManageShopHr(actor)
             && staffId is Guid requested
             && requested != Guid.Empty)
         {
@@ -171,7 +167,7 @@ public static class LeaveEndpoints
         }
         else
         {
-            // Technician and sales always read their own balances. Another staff id is ignored.
+            // Self-service Access (and tech/sales) always read their own balances. Another staff id is ignored.
             subjectId = actor.Id;
         }
 
@@ -470,7 +466,7 @@ public static class LeaveEndpoints
         CancellationToken cancellationToken)
     {
         var actor = http.GetStaff();
-        if (actor is null || actor.Role is not (StaffRole.Owner or StaffRole.Admin))
+        if (actor is null || !HrRoles.CanManageShopHr(actor))
         {
             return Forbidden("You cannot approve leave.");
         }
@@ -619,15 +615,15 @@ public static class LeaveEndpoints
 
         if (row.StaffId == actor.Id)
         {
-            // The requester can withdraw their own pending request. Approved leave needs an owner or admin.
+            // The requester can withdraw their own pending request. Approved leave needs the shop HR desk.
             if (row.Status == LeaveRequestStatus.Approved)
             {
-                return Forbidden("Ask an owner or admin to cancel approved leave.");
+                return Forbidden("Ask an owner or general manager to cancel approved leave.");
             }
         }
         else
         {
-            if (actor.Role is not (StaffRole.Owner or StaffRole.Admin))
+            if (!HrRoles.CanManageShopHr(actor))
             {
                 return Forbidden("You cannot cancel someone else's leave.");
             }

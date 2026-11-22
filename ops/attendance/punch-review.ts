@@ -1,16 +1,16 @@
-import { StaffRole, StatusBadgeTone } from '@hr-host';
+import { canManageShopHr, StaffRole, StatusBadgeTone } from '@hr-host';
 import { PunchApprovalStatus } from '../clock/clock.models';
 
 /**
- * Owner and admin may approve or reject a pending punch.
- * Technicians, sales, and any other role cannot.
- * Approved and rejected punches cannot be reviewed again.
+ * Owner or General Manager Access may approve or reject a pending punch (#885).
+ * Purchaser / BDO / technicians / sales cannot. Settled punches stay closed.
  */
 export function canReviewPunch(
   role: StaffRole | string | null | undefined,
   status: PunchApprovalStatus | string | null | undefined,
+  subrole?: string | null,
 ): boolean {
-  return (role === 'owner' || role === 'admin') && status === 'pending';
+  return canManageShopHr(role, subrole) && status === 'pending';
 }
 
 export function punchStatusLabel(status: PunchApprovalStatus | string | null | undefined): string {

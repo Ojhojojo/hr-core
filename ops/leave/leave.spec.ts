@@ -57,16 +57,18 @@ const teamBalances: StaffLeaveBalances[] = [
   },
 ];
 
-function me(role: AuthMe['staffRole']): AuthMe {
+function me(role: AuthMe['staffRole'], subrole?: string | null): AuthMe {
   return {
     authUserId: role ?? 'staff',
     email: `${role}@rakkiicars.ph`,
     profileKind: 'staff',
     staffRole: role,
+    subrole: subrole ?? null,
     branchId: 'branch-1',
     branchCode: 'main-roosevelt',
     isStaff: true,
     displayName: 'Tester',
+    staffId: role ?? 'staff',
   };
 }
 
@@ -87,6 +89,7 @@ async function mount(
   role: AuthMe['staffRole'],
   customRequests?: LeaveRequestRow[],
   confirmObj = confirmStub(true),
+  subrole?: string | null,
 ) {
   await TestBed.configureTestingModule({
     imports: [LeavePage],
@@ -96,7 +99,7 @@ async function mount(
       provideRouter([]),
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AuthService, useValue: { me: signal(me(role)) } },
+      { provide: AuthService, useValue: { me: signal(me(role, subrole)) } },
       { provide: OpsConfirmService, useValue: confirmObj.service },
     ],
   }).compileComponents();
@@ -106,7 +109,8 @@ async function mount(
   fixture.detectChanges();
 
   const owner = role === 'owner';
-  const decide = role === 'owner' || role === 'admin';
+  // Shop leave desk: Owner or General Manager Access only (#885).
+  const decide = role === 'owner' || (role === 'admin' && subrole === 'general_manager');
   const isList = (req: { method: string; url: string }) =>
     req.method === 'GET' && req.url.includes('/api/leave') && !req.url.includes('/balances');
 
@@ -174,8 +178,16 @@ describe('Leave', () => {
     expect(document.querySelector('[data-allotment]')).toBeNull();
   });
 
-  it('admin can approve, cannot open Set days / Add leave for someone else', async () => {
-    const { host } = await mount('admin');
+  it('purchaser Admin cannot approve or see team balances', async () => {
+    const { host } = await mount('admin', undefined, confirmStub(true), 'purchaser');
+    expect(host.querySelector('button[name="approve"]')).toBeNull();
+    expect(host.querySelector('button[name="reject"]')).toBeNull();
+    expect(host.textContent).not.toContain('Team balances');
+    expect(host.textContent).not.toContain('Needs a decision');
+  });
+
+  it('general manager can approve, cannot open Set days / Add leave for someone else', async () => {
+    const { host } = await mount('admin', undefined, confirmStub(true), 'general_manager');
     expect(host.querySelector('button[name="approve"]')).toBeTruthy();
     expect(host.querySelector('button[name="reject"]')).toBeTruthy();
     expect(document.querySelector('[data-allotment]')).toBeNull();
@@ -184,7 +196,7 @@ describe('Leave', () => {
     expect(host.querySelector('button[name="addLeave"]')).toBeNull();
   });
 
-  it('admin cannot see approve or reject buttons on their own request but can on others', async () => {
+  it('general manager cannot see approve or reject on their own request but can on others', async () => {
     const adminPending: LeaveRequestRow = {
       id: 'leave-admin-1',
       staffId: 'admin',
@@ -198,7 +210,12 @@ describe('Leave', () => {
       days: 1,
       cancelReason: null,
     };
-    const { host } = await mount('admin', [pending, adminPending]);
+    const { host } = await mount(
+      'admin',
+      [pending, adminPending],
+      confirmStub(true),
+      'general_manager',
+    );
     const approveButtons = host.querySelectorAll('button[name="approve"]');
     const rejectButtons = host.querySelectorAll('button[name="reject"]');
     expect(approveButtons).toHaveLength(1);

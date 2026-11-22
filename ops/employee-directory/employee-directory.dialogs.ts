@@ -54,8 +54,16 @@ export const DIRECTORY_ROLE_LABELS: Record<DirectoryRole, string> = {
   sales: 'Sales',
 };
 
-/** Prefer the user-facing subrole label so internal base roles stay hidden from staff views. */
-export function personRoleLabel(role: DirectoryRole, subrole?: string | null): string {
+/** Prefer Position, then Access (subrole) label; hide internal base roles from staff views. */
+export function personRoleLabel(
+  role: DirectoryRole,
+  subrole?: string | null,
+  position?: string | null,
+): string {
+  const titled = (position ?? '').trim();
+  if (titled) {
+    return titled;
+  }
   const normalized = (subrole ?? '').trim().toLowerCase();
   if (normalized && subroleOptionsForRole(role).some((opt) => opt.value === normalized)) {
     return subroleLabel(normalized);
@@ -240,7 +248,7 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
               }
               @if ((data.mode === 'add' || data.isOwner) && subroleOptions().length > 0) {
                 <mat-form-field appearance="outline" class="dir-span-2">
-                  <mat-label>Subrole</mat-label>
+                  <mat-label>Access</mat-label>
                   <mat-select name="subrole" [(ngModel)]="subrole">
                     <mat-option [value]="null">
                       Default (standard {{ roleLabel(role) }})

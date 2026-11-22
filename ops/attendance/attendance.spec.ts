@@ -35,9 +35,17 @@ const adminMe: AuthMe = {
   ...ownerMe,
   authUserId: 'admin',
   staffRole: 'admin',
+  subrole: 'general_manager',
   branchId: 'branch-1',
   branchCode: 'main-roosevelt',
   displayName: 'Admin Staff',
+};
+
+const purchaserMe: AuthMe = {
+  ...adminMe,
+  authUserId: 'purchaser',
+  subrole: 'purchaser',
+  displayName: 'Purchaser Staff',
 };
 
 function authStub(me: AuthMe) {
@@ -288,6 +296,34 @@ describe('AttendancePage', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Worker 01');
     expect(fixture.nativeElement.textContent).toContain('Worker 11');
     expect(fixture.nativeElement.textContent).toContain('Worker 15');
+  });
+
+  it('purchaser Access hides Punch for and open-punch desk tools', async () => {
+    await TestBed.configureTestingModule({
+      imports: [AttendancePage],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideNoopAnimations(),
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: AuthService, useValue: authStub(purchaserMe) },
+      ],
+    }).compileComponents();
+
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(AttendancePage);
+    fixture.detectChanges();
+
+    http.expectOne('/api/ops/attendance/register').flush(register);
+    flushOvertime(http, '2026-09-13', '2026-09-19');
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('My week');
+    expect(text).not.toContain('Punch for');
+    expect(http.match('/api/staff')).toEqual([]);
+    expect(http.match((req) => req.url === '/api/ops/attendance/open-punches')).toEqual([]);
   });
 
   it('admin loads shop-wide overtime and own overtime with mine=true', async () => {

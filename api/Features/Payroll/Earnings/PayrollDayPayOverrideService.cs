@@ -1,14 +1,15 @@
 using System.Globalization;
 using HrCore.Features.HrChangeLog;
+using HrCore.Features.Staff;
 using Microsoft.EntityFrameworkCore;
 
 namespace HrCore.Features.Payroll;
 
 public sealed partial class PayrollService
 {
-    /// <summary>#390: Owner/Admin only — one place for the day-pay permission check.</summary>
-    public static bool CanManageDayPayOverride(StaffRole? role) =>
-        role is StaffRole.Owner or StaffRole.Admin;
+    /// <summary>#390 / #885: Owner or General Manager Access only.</summary>
+    public static bool CanManageDayPayOverride(StaffRole? role, string? subrole) =>
+        role is not null && HrRoles.CanManageShopHr(role.Value, subrole);
 
     private async Task<Dictionary<Guid, List<PayrollDayPayOverride>>> LoadDayPayOverridesByStaffAsync(
         IReadOnlyList<Guid> staffIds,
@@ -47,12 +48,13 @@ public sealed partial class PayrollService
         bool includeUnscopedOwners,
         Guid? actorStaffId,
         StaffRole? actorRole,
+        string? actorSubrole,
         CancellationToken cancellationToken)
     {
-        if (!CanManageDayPayOverride(actorRole))
+        if (!CanManageDayPayOverride(actorRole, actorSubrole))
         {
             return PayrollDayPayOverrideSaveResult.Forbidden(
-                "Only an Owner or Admin can override a day's pay.");
+                "Only an owner or general manager can override a day's pay.");
         }
 
         var clearing = request.Mode is null;

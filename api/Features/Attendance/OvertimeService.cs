@@ -165,7 +165,7 @@ public sealed class OvertimeService(IHrDb db, HrChangeLogService hr)
             throw new AttendanceBadRequestException("Choose approve or reject.");
         }
 
-        if (!HrRoles.IsDesk(actor.Role))
+        if (!HrRoles.CanManageShopHr(actor))
         {
             throw new AttendanceForbiddenException(CannotApproveMessage);
         }
@@ -181,11 +181,6 @@ public sealed class OvertimeService(IHrDb db, HrChangeLogService hr)
         if (actor.Role == StaffRole.Admin && !entry.Branch.AdminsCanApproveOt)
         {
             throw new AttendanceForbiddenException(OwnerOnlyMessage);
-        }
-
-        if (actor.Role != StaffRole.Owner && actor.Role != StaffRole.Admin)
-        {
-            throw new AttendanceForbiddenException(CannotApproveMessage);
         }
 
         if (entry.Status != OvertimeStatus.Pending)
@@ -396,7 +391,7 @@ public sealed class OvertimeService(IHrDb db, HrChangeLogService hr)
         IReadOnlyList<Branch>? shops,
         CancellationToken cancellationToken)
     {
-        if (!HrRoles.IsDesk(actor.Role))
+        if (!HrRoles.CanManageShopHr(actor))
         {
             return [actor.Id];
         }
@@ -469,12 +464,13 @@ public sealed class OvertimeService(IHrDb db, HrChangeLogService hr)
         !mine && CanApprove(actor, entry.Branch) && entry.Status == OvertimeStatus.Pending);
 
     private static bool CanApprove(Domain.Staff actor, Branch branch) =>
-        actor.Role == StaffRole.Owner
-        || (actor.Role == StaffRole.Admin && branch.AdminsCanApproveOt);
+        HrRoles.CanManageShopHr(actor)
+        && (actor.Role == StaffRole.Owner
+            || (actor.Role == StaffRole.Admin && branch.AdminsCanApproveOt));
 
     private static bool InScope(Domain.Staff actor, IReadOnlyList<Branch>? shops, OvertimeEntry entry)
     {
-        if (!HrRoles.IsDesk(actor.Role))
+        if (!HrRoles.CanManageShopHr(actor))
         {
             return entry.StaffId == actor.Id;
         }

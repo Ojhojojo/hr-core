@@ -1,18 +1,22 @@
 import { inject } from '@angular/core';
 import { Routes } from '@angular/router';
-import { ownerOrAdminGuard, AuthService } from '@hr-host';
+import { AuthService, canManageShopHr, shopHrDeskGuard } from '@hr-host';
 
-/** Role-based landing page under `/hr`. Owners and admins see Directory; floor staff see Attendance. */
+/** Role-based landing page under `/hr`. Shop HR desk → Directory; others → Attendance. */
 export function defaultHrPath(
   role: string | null | undefined,
+  subrole?: string | null,
 ): 'employee-directory' | 'attendance' {
-  return role === 'owner' || role === 'admin' ? 'employee-directory' : 'attendance';
+  return canManageShopHr(role, subrole) ? 'employee-directory' : 'attendance';
 }
 
 export function hrDefaultRedirect(
-  auth: { me: () => { staffRole?: string | null } | null } = inject(AuthService),
+  auth: {
+    me: () => { staffRole?: string | null; subrole?: string | null } | null;
+  } = inject(AuthService),
 ): string {
-  return defaultHrPath(auth.me()?.staffRole);
+  const me = auth.me();
+  return defaultHrPath(me?.staffRole, me?.subrole);
 }
 
 export const hrRoutes: Routes = [
@@ -32,7 +36,7 @@ export const hrRoutes: Routes = [
   {
     path: 'clock-kiosk',
     data: { mode: 'kiosk' },
-    canActivate: [ownerOrAdminGuard],
+    canActivate: [shopHrDeskGuard],
     loadComponent: () => import('./clock/clock').then((m) => m.ClockPage),
   },
   {
@@ -41,24 +45,24 @@ export const hrRoutes: Routes = [
   },
   {
     path: 'payroll',
-    canActivate: [ownerOrAdminGuard],
+    canActivate: [shopHrDeskGuard],
     loadComponent: () => import('./payroll/payroll').then((m) => m.PayrollPage),
   },
   {
     path: 'employee-directory',
-    canActivate: [ownerOrAdminGuard],
+    canActivate: [shopHrDeskGuard],
     loadComponent: () =>
       import('./employee-directory/employee-directory').then((m) => m.EmployeeDirectoryPage),
   },
   {
     path: 'employee-directory/:id',
-    canActivate: [ownerOrAdminGuard],
+    canActivate: [shopHrDeskGuard],
     loadComponent: () =>
       import('./employee-directory/employee-detail').then((m) => m.EmployeeDetailPage),
   },
   {
     path: 'documents',
-    canActivate: [ownerOrAdminGuard],
+    canActivate: [shopHrDeskGuard],
     loadComponent: () => import('./documents/hr-documents').then((m) => m.HrDocumentsPage),
   },
   {
@@ -67,7 +71,7 @@ export const hrRoutes: Routes = [
   },
   {
     path: 'announcements',
-    canActivate: [ownerOrAdminGuard],
+    canActivate: [shopHrDeskGuard],
     loadComponent: () => import('./announcements/announcements').then((m) => m.AnnouncementsPage),
   },
 ];

@@ -5,6 +5,7 @@ import {
   OpsBreakpoints,
   fitDialogToHandset,
   AuthService,
+  canManageShopHr,
   apiErrorMessage,
   addDays,
   manilaToday,
@@ -220,10 +221,8 @@ export class AttendancePage {
   });
 
   protected readonly role = computed(() => this.auth.me()?.staffRole);
-  protected readonly canManage = computed(() => {
-    const role = this.role();
-    return role === 'owner' || role === 'admin';
-  });
+  protected readonly subrole = computed(() => this.auth.me()?.subrole);
+  protected readonly canManage = computed(() => canManageShopHr(this.role(), this.subrole()));
   protected readonly canFileOvertime = computed(() => this.role() !== 'owner');
   protected readonly punchStaff = computed(() =>
     this.staff().filter((person) => person.mustClock === true && person.role !== 'owner'),
@@ -279,7 +278,9 @@ export class AttendancePage {
 
   loadOvertime(from: string, to: string): void {
     this.overtimeLoading.set(true);
-    let pending = this.role() === 'admin' ? 2 : 1;
+    // Shop HR desk loads shop OT + own OT; everyone else loads one self-scoped list (#885).
+    const loadOwnToo = this.canManage() && this.role() === 'admin';
+    let pending = loadOwnToo ? 2 : 1;
     const done = () => {
       pending -= 1;
       if (pending <= 0) {
@@ -298,7 +299,7 @@ export class AttendancePage {
       },
     });
 
-    if (this.role() === 'admin') {
+    if (loadOwnToo) {
       this.api.overtime(from, to, true).subscribe({
         next: (body) => {
           this.myOvertimeRows.set(body.rows);
@@ -413,7 +414,11 @@ export class AttendancePage {
   }
 
   review(row: AttendanceRegisterRow, decision: 'approved' | 'rejected'): void {
-    if (!row.punchId || !canReviewPunch(this.role(), row.approvalStatus) || this.acting()) {
+    if (
+      !row.punchId ||
+      !canReviewPunch(this.role(), row.approvalStatus, this.subrole()) ||
+      this.acting()
+    ) {
       return;
     }
     this.acting.set(true);
