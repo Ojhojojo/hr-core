@@ -33,18 +33,34 @@ export function applyMoveAll(
   return Object.fromEntries(jobs.map((job) => [job.jobId, staffId]));
 }
 
-/** Picker candidates: active shop staff who can work jobs, except the person being handed over. */
-export function handoverCandidates(
-  staff: readonly StaffAvailabilityRow[],
+type StaffAvailabilityCandidate = StaffAvailabilityRow & {
+  position?: string | null;
+  subrole?: string | null;
+};
+
+/**
+ * Picker candidates: active shop staff who can work jobs, except the person being handed over.
+ * Hides non-workshop (`subrole === 'me_only'`) staff by default; pass `includeOther = true` to include them.
+ */
+export function handoverCandidates<T extends StaffAvailabilityCandidate>(
+  staff: readonly T[],
   personId: string,
-): StaffAvailabilityRow[] {
-  return staff.filter((row) => row.staffId !== personId && canBeAssignedJobs(row.role));
+  includeOther = false,
+): T[] {
+  return staff.filter(
+    (row) =>
+      row.staffId !== personId &&
+      canBeAssignedJobs(row.role) &&
+      (includeOther || (row.subrole ?? '').trim().toLowerCase() !== 'me_only'),
+  );
 }
 
-/** "Name (On leave today)" style label for a picker option. */
-export function pickerLabel(row: StaffAvailabilityRow): string {
+/** "Name · Position (On leave today)" style label for a picker option. */
+export function pickerLabel(row: StaffAvailabilityCandidate): string {
   const warning = availabilityWarning(row);
-  return warning ? `${row.displayName} (${warning})` : row.displayName;
+  const position = row.position?.trim();
+  const name = position ? `${row.displayName} · ${position}` : row.displayName;
+  return warning ? `${name} (${warning})` : name;
 }
 
 /** Plain-language lines describing what deactivation did, for the toast after it succeeds. */

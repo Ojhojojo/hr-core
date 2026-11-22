@@ -96,7 +96,12 @@ public static class StaffEndpoints
                 onLeave is not null,
                 onLeave?.LeaveType,
                 onLeave?.HalfDay,
-                clockedIn.Contains(s.Id));
+                clockedIn.Contains(s.Id),
+                s.Position,
+                s.Department)
+            {
+                AppFields = StaffAccessFlags.Describe(s)
+            };
         }).ToList();
 
         return Results.Ok(new StaffAvailabilityDayResponse(day, rows));
@@ -507,7 +512,9 @@ public static class StaffEndpoints
             staff.Profile.Mobile,
             staff.EmergencyContactName,
             staff.EmergencyContactPhone,
-            RestDayList.ToArray(staff.RestDays))
+            RestDayList.ToArray(staff.RestDays),
+            staff.Position,
+            staff.Department)
         {
             AppFields = StaffAccessFlags.Describe(staff)
         };
@@ -1055,7 +1062,9 @@ public static class StaffEndpoints
         string? Mobile = null,
         string? EmergencyContactName = null,
         string? EmergencyContactPhone = null,
-        int[]? RestDays = null)
+        int[]? RestDays = null,
+        string? Position = null,
+        string? Department = null)
     {
         /// <summary>The app's own access flags (see <see cref="StaffAccessFlags"/>), written as top-level fields.</summary>
         [JsonExtensionData]
@@ -1296,4 +1305,11 @@ public sealed record StaffAvailabilityResponse(
     bool OnApprovedLeave,
     LeaveType? LeaveType,
     LeaveHalfDay? HalfDay,
-    bool ClockedIn);
+    bool ClockedIn,
+    string? Position = null,
+    string? Department = null)
+{
+    /// <summary>The app's own access flags (see <see cref="StaffAccessFlags"/>), written as top-level fields.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, object?>? AppFields { get; init; }
+}

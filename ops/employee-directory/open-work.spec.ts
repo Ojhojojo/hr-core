@@ -12,7 +12,12 @@ import {
 
 const jobs = [{ jobId: 'j-1' }, { jobId: 'j-2' }];
 
-function person(overrides: Partial<StaffAvailabilityRow>): StaffAvailabilityRow {
+type TestAvailabilityRow = StaffAvailabilityRow & {
+  position?: string | null;
+  subrole?: string | null;
+};
+
+function person(overrides: Partial<TestAvailabilityRow>): TestAvailabilityRow {
   return {
     staffId: 's-1',
     displayName: 'Ana',
@@ -65,6 +70,22 @@ describe('handoverCandidates and pickerLabel', () => {
     expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['tech', 'desk', 'boss']);
   });
 
+  it('hides me_only staff by default and includes them when includeOther is true', () => {
+    const rows = [
+      person({ staffId: 'tech', role: 'technician', subrole: 'workshop_board' }),
+      person({ staffId: 'driver', role: 'technician', subrole: 'me_only' }),
+      person({ staffId: 'gate', role: 'technician', subrole: ' ME_ONLY ' }),
+      person({ staffId: 'desk', role: 'admin', subrole: 'workshop_ops' }),
+    ];
+    expect(handoverCandidates(rows, 'me').map((r) => r.staffId)).toEqual(['tech', 'desk']);
+    expect(handoverCandidates(rows, 'me', true).map((r) => r.staffId)).toEqual([
+      'tech',
+      'driver',
+      'gate',
+      'desk',
+    ]);
+  });
+
   it('adds the availability hint to the label', () => {
     expect(pickerLabel(person({ displayName: 'Ana' }))).toBe('Ana');
     expect(pickerLabel(person({ displayName: 'Ana', clockedIn: false }))).toBe(
@@ -73,6 +94,26 @@ describe('handoverCandidates and pickerLabel', () => {
     expect(pickerLabel(person({ displayName: 'Ana', onApprovedLeave: true, halfDay: 'am' }))).toBe(
       'Ana (On leave today (AM))',
     );
+  });
+
+  it('includes trimmed position in the label with and without availability warnings', () => {
+    expect(pickerLabel(person({ displayName: 'Ana', position: '  Lead Painter  ' }))).toBe(
+      'Ana · Lead Painter',
+    );
+    expect(pickerLabel(person({ displayName: 'Ana', position: '   ' }))).toBe('Ana');
+    expect(
+      pickerLabel(person({ displayName: 'Ana', position: 'Body Tech', clockedIn: false })),
+    ).toBe('Ana · Body Tech (Not clocked in today)');
+    expect(
+      pickerLabel(
+        person({
+          displayName: 'Ana',
+          position: 'Detailer',
+          onApprovedLeave: true,
+          halfDay: 'pm',
+        }),
+      ),
+    ).toBe('Ana · Detailer (On leave today (PM))');
   });
 });
 
