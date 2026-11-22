@@ -9,6 +9,8 @@ public static class LeaveEndpoints
 {
     public const int NoteMaxLength = 500;
     public const int CancelReasonMaxLength = 500;
+    private const string CrossYearErrorMessage =
+        "Leave can't cross calendar years. Submit two requests: one through Dec 31 of the start year, and another starting Jan 1 of the next year.";
 
     private static readonly LeaveType[] LeaveTypes =
     [
@@ -72,11 +74,28 @@ public static class LeaveEndpoints
             return HrProblems.Problem(400, "Status must be pending or decided.");
         }
 
-        var resolvedYear = ResolveYear(year);
+        var currentYear = ManilaTime.Today().Year;
         var query = db.LeaveRequests.AsNoTracking()
             .Include(r => r.Staff)
             .ThenInclude(s => s.Profile)
-            .Where(r => r.StartDate.Year == resolvedYear);
+            .AsQueryable();
+
+        if (year is int explicitYear)
+        {
+            query = query.Where(r => r.StartDate.Year == explicitYear);
+        }
+        else if (statusFilter == "pending")
+        {
+            // Pending requests span calendar years (e.g., next-year leave waiting for a decision).
+        }
+        else if (mine && string.IsNullOrEmpty(statusFilter))
+        {
+            query = query.Where(r => r.Status == LeaveRequestStatus.Pending || r.StartDate.Year >= currentYear);
+        }
+        else
+        {
+            query = query.Where(r => r.StartDate.Year == currentYear);
+        }
 
         // mine=true is "My requests" for every role, including owner and admin.
         if (mine || !HrRoles.IsDesk(actor.Role))
@@ -112,28 +131,28 @@ public static class LeaveEndpoints
         if (HrPaging.Requested(page))
         {
             var paged = await ordered.ToPageAsync(page, pageSize, cancellationToken);
-            var pagedResponses = await ToResponsesAsync(db, paged.Items, resolvedYear, cancellationToken);
+            var pagedResponses = await ToResponsesAsync(db, paged.Items, cancellationToken);
             return Results.Ok(new HrPage<LeaveRequestResponse>(pagedResponses, paged.Total, paged.PageNumber, paged.PageSize));
         }
 
         var rows = await ordered.ToListAsync(cancellationToken);
-        return Results.Ok(await ToResponsesAsync(db, rows, resolvedYear, cancellationToken));
+        return Results.Ok(await ToResponsesAsync(db, rows, cancellationToken));
     }
 
     private static async Task<List<LeaveRequestResponse>> ToResponsesAsync(
         IHrDb db,
         IReadOnlyList<Domain.LeaveRequest> rows,
-        int resolvedYear,
         CancellationToken cancellationToken)
     {
-        var calendars = new Dictionary<Guid, LeaveDayContext>();
+        var calendars = new Dictionary<(Guid StaffId, int Year), LeaveDayContext>();
         var responses = new List<LeaveRequestResponse>(rows.Count);
         foreach (var row in rows)
         {
-            if (!calendars.TryGetValue(row.StaffId, out var calendar))
+            var key = (row.StaffId, row.StartDate.Year);
+            if (!calendars.TryGetValue(key, out var calendar))
             {
-                calendar = await YearCalendarAsync(db, row.StaffId, resolvedYear, cancellationToken);
-                calendars[row.StaffId] = calendar;
+                calendar = await YearCalendarAsync(db, row.StaffId, row.StartDate.Year, cancellationToken);
+                calendars[key] = calendar;
             }
 
             responses.Add(ToResponse(row, row.Staff.Profile.DisplayName, calendar.Count(row.StartDate, row.EndDate, row.HalfDay)));
@@ -335,7 +354,7 @@ public static class LeaveEndpoints
 
         if (start.Year != end.Year)
         {
-            return HrProblems.Problem(400, "Start and end must be in the same calendar year.");
+            return HrProblems.Problem(400, CrossYearErrorMessage);
         }
 
         if (HalfDayError(request.HalfDay, start, end) is { } halfDayError)
@@ -419,7 +438,7 @@ public static class LeaveEndpoints
 
         if (start.Year != end.Year)
         {
-            return HrProblems.Problem(400, "Start and end must be in the same calendar year.");
+            return HrProblems.Problem(400, CrossYearErrorMessage);
         }
 
         if (HalfDayError(request.HalfDay, start, end) is { } halfDayError)

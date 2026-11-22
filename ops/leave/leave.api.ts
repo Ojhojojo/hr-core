@@ -87,8 +87,11 @@ export class LeaveApi {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiBaseUrl;
 
-  list(year: number, mine = false, status?: LeaveStatusFilter): Observable<LeaveRequestRow[]> {
-    const params: Record<string, string | number> = { year };
+  list(year?: number, mine = false, status?: LeaveStatusFilter): Observable<LeaveRequestRow[]> {
+    const params: Record<string, string | number> = {};
+    if (year != null) {
+      params['year'] = year;
+    }
     if (mine) {
       params['mine'] = 'true';
     }

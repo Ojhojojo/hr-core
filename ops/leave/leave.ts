@@ -17,8 +17,10 @@ import {
   StatusBadgeTone,
   StaffAvailabilityApi,
 } from '@hr-host';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatOption, MatSelect } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
@@ -51,6 +53,10 @@ import { leaveStatusLabel } from './leave-status';
   imports: [
     MatButton,
     MatIconButton,
+    MatFormField,
+    MatLabel,
+    MatSelect,
+    MatOption,
     MatMenu,
     MatMenuItem,
     MatMenuTrigger,
@@ -147,6 +153,20 @@ import { leaveStatusLabel } from './leave-status';
       }
       .leave-empty-msg {
         padding: var(--space-4);
+      }
+      .leave-history-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        margin-bottom: var(--space-3);
+      }
+      .leave-history-header h2 {
+        margin: 0;
+      }
+      .leave-history-year {
+        width: 110px;
       }
     `,
   ],
@@ -291,6 +311,8 @@ export class LeavePage {
 
   // Pagination. History is paged by the server: historyRequests is the current page.
   /** Decided requests on the current page (approved, rejected, cancelled). */
+  protected readonly historyYear = signal(this.year);
+  protected readonly historyYearOptions = [this.year - 1, this.year, this.year + 1];
   protected readonly historyRequests = signal<LeaveRequestRow[]>([]);
   protected readonly historyTotal = signal(0);
   protected readonly historyPageIndex = signal(0);
@@ -308,6 +330,12 @@ export class LeavePage {
     const start = page * size;
     return items.slice(start, start + size);
   });
+
+  onHistoryYearChange(year: number): void {
+    this.historyYear.set(year);
+    this.historyPageIndex.set(0);
+    this.loadHistory();
+  }
 
   onHistoryPage(event: PageEvent): void {
     this.historyPageIndex.set(event.pageIndex);
@@ -637,7 +665,7 @@ export class LeavePage {
   /** Loads the history page the paginator is on. `done` runs once it answers or fails. */
   private loadHistory(done?: () => void): void {
     this.api
-      .listPage(this.year, 'decided', this.historyPageIndex() + 1, this.historyPageSize())
+      .listPage(this.historyYear(), 'decided', this.historyPageIndex() + 1, this.historyPageSize())
       .subscribe({
         next: (body) => {
           this.historyRequests.set(body.items);
@@ -699,7 +727,7 @@ export class LeavePage {
 
     if (decide) {
       pendingLists += 1;
-      this.api.list(this.year, false, 'pending').subscribe({
+      this.api.list(undefined, false, 'pending').subscribe({
         next: (rows) => {
           this.pendingRequests.set(rows);
           finishList();
@@ -719,7 +747,7 @@ export class LeavePage {
 
     if (!owner) {
       pendingLists += 1;
-      this.api.list(this.year, true).subscribe({
+      this.api.list(undefined, true).subscribe({
         next: (rows) => {
           this.ownRequests.set(rows);
           finishList();

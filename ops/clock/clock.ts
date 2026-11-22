@@ -215,10 +215,12 @@ export class ClockPage {
     });
   }
 
-  private loadMe(showLoading: boolean): void {
+  private loadMe(showLoading: boolean, clearError = showLoading): void {
+    if (clearError) {
+      this.error.set('');
+    }
     if (showLoading) {
       this.loading.set(true);
-      this.error.set('');
     }
 
     this.api.me().subscribe({
@@ -423,7 +425,7 @@ export class ClockPage {
         }
         this.busy.set(false);
         this.busyMessage.set('');
-        this.refresh();
+        this.loadMe(false, false);
       },
     });
   }

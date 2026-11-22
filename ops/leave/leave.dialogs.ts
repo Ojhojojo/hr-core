@@ -24,6 +24,41 @@ import {
 } from './leave.api';
 import { formatDay, toIsoDate } from '../hr-dates';
 
+const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Returns a pre-submit split explanation when a leave range spans across calendar years,
+ * or null when both dates are in the same year, incomplete, or inverted.
+ */
+export function crossYearSplitHint(
+  startDate: Date | string | null | undefined,
+  endDate: Date | string | null | undefined,
+): string | null {
+  const startIso = toIsoDate(startDate);
+  const endIso = toIsoDate(endDate);
+  if (!startIso || !endIso) {
+    return null;
+  }
+
+  const startMatch = ISO_DAY.exec(startIso);
+  const endMatch = ISO_DAY.exec(endIso);
+  if (!startMatch || !endMatch || endIso < startIso) {
+    return null;
+  }
+
+  const startYear = Number(startMatch[1]);
+  const endYear = Number(endMatch[1]);
+  if (startYear === endYear) {
+    return null;
+  }
+
+  if (endYear === startYear + 1) {
+    return `Leave can't cross New Year because balances are tracked per calendar year. Split it into two requests: ${formatDay(startIso)}–Dec 31, ${startYear} and Jan 1–${formatDay(endIso)}.`;
+  }
+
+  return `Leave can't cross New Year because balances are tracked per calendar year. Split it into separate requests per calendar year (starting with ${formatDay(startIso)}–Dec 31, ${startYear}).`;
+}
+
 @Component({
   selector: 'app-request-leave-dialog',
   imports: [
@@ -58,7 +93,8 @@ import { formatDay, toIsoDate } from '../hr-dates';
             [matDatepicker]="startPicker"
             name="startDate"
             placeholder="MM/DD/YYYY"
-            [(ngModel)]="startDate"
+            [ngModel]="startDate()"
+            (ngModelChange)="startDate.set($event)"
             required
           />
           <mat-datepicker-toggle matIconSuffix [for]="startPicker" />
@@ -71,13 +107,17 @@ import { formatDay, toIsoDate } from '../hr-dates';
             [matDatepicker]="endPicker"
             name="endDate"
             placeholder="MM/DD/YYYY"
-            [(ngModel)]="endDate"
+            [ngModel]="endDate()"
+            (ngModelChange)="endDate.set($event)"
             required
           />
           <mat-datepicker-toggle matIconSuffix [for]="endPicker" />
           <mat-datepicker #endPicker />
         </mat-form-field>
-        @if (startDate && startDate === endDate) {
+        @if (crossYearHint(); as hint) {
+          <ops-banner tone="warn" [message]="hint" />
+        }
+        @if (isSingleDay()) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Half day</mat-label>
             <select matNativeControl name="halfDay" [(ngModel)]="halfDay">
@@ -99,7 +139,7 @@ import { formatDay, toIsoDate } from '../hr-dates';
           type="submit"
           form="leave-request"
           name="requestLeave"
-          [disabled]="saving()"
+          [disabled]="saving() || !!crossYearHint()"
         >
           Request
         </button>
@@ -122,18 +162,30 @@ export class RequestLeaveDialog {
   private readonly api = inject(LeaveApi);
 
   protected leaveType: LeaveType = 'vacation';
-  protected startDate = '';
-  protected endDate = '';
+  protected readonly startDate = signal<Date | string>('');
+  protected readonly endDate = signal<Date | string>('');
   protected halfDay: LeaveHalfDay | '' = '';
   protected note = '';
   protected readonly saving = signal(false);
   protected readonly error = signal('');
+  protected readonly crossYearHint = computed(() =>
+    crossYearSplitHint(this.startDate(), this.endDate()),
+  );
+  protected readonly isSingleDay = computed(() => {
+    const start = toIsoDate(this.startDate());
+    return !!start && start === toIsoDate(this.endDate());
+  });
 
   protected submit(): void {
-    const startDate = toIsoDate(this.startDate);
-    const endDate = toIsoDate(this.endDate);
+    const startDate = toIsoDate(this.startDate());
+    const endDate = toIsoDate(this.endDate());
     if (!startDate || !endDate) {
       this.error.set('Start and end dates are required.');
+      return;
+    }
+    const crossYear = crossYearSplitHint(startDate, endDate);
+    if (crossYear) {
+      this.error.set(crossYear);
       return;
     }
 
@@ -215,7 +267,8 @@ export interface AddLeaveDialogData {
             [matDatepicker]="addStartPicker"
             name="addLeaveStartDate"
             placeholder="MM/DD/YYYY"
-            [(ngModel)]="startDate"
+            [ngModel]="startDate()"
+            (ngModelChange)="startDate.set($event)"
             required
           />
           <mat-datepicker-toggle matIconSuffix [for]="addStartPicker" />
@@ -228,13 +281,17 @@ export interface AddLeaveDialogData {
             [matDatepicker]="addEndPicker"
             name="addLeaveEndDate"
             placeholder="MM/DD/YYYY"
-            [(ngModel)]="endDate"
+            [ngModel]="endDate()"
+            (ngModelChange)="endDate.set($event)"
             required
           />
           <mat-datepicker-toggle matIconSuffix [for]="addEndPicker" />
           <mat-datepicker #addEndPicker />
         </mat-form-field>
-        @if (startDate && startDate === endDate) {
+        @if (crossYearHint(); as hint) {
+          <ops-banner tone="warn" [message]="hint" />
+        }
+        @if (isSingleDay()) {
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Half day</mat-label>
             <select matNativeControl name="addLeaveHalfDay" [(ngModel)]="halfDay">
@@ -256,7 +313,7 @@ export interface AddLeaveDialogData {
           type="submit"
           form="add-leave-form"
           name="submitAddLeave"
-          [disabled]="saving()"
+          [disabled]="saving() || !!crossYearHint()"
         >
           Record leave
         </button>
@@ -282,22 +339,34 @@ export class AddLeaveDialog {
   protected readonly people = this.data.people;
   protected staffId = this.people[0]?.id ?? '';
   protected leaveType: LeaveType = 'vacation';
-  protected startDate = '';
-  protected endDate = '';
+  protected readonly startDate = signal<Date | string>('');
+  protected readonly endDate = signal<Date | string>('');
   protected halfDay: LeaveHalfDay | '' = '';
   protected note = '';
   protected readonly saving = signal(false);
   protected readonly error = signal('');
+  protected readonly crossYearHint = computed(() =>
+    crossYearSplitHint(this.startDate(), this.endDate()),
+  );
+  protected readonly isSingleDay = computed(() => {
+    const start = toIsoDate(this.startDate());
+    return !!start && start === toIsoDate(this.endDate());
+  });
 
   protected submit(): void {
     if (!this.staffId) {
       this.error.set('Choose a person.');
       return;
     }
-    const startDate = toIsoDate(this.startDate);
-    const endDate = toIsoDate(this.endDate);
+    const startDate = toIsoDate(this.startDate());
+    const endDate = toIsoDate(this.endDate());
     if (!startDate || !endDate) {
       this.error.set('Start and end dates are required.');
+      return;
+    }
+    const crossYear = crossYearSplitHint(startDate, endDate);
+    if (crossYear) {
+      this.error.set(crossYear);
       return;
     }
 
