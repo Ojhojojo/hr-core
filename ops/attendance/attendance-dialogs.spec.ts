@@ -16,7 +16,12 @@ function pickDate(fixture: ComponentFixture<unknown>, name: string, value: Date 
 
 function setField(fixture: ComponentFixture<unknown>, name: string, value: string): void {
   const field = fixture.debugElement.query(By.css(`[name="${name}"]`));
-  const input = field.nativeElement as HTMLInputElement | HTMLSelectElement;
+  const el = field.nativeElement as HTMLElement;
+  if (el.tagName === 'MAT-SELECT') {
+    field.triggerEventHandler('selectionChange', { value });
+    return;
+  }
+  const input = el as HTMLInputElement | HTMLSelectElement;
   input.value = value;
   const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
   field.triggerEventHandler(eventName, { target: input });

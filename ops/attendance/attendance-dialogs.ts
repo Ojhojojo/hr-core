@@ -5,6 +5,7 @@ import { DateAdapter, ErrorStateMatcher, provideNativeDateAdapter } from '@angul
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatError, MatFormField, MatLabel, MatSuffix } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { MatOption, MatSelect } from '@angular/material/select';
 import {
   MatTimepicker,
   MatTimepickerInput,
@@ -163,6 +164,8 @@ export interface ReviewPunchDialogResult {
     MatFormField,
     MatLabel,
     MatInput,
+    MatSelect,
+    MatOption,
     OpsDateModule,
     DialogComponent,
     BannerComponent,
@@ -179,17 +182,16 @@ export interface ReviewPunchDialogResult {
       <form id="punch-for-form" class="punch-dialog-form" (ngSubmit)="save()">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Staff</mat-label>
-          <select
-            matNativeControl
+          <mat-select
             name="punchStaff"
             [value]="staffId()"
-            (change)="setStaff($event)"
+            (selectionChange)="setStaff($event.value)"
           >
-            <option value="">Choose staff</option>
+            <mat-option value="">Choose staff</mat-option>
             @for (person of data.staff; track person.id) {
-              <option [value]="person.id">{{ person.displayName }}</option>
+              <mat-option [value]="person.id">{{ person.displayName }}</mat-option>
             }
-          </select>
+          </mat-select>
         </mat-form-field>
         <div class="punch-datetime-row">
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -291,8 +293,8 @@ export class PunchForDialog {
     isErrorState: () => this.outDateBad(),
   };
 
-  protected setStaff(event: Event): void {
-    this.staffId.set((event.target as HTMLSelectElement).value);
+  protected setStaff(staffId: string): void {
+    this.staffId.set(staffId);
   }
 
   protected onInDateInput(raw: string, field: MatInput): void {
