@@ -172,6 +172,21 @@ import { formatDay, formatDayPrefix } from '../hr-dates';
         color: var(--ops-muted);
         font-size: 0.8rem;
       }
+      /* Space Open/Close away from the Out label + card divider on stacked layouts. */
+      .ops-attend-out-actions {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: var(--space-2);
+        margin-top: var(--space-2);
+      }
+      @media (min-width: 900.02px) {
+        .ops-attend-out-actions {
+          flex-direction: row;
+          align-items: center;
+          margin-top: 0;
+        }
+      }
     `,
   ],
 })

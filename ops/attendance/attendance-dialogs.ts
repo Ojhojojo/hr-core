@@ -1,10 +1,15 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, input, model, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
-import { DateAdapter, ErrorStateMatcher } from '@angular/material/core';
+import { DateAdapter, ErrorStateMatcher, provideNativeDateAdapter } from '@angular/material/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatError, MatFormField, MatLabel, MatSuffix } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import {
+  MatTimepicker,
+  MatTimepickerInput,
+  MatTimepickerToggle,
+} from '@angular/material/timepicker';
 import { BannerComponent, DialogComponent, OpsDateModule, OpsToneDirective } from '@hr-host';
 import { AttendanceStaffOption } from './attendance.models';
 
@@ -19,6 +24,98 @@ function isBadTypedDate(raw: string, dates: DateAdapter<unknown>): boolean {
   }
   const parsed = dates.parse(text, 'MM/DD/YYYY');
   return parsed == null || !dates.isValid(parsed);
+}
+
+/** `HH:mm` → a local Date used only for MatTimepicker (day is ignored). */
+function hhmmToDate(hhmm: string): Date | null {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!match) {
+    return null;
+  }
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) {
+    return null;
+  }
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
+function dateToHhmm(date: Date | null | undefined): string {
+  if (!date || Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * Material time picker that speaks `HH:mm` to punch dialogs.
+ * Owns a NativeDateAdapter so it works next to a host IsoDateAdapter that only
+ * handles calendar days (Rakkii) — MatTimepicker needs getHours/setTime/parseTime.
+ */
+@Component({
+  selector: 'app-punch-time-field',
+  providers: [provideNativeDateAdapter()],
+  imports: [
+    FormsModule,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatSuffix,
+    MatTimepicker,
+    MatTimepickerInput,
+    MatTimepickerToggle,
+  ],
+  template: `
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="punch-time-field">
+      <mat-label>{{ label() }}</mat-label>
+      <input
+        matInput
+        [attr.name]="name()"
+        [matTimepicker]="picker"
+        [ngModel]="asDate()"
+        [ngModelOptions]="{ standalone: true }"
+        (ngModelChange)="onDate($event)"
+        [required]="required()"
+      />
+      <mat-timepicker-toggle matIconSuffix [for]="picker" />
+      <mat-timepicker #picker interval="15m" />
+    </mat-form-field>
+  `,
+  styles: `
+    :host {
+      display: block;
+      width: 100%;
+    }
+    .punch-time-field {
+      width: 100%;
+    }
+  `,
+})
+export class PunchTimeField {
+  readonly label = input('Time');
+  readonly name = input('time');
+  readonly required = input(false);
+  /** Manila clock time as `HH:mm`. */
+  readonly value = model('');
+
+  protected readonly asDate = signal<Date | null>(null);
+
+  constructor() {
+    effect(() => {
+      const next = hhmmToDate(this.value());
+      const current = this.asDate();
+      if ((next?.getTime() ?? null) !== (current?.getTime() ?? null)) {
+        this.asDate.set(next);
+      }
+    });
+  }
+
+  protected onDate(date: Date | null): void {
+    this.asDate.set(date);
+    this.value.set(dateToHhmm(date));
+  }
 }
 
 export interface PunchForDialogData {
@@ -69,6 +166,7 @@ export interface ReviewPunchDialogResult {
     OpsDateModule,
     DialogComponent,
     BannerComponent,
+    PunchTimeField,
   ],
   template: `
     <ops-dialog
@@ -113,17 +211,13 @@ export interface ReviewPunchDialogResult {
             <mat-datepicker #inDatePicker />
             <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
           </mat-form-field>
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Clock in time</mat-label>
-            <input
-              matInput
-              name="inTime"
-              type="time"
-              [value]="inTime()"
-              (input)="setInTime($event)"
-              required
-            />
-          </mat-form-field>
+          <app-punch-time-field
+            label="Clock in time"
+            name="inTime"
+            [required]="true"
+            [value]="inTime()"
+            (valueChange)="inTime.set($event)"
+          />
         </div>
         <div class="punch-datetime-row">
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -144,16 +238,12 @@ export interface ReviewPunchDialogResult {
             <mat-datepicker #outDatePicker />
             <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
           </mat-form-field>
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Clock out time (Manila, optional)</mat-label>
-            <input
-              matInput
-              name="outTime"
-              type="time"
-              [value]="outTime()"
-              (input)="setOutTime($event)"
-            />
-          </mat-form-field>
+          <app-punch-time-field
+            label="Clock out time (Manila, optional)"
+            name="outTime"
+            [value]="outTime()"
+            (valueChange)="outTime.set($event)"
+          />
         </div>
       </form>
       <div dialogActions>
@@ -203,14 +293,6 @@ export class PunchForDialog {
 
   protected setStaff(event: Event): void {
     this.staffId.set((event.target as HTMLSelectElement).value);
-  }
-
-  protected setInTime(event: Event): void {
-    this.inTime.set((event.target as HTMLInputElement).value);
-  }
-
-  protected setOutTime(event: Event): void {
-    this.outTime.set((event.target as HTMLInputElement).value);
   }
 
   protected onInDateInput(raw: string, field: MatInput): void {
@@ -276,6 +358,7 @@ export class PunchForDialog {
     OpsDateModule,
     DialogComponent,
     BannerComponent,
+    PunchTimeField,
   ],
   template: `
     <ops-dialog title="Close punch" [subtitle]="data.staffName + ' clocked in ' + data.inAtManila">
@@ -303,17 +386,13 @@ export class PunchForDialog {
             <mat-datepicker #closeOutPicker />
             <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
           </mat-form-field>
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Clock out time</mat-label>
-            <input
-              matInput
-              name="outTime"
-              type="time"
-              [value]="outTime()"
-              (input)="setOutTime($event)"
-              required
-            />
-          </mat-form-field>
+          <app-punch-time-field
+            label="Clock out time"
+            name="outTime"
+            [required]="true"
+            [value]="outTime()"
+            (valueChange)="outTime.set($event)"
+          />
         </div>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Reason</mat-label>
@@ -358,10 +437,6 @@ export class ClosePunchDialog {
   protected readonly outDateMatcher: ErrorStateMatcher = {
     isErrorState: () => this.outDateBad(),
   };
-
-  protected setOutTime(event: Event): void {
-    this.outTime.set((event.target as HTMLInputElement).value);
-  }
 
   protected setReason(event: Event): void {
     this.reason.set((event.target as HTMLInputElement).value);
