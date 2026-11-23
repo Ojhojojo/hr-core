@@ -18,8 +18,10 @@ import {
   StatusBadgeTone,
   StaffAvailabilityApi,
 } from '@hr-host';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatOption, MatSelect } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
 import {
@@ -51,6 +53,10 @@ import { formatDayRange } from '../hr-dates';
   imports: [
     MatButton,
     MatIconButton,
+    MatFormField,
+    MatLabel,
+    MatSelect,
+    MatOption,
     MatMenu,
     MatMenuItem,
     MatMenuTrigger,
@@ -148,6 +154,20 @@ import { formatDayRange } from '../hr-dates';
       .leave-empty-msg {
         padding: var(--space-4);
       }
+      .leave-history-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
+        margin-bottom: var(--space-3);
+      }
+      .leave-history-header h2 {
+        margin: 0;
+      }
+      .leave-history-year {
+        width: 110px;
+      }
     `,
   ],
 })
@@ -168,8 +188,12 @@ export class LeavePage {
   protected readonly acting = signal(false);
   /** Signed-in user's own rows (`mine=true`). Empty for the owner, who has no personal leave. */
   protected readonly ownRequests = signal<LeaveRequestRow[]>([]);
-  /** Shop rows for the decision list and history. Owner and admin only. */
-  protected readonly shopRequests = signal<LeaveRequestRow[]>([]);
+  /** Pending shop requests across calendar years for the decision list. Owner and admin only. */
+  protected readonly pendingRequests = signal<LeaveRequestRow[]>([]);
+  /** Decided shop requests for the selected history year. Owner and admin only. */
+  protected readonly historyYear = signal(this.year);
+  protected readonly historyYearOptions = [this.year - 1, this.year, this.year + 1];
+  protected readonly historyRequests = signal<LeaveRequestRow[]>([]);
   protected readonly balances = signal<LeaveBalance[]>([]);
   protected readonly teamBalances = signal<StaffLeaveBalances[]>([]);
   protected readonly people = signal<LeavePerson[]>([]);
@@ -228,13 +252,6 @@ export class LeavePage {
     }
     return false;
   }
-
-  protected readonly pendingRequests = computed(() =>
-    this.shopRequests().filter((r) => r.status === 'pending'),
-  );
-  protected readonly historyRequests = computed(() =>
-    this.shopRequests().filter((r) => r.status !== 'pending'),
-  );
 
   protected readonly teamRows = computed(() => {
     const team = this.teamBalances().filter((t) => !!t.staffId && !!t.displayName);
@@ -313,6 +330,12 @@ export class LeavePage {
     const start = page * size;
     return items.slice(start, start + size);
   });
+
+  onHistoryYearChange(year: number): void {
+    this.historyYear.set(year);
+    this.historyPageIndex.set(0);
+    this.loadHistory();
+  }
 
   onHistoryPage(event: PageEvent): void {
     this.historyPageIndex.set(event.pageIndex);
@@ -649,6 +672,20 @@ export class LeavePage {
     this.toast.error(message);
   }
 
+  /** Loads decided history for the selected history year. `done` runs once it answers or fails. */
+  private loadHistory(done?: () => void): void {
+    this.api.list(this.historyYear(), false, 'decided').subscribe({
+      next: (rows) => {
+        this.historyRequests.set(rows);
+        done?.();
+      },
+      error: (err) => {
+        this.error.set(apiErrorMessage(err));
+        done?.();
+      },
+    });
+  }
+
   private reload(initial: boolean): void {
     if (initial) {
       this.loading.set(true);
@@ -697,9 +734,9 @@ export class LeavePage {
 
     if (decide) {
       pendingLists += 1;
-      this.api.list(this.year).subscribe({
+      this.api.list(undefined, false, 'pending').subscribe({
         next: (rows) => {
-          this.shopRequests.set(rows);
+          this.pendingRequests.set(rows);
           finishList();
         },
         error: (err) => {
@@ -707,13 +744,16 @@ export class LeavePage {
           finishList();
         },
       });
+      pendingLists += 1;
+      this.loadHistory(finishList);
     } else {
-      this.shopRequests.set([]);
+      this.pendingRequests.set([]);
+      this.historyRequests.set([]);
     }
 
     if (!owner) {
       pendingLists += 1;
-      this.api.list(this.year, true).subscribe({
+      this.api.list(undefined, true).subscribe({
         next: (rows) => {
           this.ownRequests.set(rows);
           finishList();

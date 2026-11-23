@@ -6,6 +6,7 @@ import { environment } from '@hr-host';
 
 export type LeaveType = 'vacation' | 'sick' | 'unpaid' | 'service_incentive';
 export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type LeaveStatusFilter = 'pending' | 'decided';
 export type LeaveHalfDay = 'am' | 'pm';
 
 export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
@@ -76,10 +77,16 @@ export class LeaveApi {
   private readonly http = inject(HttpClient);
   private readonly base = environment.apiBaseUrl;
 
-  list(year: number, mine = false): Observable<LeaveRequestRow[]> {
-    const params: Record<string, string | number> = { year };
+  list(year?: number, mine = false, status?: LeaveStatusFilter): Observable<LeaveRequestRow[]> {
+    const params: Record<string, string | number> = {};
+    if (year != null) {
+      params['year'] = year;
+    }
     if (mine) {
       params['mine'] = 'true';
+    }
+    if (status) {
+      params['status'] = status;
     }
     return this.http.get<LeaveRequestRow[]>(`${this.base}/api/leave`, { params });
   }

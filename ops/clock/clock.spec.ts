@@ -555,4 +555,114 @@ describe('ClockPage', () => {
       http?.verify();
     }
   });
+
+  it.each(['in', 'out'] as const)(
+    'keeps the server error banner visible across the /me refresh after a failed self clock-%s',
+    async (side) => {
+      const original = Object.getOwnPropertyDescriptor(navigator, 'geolocation');
+      Object.defineProperty(navigator, 'geolocation', {
+        configurable: true,
+        value: {
+          getCurrentPosition: (
+            ok: (pos: { coords: { latitude: number; longitude: number } }) => void,
+          ) => ok({ coords: { latitude: 14.6406, longitude: 121.0051 } }),
+        },
+      });
+
+      let http: HttpTestingController | undefined;
+      try {
+        await TestBed.configureTestingModule({
+          imports: [ClockPage],
+          providers: [
+            provideZonelessChangeDetection(),
+            provideNoopAnimations(),
+            provideHttpClient(),
+            provideHttpClientTesting(),
+            clockRoute('self'),
+            { provide: AuthService, useValue: authStub(techMe) },
+            { provide: OpsConfirmService, useValue: confirmStub().service },
+            { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
+            {
+              provide: ShopApiService,
+              useValue: {
+                getShop: () =>
+                  of({ latitude: 14.6406, longitude: 121.0051, clockRadiusMeters: 150 }),
+              },
+            },
+          ],
+        }).compileComponents();
+
+        http = TestBed.inject(HttpTestingController);
+        const fixture = TestBed.createComponent(ClockPage);
+        fixture.detectChanges();
+
+        const initialMe: AttendanceMe =
+          side === 'in'
+            ? clockedOut
+            : {
+                ...clockedOut,
+                clockedIn: true,
+                status: "You're clocked in since 8:02 AM",
+              };
+        http.expectOne('/api/ops/attendance/me').flush(initialMe);
+        fixture.detectChanges();
+
+        const page = fixture.componentInstance;
+        if (side === 'in') {
+          page.clockIn();
+        } else {
+          page.clockOut();
+        }
+        await Promise.resolve();
+        await Promise.resolve();
+        await fixture.whenStable();
+
+        const errMessage = 'Set the shop map pin in Settings before clocking in from a phone.';
+        const punchReq = http.expectOne(`/api/ops/attendance/clock-${side}`);
+        punchReq.flush({ error: errMessage }, { status: 409, statusText: 'Conflict' });
+
+        // Follow-up /me refresh completes without clearing the error banner.
+        const refreshMeReq = http.expectOne('/api/ops/attendance/me');
+        refreshMeReq.flush(initialMe);
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(page['error']()).toBe(errMessage);
+        expect(fixture.nativeElement.textContent).toContain(errMessage);
+
+        // Next punch attempt clears the prior error before submitting.
+        if (side === 'in') {
+          page.clockIn();
+        } else {
+          page.clockOut();
+        }
+        expect(page['error']()).toBe('');
+        await Promise.resolve();
+        await Promise.resolve();
+        await fixture.whenStable();
+
+        const retryReq = http.expectOne(`/api/ops/attendance/clock-${side}`);
+        retryReq.flush({
+          id: 'punch-ok',
+          staffId: 'tech',
+          inAtUtc: '2026-10-15T00:02:00Z',
+          inAtManila: '8:02 AM',
+          outAtUtc: side === 'out' ? '2026-10-15T00:10:00Z' : null,
+          outAtManila: side === 'out' ? '8:10 AM' : null,
+          source: 'ops',
+        });
+        http.expectOne('/api/ops/attendance/me').flush({
+          ...clockedOut,
+          clockedIn: side === 'in',
+        });
+      } finally {
+        if (original) {
+          Object.defineProperty(navigator, 'geolocation', original);
+        } else {
+          Reflect.deleteProperty(navigator, 'geolocation');
+        }
+        http?.verify();
+      }
+    },
+  );
 });

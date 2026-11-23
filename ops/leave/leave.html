@@ -70,7 +70,7 @@
         <ops-skeleton [rows]="4" />
       </div>
     } @else if (ownRequests().length === 0) {
-      <p class="ops-empty leave-empty-msg">You have not requested leave this year.</p>
+      <p class="ops-empty leave-empty-msg">You have not requested leave yet.</p>
     } @else {
       <div class="ops-table-wrap">
         <table mat-table [dataSource]="pagedMyRequests()" class="ops-table">
@@ -331,15 +331,28 @@
   </section>
 
   <section class="ops-card" [class.ops-card-bleed]="historyRequests().length > 0">
-    <div class="ops-card-header">
+    <div class="ops-card-header leave-history-header">
       <h2>History</h2>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="leave-history-year">
+        <mat-label>Year</mat-label>
+        <mat-select
+          name="historyYear"
+          aria-label="History year"
+          [value]="historyYear()"
+          (selectionChange)="onHistoryYearChange($event.value)"
+        >
+          @for (option of historyYearOptions; track option) {
+            <mat-option [value]="option">{{ option }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
     </div>
     @if (loading()) {
       <div class="leave-empty-msg">
         <ops-skeleton [rows]="4" />
       </div>
     } @else if (historyRequests().length === 0) {
-      <p class="ops-empty leave-empty-msg">No decision history this year.</p>
+      <p class="ops-empty leave-empty-msg">No decision history for {{ historyYear() }}.</p>
     } @else {
       <div class="ops-table-wrap">
         <table mat-table [dataSource]="pagedHistoryRequests()" class="ops-table">

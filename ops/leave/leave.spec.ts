@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { AuthMe, AuthService, ConfirmDialogData, OpsConfirmService } from '@hr-host';
 import { LeaveBalance, LeaveRequestRow, StaffLeaveBalances } from './leave.api';
 import { LeavePage } from './leave';
+import { crossYearSplitHint } from './leave.dialogs';
 
 const balances: LeaveBalance[] = [
   { leaveType: 'vacation', allotment: 10, used: 0, pending: 0, remaining: 10 },
@@ -132,13 +133,26 @@ async function mount(
   const shopRows = customRequests ?? [pending, approvedHistory];
   const ownRows = customRequests ?? [pending];
   if (decide) {
-    const shopList = http.expectOne((req) => isList(req) && req.params.get('mine') !== 'true');
-    expect(shopList.request.method).toBe('GET');
-    shopList.flush(structuredClone(shopRows));
+    const pendingList = http.expectOne(
+      (req) =>
+        isList(req) && req.params.get('mine') !== 'true' && req.params.get('status') === 'pending',
+    );
+    expect(pendingList.request.method).toBe('GET');
+    expect(pendingList.request.params.get('year')).toBeNull();
+    pendingList.flush(structuredClone(shopRows.filter((r) => r.status === 'pending')));
+
+    const historyList = http.expectOne(
+      (req) =>
+        isList(req) && req.params.get('mine') !== 'true' && req.params.get('status') === 'decided',
+    );
+    expect(historyList.request.method).toBe('GET');
+    expect(historyList.request.params.get('year')).toBe(String(new Date().getFullYear()));
+    historyList.flush(structuredClone(shopRows.filter((r) => r.status !== 'pending')));
   }
   if (!owner) {
     const mineList = http.expectOne((req) => isList(req) && req.params.get('mine') === 'true');
     expect(mineList.request.method).toBe('GET');
+    expect(mineList.request.params.get('year')).toBeNull();
     mineList.flush(structuredClone(ownRows));
   }
 
@@ -244,10 +258,22 @@ describe('Leave', () => {
     // Triggers reload
     const shopReq = http.expectOne((r) => r.url.includes('/api/leave/balances'));
     shopReq.flush([]);
-    const listReq = http.expectOne(
-      (r) => r.method === 'GET' && r.url.includes('/api/leave') && !r.url.includes('/balances'),
+    const pendingListReq = http.expectOne(
+      (r) =>
+        r.method === 'GET' &&
+        r.url.includes('/api/leave') &&
+        !r.url.includes('/balances') &&
+        r.params.get('status') === 'pending',
     );
-    listReq.flush([]);
+    pendingListReq.flush([]);
+    const historyListReq = http.expectOne(
+      (r) =>
+        r.method === 'GET' &&
+        r.url.includes('/api/leave') &&
+        !r.url.includes('/balances') &&
+        r.params.get('status') === 'decided',
+    );
+    historyListReq.flush([]);
   });
 
   it('paginates leave history for owner across pages', async () => {
@@ -337,5 +363,60 @@ describe('Leave', () => {
     await fixture.whenStable();
 
     expect(dialog.textContent).toContain('Enter a date as MM/DD/YYYY.');
+  });
+
+  it('shows pending next-year requests in Needs a decision and My requests', async () => {
+    const nextYearPending: LeaveRequestRow = {
+      id: 'leave-next-year',
+      staffId: 'tech-1',
+      displayName: 'Shop Tech',
+      leaveType: 'vacation',
+      startDate: '2027-01-01',
+      endDate: '2027-01-05',
+      status: 'pending',
+      note: 'New year trip',
+      halfDay: null,
+      days: 3,
+      cancelReason: null,
+    };
+
+    const { host } = await mount('admin', [pending, nextYearPending], confirmStub(true), 'general_manager');
+    expect(host.textContent).toContain('New year trip');
+    expect(host.textContent).toContain('Jan 1 – 5, 2027');
+    expect(host.querySelectorAll('button[name="approve"]')).toHaveLength(2);
+  });
+
+  it('switches the history year picker and reloads decided history for that year', async () => {
+    const { http, fixture, host } = await mount('owner', [approvedHistory]);
+
+    fixture.componentInstance.onHistoryYearChange(2027);
+    const req2027 = http.expectOne(
+      (req) =>
+        req.method === 'GET' &&
+        req.url.includes('/api/leave') &&
+        !req.url.includes('/balances') &&
+        req.params.get('status') === 'decided' &&
+        req.params.get('year') === '2027',
+    );
+    req2027.flush([]);
+    fixture.detectChanges();
+
+    expect(host.textContent).toContain('No decision history for 2027.');
+  });
+});
+
+describe('crossYearSplitHint', () => {
+  it('explains how to split cross-year ranges and returns null for same-year dates', () => {
+    expect(crossYearSplitHint('2026-12-28', '2026-12-31')).toBeNull();
+    expect(crossYearSplitHint('2026-12-31', '2026-12-28')).toBeNull();
+    expect(crossYearSplitHint('', '2027-01-03')).toBeNull();
+
+    const hint = crossYearSplitHint('2026-12-28', '2027-01-03');
+    expect(hint).toContain('Dec 28, 2026–Dec 31, 2026');
+    expect(hint).toContain('Jan 1–Jan 3, 2027');
+
+    const multiYear = crossYearSplitHint('2026-12-28', '2028-01-03');
+    expect(multiYear).toContain('calendar year');
+    expect(multiYear).toContain('Dec 28, 2026–Dec 31, 2026');
   });
 });
