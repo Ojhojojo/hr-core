@@ -23,3 +23,6 @@ jobs:
       - name: Build with a minimal stand-in host
         # Proves api/ needs nothing from Rakkii or Qurio beyond the documented contract.
         run: dotnet build api/check/HrCore.Check.csproj -p:CI=true
+
+      - name: Unit tests
+        run: dotnet test api/tests/HrCore.Tests.csproj -p:CI=true

@@ -127,6 +127,12 @@ public sealed class OvertimeService(IHrDb db, HrChangeLogService hr)
             throw new InvalidOperationException("There's already an overtime request for that day.");
         }
 
+        if (await PayrollRunService.IsPeriodLockedAsync(
+                db, actor.Id, request.WorkDate, request.WorkDate, cancellationToken))
+        {
+            throw new InvalidOperationException(PayrollRunService.LockedPeriodMessage);
+        }
+
         var entry = new OvertimeEntry
         {
             Id = Guid.NewGuid(),
@@ -186,6 +192,12 @@ public sealed class OvertimeService(IHrDb db, HrChangeLogService hr)
         if (entry.Status != OvertimeStatus.Pending)
         {
             throw new InvalidOperationException("This overtime was already decided.");
+        }
+
+        if (await PayrollRunService.IsPeriodLockedAsync(
+                db, entry.StaffId, entry.WorkDate, entry.WorkDate, cancellationToken))
+        {
+            throw new InvalidOperationException(PayrollRunService.LockedPeriodMessage);
         }
 
         var note = BlankToNull(request?.Note);
