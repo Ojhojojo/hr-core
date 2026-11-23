@@ -40,12 +40,14 @@
       label="Vacation remaining"
       [value]="balanceValue('vacation')"
       [subtext]="balanceSubtext('vacation')"
+      [tone]="balanceTone('vacation')"
     />
     <ops-stat-card
       data-balance="sick"
       label="Sick leave left"
       [value]="balanceValue('sick')"
       [subtext]="balanceSubtext('sick')"
+      [tone]="balanceTone('sick')"
     />
     <ops-stat-card
       data-balance="unpaid"
@@ -58,6 +60,7 @@
       label="SIL remaining"
       [value]="balanceValue('service_incentive')"
       [subtext]="balanceSubtext('service_incentive')"
+      [tone]="balanceTone('service_incentive')"
     />
   </ops-metric-strip>
 
@@ -285,6 +288,13 @@
               @if (memberPendingLabel(member, 'vacation'); as held) {
                 <span class="ops-cell-sub">{{ held }}</span>
               }
+              @if (memberExpiryLabel(member, 'vacation'); as expiry) {
+                <span
+                  class="ops-cell-sub"
+                  [class.leave-expiry-warn]="memberExpiryWarn(member, 'vacation')"
+                  >{{ expiry }}</span
+                >
+              }
             </td>
           </ng-container>
 
@@ -297,6 +307,13 @@
               </span>
               @if (memberPendingLabel(member, 'sick'); as held) {
                 <span class="ops-cell-sub">{{ held }}</span>
+              }
+              @if (memberExpiryLabel(member, 'sick'); as expiry) {
+                <span
+                  class="ops-cell-sub"
+                  [class.leave-expiry-warn]="memberExpiryWarn(member, 'sick')"
+                  >{{ expiry }}</span
+                >
               }
             </td>
           </ng-container>
@@ -319,6 +336,9 @@
               </span>
               @if (memberPendingLabel(member, 'service_incentive'); as held) {
                 <span class="ops-cell-sub">{{ held }}</span>
+              }
+              @if (memberExpiryLabel(member, 'service_incentive'); as expiry) {
+                <span class="ops-cell-sub">{{ expiry }}</span>
               }
             </td>
           </ng-container>

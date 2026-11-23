@@ -1,3 +1,4 @@
+using System.Globalization;
 using HrCore.Features.HrChangeLog;
 using HrCore.Features.Payroll;
 using HrCore.Features.Staff;
@@ -127,11 +128,19 @@ public static class LeaveEndpoints
         var responses = new List<LeaveRequestResponse>(rows.Count);
         foreach (var row in rows)
         {
-            var key = (row.StaffId, row.StartDate.Year);
-            if (!calendars.TryGetValue(key, out var calendar))
+            LeaveDayContext calendar;
+            if (row.StartDate.Year == row.EndDate.Year)
             {
-                calendar = await YearCalendarAsync(db, row.StaffId, row.StartDate.Year, cancellationToken);
-                calendars[key] = calendar;
+                var key = (row.StaffId, row.StartDate.Year);
+                if (!calendars.TryGetValue(key, out calendar!))
+                {
+                    calendar = await YearCalendarAsync(db, row.StaffId, row.StartDate.Year, cancellationToken);
+                    calendars[key] = calendar;
+                }
+            }
+            else
+            {
+                calendar = await LeaveDayContext.LoadAsync(db, row.StaffId, row.StartDate, row.EndDate, cancellationToken);
             }
 
             responses.Add(ToResponse(row, row.Staff.Profile.DisplayName, calendar.Count(row.StartDate, row.EndDate, row.HalfDay)));
@@ -160,7 +169,7 @@ public static class LeaveEndpoints
             return yearError;
         }
 
-        var resolvedYear = ResolveYear(year);
+        var today = ManilaTime.Today();
 
         if (shop == 1)
         {
@@ -179,7 +188,8 @@ public static class LeaveEndpoints
             var teamBalances = new List<StaffLeaveBalancesResponse>(staffMembers.Count);
             foreach (var member in staffMembers)
             {
-                var balances = await BalancesAsync(db, member.Id, resolvedYear, cancellationToken);
+                var cycle = ResolveCycle(shopContext.LeaveExpirationMode, member.HireDate, year, today);
+                var balances = await BalancesAsync(db, member.Id, cycle, today, cancellationToken);
                 teamBalances.Add(new StaffLeaveBalancesResponse(
                     member.Id,
                     member.Profile?.DisplayName ?? "",
@@ -208,7 +218,9 @@ public static class LeaveEndpoints
             subjectId = actor.Id;
         }
 
-        return Results.Ok(await BalancesAsync(db, subjectId, resolvedYear, cancellationToken));
+        var (mode, hireDate) = await StaffLeavePolicyAsync(db, subjectId, cancellationToken);
+        var subjectCycle = ResolveCycle(mode, hireDate, year, today);
+        return Results.Ok(await BalancesAsync(db, subjectId, subjectCycle, today, cancellationToken));
     }
 
     private static async Task<IResult> UpsertAllotment(
@@ -244,10 +256,22 @@ public static class LeaveEndpoints
             return Results.NotFound();
         }
 
+        var (mode, hireDate) = await StaffLeavePolicyAsync(db, request.StaffId, cancellationToken);
+        var cycle = LeaveCycle.ForYear(mode, hireDate, request.Year);
+        if (request.ExpiresOn is DateOnly customExpiresOn && customExpiresOn < cycle.StartsOn)
+        {
+            return Results.BadRequest(new
+            {
+                error = string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Expiry date can't be before the leave cycle start ({cycle.StartsOn:MMM d, yyyy}).")
+            });
+        }
+
         if (HasDayLimit(request.LeaveType.Value))
         {
             var balance = await BalanceForTypeAsync(
-                db, request.StaffId, request.Year, request.LeaveType.Value, cancellationToken);
+                db, request.StaffId, cycle, request.LeaveType.Value, ManilaTime.Today(), cancellationToken);
             if (request.Days.Value < balance.Used)
             {
                 return Results.BadRequest(new
@@ -264,6 +288,7 @@ public static class LeaveEndpoints
                     && a.LeaveType == request.LeaveType.Value,
                 cancellationToken);
         var previousDays = existing?.Days;
+        var previousExpiresOn = existing?.ExpiresOn;
         if (existing is null)
         {
             existing = new LeaveAllotment
@@ -272,13 +297,15 @@ public static class LeaveEndpoints
                 StaffId = request.StaffId,
                 Year = request.Year,
                 LeaveType = request.LeaveType.Value,
-                Days = request.Days.Value
+                Days = request.Days.Value,
+                ExpiresOn = request.ExpiresOn
             };
             db.LeaveAllotments.Add(existing);
         }
         else
         {
             existing.Days = request.Days.Value;
+            existing.ExpiresOn = request.ExpiresOn;
         }
 
         hr.Record(
@@ -289,13 +316,22 @@ public static class LeaveEndpoints
             HrChangeLogService.Format(existing.Days),
             year: existing.Year,
             refType: "leave_allotment");
+        hr.Record(
+            http.GetStaff()?.Id,
+            existing.StaffId,
+            HrChangeField.LeaveAllotmentExpiry,
+            previousExpiresOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            existing.ExpiresOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            year: existing.Year,
+            refType: "leave_allotment");
 
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(new LeaveAllotmentResponse(
             existing.StaffId,
             existing.Year,
             existing.LeaveType,
-            existing.Days));
+            existing.Days,
+            existing.ExpiresOn));
     }
 
     private static async Task<IResult> Create(
@@ -334,11 +370,6 @@ public static class LeaveEndpoints
             return Results.BadRequest(new { error = "End date must be on or after the start date." });
         }
 
-        if (start.Year != end.Year)
-        {
-            return Results.BadRequest(new { error = CrossYearErrorMessage });
-        }
-
         if (HalfDayError(request.HalfDay, start, end) is { } halfDayError)
         {
             return halfDayError;
@@ -348,6 +379,19 @@ public static class LeaveEndpoints
         if (note is { Length: > NoteMaxLength })
         {
             return Results.BadRequest(new { error = "Note must be 500 characters or fewer." });
+        }
+
+        var (mode, hireDate) = await StaffLeavePolicyAsync(db, actor.Id, cancellationToken);
+        var startCycle = LeaveCycle.Resolve(mode, hireDate, start);
+        var endCycle = LeaveCycle.Resolve(mode, hireDate, end);
+        if (CrossCycleError(startCycle, endCycle) is { } crossCycleError)
+        {
+            return crossCycleError;
+        }
+
+        if (await ExpiryErrorAsync(db, actor.Id, request.LeaveType.Value, startCycle, end, cancellationToken) is { } expiryError)
+        {
+            return expiryError;
         }
 
         var calendar = await LeaveDayContext.LoadAsync(db, actor.Id, start, end, cancellationToken);
@@ -418,11 +462,6 @@ public static class LeaveEndpoints
             return Results.BadRequest(new { error = "End date must be on or after the start date." });
         }
 
-        if (start.Year != end.Year)
-        {
-            return Results.BadRequest(new { error = CrossYearErrorMessage });
-        }
-
         if (HalfDayError(request.HalfDay, start, end) is { } halfDayError)
         {
             return halfDayError;
@@ -436,6 +475,7 @@ public static class LeaveEndpoints
 
         var targetStaff = await db.Staff
             .Include(s => s.Profile)
+            .Include(s => s.Branch)
             .FirstOrDefaultAsync(s => s.Id == request.StaffId, cancellationToken);
         if (targetStaff is null || await FindOnShopAsync(targetStaff.Id, http, branches, db, cancellationToken) is null)
         {
@@ -445,6 +485,19 @@ public static class LeaveEndpoints
         if (targetStaff.Role == StaffRole.Owner)
         {
             return Results.BadRequest(new { error = "Cannot record leave for owner." });
+        }
+
+        var mode = targetStaff.Branch?.LeaveExpirationMode ?? Branch.DefaultLeaveExpirationMode;
+        var startCycle = LeaveCycle.Resolve(mode, targetStaff.HireDate, start);
+        var endCycle = LeaveCycle.Resolve(mode, targetStaff.HireDate, end);
+        if (CrossCycleError(startCycle, endCycle) is { } crossCycleError)
+        {
+            return crossCycleError;
+        }
+
+        if (await ExpiryErrorAsync(db, targetStaff.Id, request.LeaveType.Value, startCycle, end, cancellationToken) is { } expiryError)
+        {
+            return expiryError;
         }
 
         var calendar = await LeaveDayContext.LoadAsync(db, targetStaff.Id, start, end, cancellationToken);
@@ -459,10 +512,10 @@ public static class LeaveEndpoints
             return Results.BadRequest(new { error = "This overlaps another leave request." });
         }
 
-        var year = start.Year;
         if (HasDayLimit(request.LeaveType.Value))
         {
-            var balance = await BalanceForTypeAsync(db, targetStaff.Id, year, request.LeaveType.Value, cancellationToken);
+            var balance = await BalanceForTypeAsync(
+                db, targetStaff.Id, startCycle, request.LeaveType.Value, ManilaTime.Today(), cancellationToken);
             if (balance.Allotment - balance.Used - days < 0)
             {
                 return Results.BadRequest(new { error = "That leave would make the balance negative." });
@@ -545,15 +598,25 @@ public static class LeaveEndpoints
             return Results.Conflict(new { error = PayrollRunService.LockedPeriodMessage });
         }
 
-        var year = row.StartDate.Year;
-        var calendar = await YearCalendarAsync(db, row.StaffId, year, cancellationToken);
+        var mode = row.Staff.Branch?.LeaveExpirationMode ?? Branch.DefaultLeaveExpirationMode;
+        var startCycle = LeaveCycle.Resolve(mode, row.Staff.HireDate, row.StartDate);
+        var calendar = await LeaveDayContext.LoadAsync(db, row.StaffId, row.StartDate, row.EndDate, cancellationToken);
         var days = calendar.Count(row.StartDate, row.EndDate, row.HalfDay);
-        if (request.Decision == LeaveRequestStatus.Approved && HasDayLimit(row.LeaveType))
+        if (request.Decision == LeaveRequestStatus.Approved)
         {
-            var balance = await BalanceForTypeAsync(db, row.StaffId, year, row.LeaveType, cancellationToken);
-            if (balance.Allotment - balance.Used - days < 0)
+            if (await ExpiryErrorAsync(db, row.StaffId, row.LeaveType, startCycle, row.EndDate, cancellationToken) is { } expiryError)
             {
-                return Results.BadRequest(new { error = "That approval would make the balance negative." });
+                return expiryError;
+            }
+
+            if (HasDayLimit(row.LeaveType))
+            {
+                var balance = await BalanceForTypeAsync(
+                    db, row.StaffId, startCycle, row.LeaveType, ManilaTime.Today(), cancellationToken);
+                if (balance.Allotment - balance.Used - days < 0)
+                {
+                    return Results.BadRequest(new { error = "That approval would make the balance negative." });
+                }
             }
         }
 
@@ -676,8 +739,7 @@ public static class LeaveEndpoints
             return Results.Conflict(new { error = PayrollRunService.LockedPeriodMessage });
         }
 
-        var year = row.StartDate.Year;
-        var calendar = await YearCalendarAsync(db, row.StaffId, year, cancellationToken);
+        var calendar = await LeaveDayContext.LoadAsync(db, row.StaffId, row.StartDate, row.EndDate, cancellationToken);
         var days = calendar.Count(row.StartDate, row.EndDate, row.HalfDay);
 
         ApplyCancellation(row, actor.Id, reason, hr, DateTime.UtcNow);
@@ -735,28 +797,33 @@ public static class LeaveEndpoints
             ? value
             : string.Concat(value.AsSpan(0, HrLogValueMaxLength - 3), "...");
 
-    /// <summary>Allotment, used (approved) and pending working days for every leave type in a year.</summary>
+    /// <summary>Allotment, used (approved), pending, expired, and remaining working days for every leave type in a cycle.</summary>
     private static async Task<List<LeaveBalanceResponse>> BalancesAsync(
         IHrDb db,
         Guid staffId,
-        int year,
+        LeaveCycleWindow cycle,
+        DateOnly today,
         CancellationToken cancellationToken)
     {
-        var calendar = await YearCalendarAsync(db, staffId, year, cancellationToken);
         var allotments = await db.LeaveAllotments.AsNoTracking()
-            .Where(a => a.StaffId == staffId && a.Year == year)
+            .Where(a => a.StaffId == staffId && a.Year == cycle.CycleYear)
             .ToListAsync(cancellationToken);
         var spans = await db.LeaveRequests.AsNoTracking()
             .Where(r => r.StaffId == staffId
-                && r.StartDate.Year == year
+                && r.StartDate >= cycle.StartsOn
+                && r.StartDate <= cycle.ExpiresOn
                 && (r.Status == LeaveRequestStatus.Approved || r.Status == LeaveRequestStatus.Pending))
             .Select(r => new LeaveSpan(r.LeaveType, r.Status, r.StartDate, r.EndDate, r.HalfDay))
             .ToListAsync(cancellationToken);
+        var calendarTo = spans.Count == 0
+            ? cycle.ExpiresOn
+            : spans.Max(s => s.EndDate) > cycle.ExpiresOn ? spans.Max(s => s.EndDate) : cycle.ExpiresOn;
+        var calendar = await LeaveDayContext.LoadAsync(db, staffId, cycle.StartsOn, calendarTo, cancellationToken);
 
         var balances = new List<LeaveBalanceResponse>(LeaveTypes.Length);
         foreach (var type in LeaveTypes)
         {
-            balances.Add(BalanceFor(type, allotments, spans, calendar));
+            balances.Add(BalanceFor(type, allotments, spans, calendar, cycle, today));
         }
 
         return balances;
@@ -768,34 +835,50 @@ public static class LeaveEndpoints
     /// </summary>
     internal static bool HasDayLimit(LeaveType type) => type != LeaveType.Unpaid;
 
+    /// <summary>
+    /// Vacation and Sick leave forfeit on the effective expiry date.
+    /// Service incentive leave (PH Labor Code Art. 95) converts to cash instead of expiring,
+    /// and Unpaid leave has no expiry.
+    /// </summary>
+    internal static bool HasExpiry(LeaveType type) =>
+        type is LeaveType.Vacation or LeaveType.Sick;
+
     private static async Task<LeaveBalanceResponse> BalanceForTypeAsync(
         IHrDb db,
         Guid staffId,
-        int year,
+        LeaveCycleWindow cycle,
         LeaveType type,
+        DateOnly today,
         CancellationToken cancellationToken)
     {
-        var calendar = await YearCalendarAsync(db, staffId, year, cancellationToken);
         var allotments = await db.LeaveAllotments.AsNoTracking()
-            .Where(a => a.StaffId == staffId && a.Year == year && a.LeaveType == type)
+            .Where(a => a.StaffId == staffId && a.Year == cycle.CycleYear && a.LeaveType == type)
             .ToListAsync(cancellationToken);
         var spans = await db.LeaveRequests.AsNoTracking()
             .Where(r => r.StaffId == staffId
                 && r.LeaveType == type
-                && r.StartDate.Year == year
+                && r.StartDate >= cycle.StartsOn
+                && r.StartDate <= cycle.ExpiresOn
                 && (r.Status == LeaveRequestStatus.Approved || r.Status == LeaveRequestStatus.Pending))
             .Select(r => new LeaveSpan(r.LeaveType, r.Status, r.StartDate, r.EndDate, r.HalfDay))
             .ToListAsync(cancellationToken);
-        return BalanceFor(type, allotments, spans, calendar);
+        var calendarTo = spans.Count == 0
+            ? cycle.ExpiresOn
+            : spans.Max(s => s.EndDate) > cycle.ExpiresOn ? spans.Max(s => s.EndDate) : cycle.ExpiresOn;
+        var calendar = await LeaveDayContext.LoadAsync(db, staffId, cycle.StartsOn, calendarTo, cancellationToken);
+        return BalanceFor(type, allotments, spans, calendar, cycle, today);
     }
 
     private static LeaveBalanceResponse BalanceFor(
         LeaveType type,
         IReadOnlyList<LeaveAllotment> allotments,
         IEnumerable<LeaveSpan> spans,
-        LeaveDayContext calendar)
+        LeaveDayContext calendar,
+        LeaveCycleWindow cycle,
+        DateOnly today)
     {
-        var allotment = allotments.FirstOrDefault(a => a.LeaveType == type)?.Days ?? 0m;
+        var allotmentRow = allotments.FirstOrDefault(a => a.LeaveType == type);
+        var allotment = allotmentRow?.Days ?? 0m;
         decimal used = 0m;
         decimal pending = 0m;
         foreach (var span in spans.Where(s => s.LeaveType == type))
@@ -811,7 +894,148 @@ public static class LeaveEndpoints
             }
         }
 
-        return new LeaveBalanceResponse(type, allotment, used, pending, allotment - used - pending);
+        if (type == LeaveType.Unpaid)
+        {
+            return new LeaveBalanceResponse(
+                type,
+                allotment,
+                used,
+                pending,
+                allotment - used - pending,
+                ExpiresOn: null,
+                Expired: 0m,
+                ConvertibleToCash: false,
+                UsesHireAnniversary: false,
+                HasCustomExpiry: false);
+        }
+
+        var customExpiresOn = allotmentRow?.ExpiresOn;
+        var effectiveExpiresOn = LeaveCycle.EffectiveExpiresOn(cycle, customExpiresOn);
+        var hasCustomExpiry = customExpiresOn is not null;
+
+        if (type == LeaveType.ServiceIncentive)
+        {
+            return new LeaveBalanceResponse(
+                type,
+                allotment,
+                used,
+                pending,
+                allotment - used - pending,
+                ExpiresOn: effectiveExpiresOn,
+                Expired: 0m,
+                ConvertibleToCash: true,
+                UsesHireAnniversary: cycle.UsesHireAnniversary,
+                HasCustomExpiry: hasCustomExpiry);
+        }
+
+        var rawRemaining = allotment - used - pending;
+        if (today > effectiveExpiresOn)
+        {
+            var expired = Math.Max(0m, rawRemaining);
+            return new LeaveBalanceResponse(
+                type,
+                allotment,
+                used,
+                pending,
+                Remaining: 0m,
+                ExpiresOn: effectiveExpiresOn,
+                Expired: expired,
+                ConvertibleToCash: false,
+                UsesHireAnniversary: cycle.UsesHireAnniversary,
+                HasCustomExpiry: hasCustomExpiry);
+        }
+
+        return new LeaveBalanceResponse(
+            type,
+            allotment,
+            used,
+            pending,
+            Remaining: rawRemaining,
+            ExpiresOn: effectiveExpiresOn,
+            Expired: 0m,
+            ConvertibleToCash: false,
+            UsesHireAnniversary: cycle.UsesHireAnniversary,
+            HasCustomExpiry: hasCustomExpiry);
+    }
+
+    private static async Task<(LeaveExpirationMode Mode, DateOnly? HireDate)> StaffLeavePolicyAsync(
+        IHrDb db,
+        Guid staffId,
+        CancellationToken cancellationToken)
+    {
+        var info = await db.Staff.AsNoTracking()
+            .Where(s => s.Id == staffId)
+            .Select(s => new
+            {
+                s.HireDate,
+                Mode = s.Branch != null ? s.Branch.LeaveExpirationMode : Branch.DefaultLeaveExpirationMode
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return info is null
+            ? (Branch.DefaultLeaveExpirationMode, null)
+            : (info.Mode, info.HireDate);
+    }
+
+    private static LeaveCycleWindow ResolveCycle(
+        LeaveExpirationMode mode,
+        DateOnly? hireDate,
+        int? explicitYear,
+        DateOnly today) =>
+        explicitYear is int year
+            ? LeaveCycle.ForYear(mode, hireDate, year)
+            : LeaveCycle.Resolve(mode, hireDate, today);
+
+    private static IResult? CrossCycleError(LeaveCycleWindow startCycle, LeaveCycleWindow endCycle)
+    {
+        if (startCycle.CycleYear == endCycle.CycleYear)
+        {
+            return null;
+        }
+
+        if (startCycle.UsesHireAnniversary)
+        {
+            return Results.BadRequest(new
+            {
+                error = string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"Leave can't cross your leave anniversary ({endCycle.StartsOn:MMM d, yyyy}). Submit two requests: one through {startCycle.ExpiresOn:MMM d, yyyy}, and another starting {endCycle.StartsOn:MMM d, yyyy}.")
+            });
+        }
+
+        return Results.BadRequest(new { error = CrossYearErrorMessage });
+    }
+
+    private static async Task<IResult?> ExpiryErrorAsync(
+        IHrDb db,
+        Guid staffId,
+        LeaveType leaveType,
+        LeaveCycleWindow cycle,
+        DateOnly end,
+        CancellationToken cancellationToken)
+    {
+        if (!HasExpiry(leaveType))
+        {
+            return null;
+        }
+
+        var customExpiresOn = await db.LeaveAllotments.AsNoTracking()
+            .Where(a => a.StaffId == staffId && a.Year == cycle.CycleYear && a.LeaveType == leaveType)
+            .Select(a => a.ExpiresOn)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var effectiveExpiresOn = LeaveCycle.EffectiveExpiresOn(cycle, customExpiresOn);
+        if (end > effectiveExpiresOn)
+        {
+            return Results.BadRequest(new
+            {
+                error = string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"That leave goes past the expiry date ({effectiveExpiresOn:MMM d, yyyy}).")
+            });
+        }
+
+        return null;
     }
 
     private static Task<LeaveDayContext> YearCalendarAsync(
@@ -861,7 +1085,7 @@ public static class LeaveEndpoints
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
         var branch = await db.Branches.AsNoTracking()
             .FirstAsync(b => b.Id == branchId, cancellationToken);
-        return new ShopContext(branchId, branch.Code);
+        return new ShopContext(branchId, branch.Code, branch.LeaveExpirationMode);
     }
 
     private static IQueryable<Domain.Staff> OnShop(IHrDb db, Guid branchId) =>
@@ -879,8 +1103,6 @@ public static class LeaveEndpoints
             .AnyAsync(s => s.Id == staffId, cancellationToken);
         return onShop ? staffId : null;
     }
-
-    private static int ResolveYear(int? year) => year ?? ManilaTime.Today().Year;
 
     private static IResult? YearError(int? year)
     {
@@ -908,7 +1130,7 @@ public static class LeaveEndpoints
     private static IResult Forbidden(string error) =>
         Results.Json(new { error }, statusCode: StatusCodes.Status403Forbidden);
 
-    private readonly record struct ShopContext(Guid BranchId, string Code);
+    private readonly record struct ShopContext(Guid BranchId, string Code, LeaveExpirationMode LeaveExpirationMode);
 
     private readonly record struct LeaveSpan(
         LeaveType LeaveType,
@@ -936,7 +1158,12 @@ public sealed record LeaveBalanceResponse(
     decimal Allotment,
     decimal Used,
     decimal Pending,
-    decimal Remaining);
+    decimal Remaining,
+    DateOnly? ExpiresOn = null,
+    decimal Expired = 0m,
+    bool ConvertibleToCash = false,
+    bool UsesHireAnniversary = false,
+    bool HasCustomExpiry = false);
 
 public sealed record StaffLeaveBalancesResponse(
     Guid StaffId,
@@ -948,7 +1175,8 @@ public sealed record LeaveAllotmentResponse(
     Guid StaffId,
     int Year,
     LeaveType LeaveType,
-    decimal Days);
+    decimal Days,
+    DateOnly? ExpiresOn = null);
 
 public sealed class UpsertLeaveAllotmentRequest
 {
@@ -956,6 +1184,7 @@ public sealed class UpsertLeaveAllotmentRequest
     public int Year { get; set; }
     public LeaveType? LeaveType { get; set; }
     public decimal? Days { get; set; }
+    public DateOnly? ExpiresOn { get; set; }
 }
 
 public sealed class CreateLeaveRequest

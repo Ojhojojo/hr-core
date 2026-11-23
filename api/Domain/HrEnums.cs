@@ -60,6 +60,13 @@ public enum LeaveHalfDay
     Pm
 }
 
+/// <summary>When annual leave cycles reset and unused non-SIL leave expires.</summary>
+public enum LeaveExpirationMode
+{
+    CalendarYear = 0,
+    HireAnniversary = 1
+}
+
 public enum PunchApprovalStatus
 {
     Approved = 0,

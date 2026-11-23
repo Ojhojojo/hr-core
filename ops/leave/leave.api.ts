@@ -42,6 +42,11 @@ export interface LeaveBalance {
   used: number;
   pending: number;
   remaining: number;
+  expiresOn?: string | null;
+  expired?: number;
+  convertibleToCash?: boolean;
+  usesHireAnniversary?: boolean;
+  hasCustomExpiry?: boolean;
 }
 
 export interface StaffLeaveBalances {
@@ -91,16 +96,20 @@ export class LeaveApi {
     return this.http.get<LeaveRequestRow[]>(`${this.base}/api/leave`, { params });
   }
 
-  balances(year: number): Observable<LeaveBalance[]> {
-    return this.http.get<LeaveBalance[]>(`${this.base}/api/leave/balances`, {
-      params: { year },
-    });
+  balances(year?: number): Observable<LeaveBalance[]> {
+    const params: Record<string, number> = {};
+    if (year != null) {
+      params['year'] = year;
+    }
+    return this.http.get<LeaveBalance[]>(`${this.base}/api/leave/balances`, { params });
   }
 
-  shopBalances(year: number): Observable<StaffLeaveBalances[]> {
-    return this.http.get<StaffLeaveBalances[]>(`${this.base}/api/leave/balances`, {
-      params: { year, shop: 1 },
-    });
+  shopBalances(year?: number): Observable<StaffLeaveBalances[]> {
+    const params: Record<string, number> = { shop: 1 };
+    if (year != null) {
+      params['year'] = year;
+    }
+    return this.http.get<StaffLeaveBalances[]>(`${this.base}/api/leave/balances`, { params });
   }
 
   create(body: {
@@ -150,6 +159,7 @@ export class LeaveApi {
     year: number;
     leaveType: LeaveType;
     days: number;
+    expiresOn?: string | null;
   }): Observable<unknown> {
     return this.http.put(`${this.base}/api/leave/allotments`, body);
   }

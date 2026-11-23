@@ -45,6 +45,7 @@ import {
   RequestLeaveDialog,
   SetAllotmentDialog,
 } from './leave.dialogs';
+import { describeLeaveExpiry, teamExpirySubtext } from './leave-expiry';
 import { pendingHeldLabel } from './leave-pending';
 import { formatDayRange } from '../hr-dates';
 
@@ -150,6 +151,9 @@ import { formatDayRange } from '../hr-dates';
         align-items: center;
         justify-content: center;
         gap: var(--space-1);
+      }
+      .leave-expiry-warn {
+        color: var(--ops-warn, #b45309);
       }
       .leave-empty-msg {
         padding: var(--space-4);
@@ -463,7 +467,17 @@ export class LeavePage {
     if (!leaveHasDayLimit(type)) {
       return `No limit · Pending: ${row.pending}`;
     }
-    return `Allotted: ${row.allotment} · Used: ${row.used} · Pending: ${row.pending}`;
+    const base = `Allotted: ${row.allotment} · Used: ${row.used} · Pending: ${row.pending}`;
+    const expiry = describeLeaveExpiry(row).label;
+    return expiry ? `${base}\n${expiry}` : base;
+  }
+
+  protected balanceTone(type: LeaveType): 'default' | 'warn' {
+    if (!this.balancesLoaded() || !leaveHasDayLimit(type)) {
+      return 'default';
+    }
+    const info = describeLeaveExpiry(this.balance(type));
+    return info.expiringSoon || info.hasExpired ? 'warn' : 'default';
   }
 
   /** Same placeholder rule for the owner team table, which falls back to zero-filled rows. */
@@ -476,6 +490,18 @@ export class LeavePage {
     return this.teamBalancesLoaded()
       ? pendingHeldLabel(this.memberBalance(member, type).pending)
       : null;
+  }
+
+  protected memberExpiryLabel(member: StaffLeaveBalances, type: LeaveType): string | null {
+    return this.teamBalancesLoaded() ? teamExpirySubtext(this.memberBalance(member, type)) : null;
+  }
+
+  protected memberExpiryWarn(member: StaffLeaveBalances, type: LeaveType): boolean {
+    if (!this.teamBalancesLoaded()) {
+      return false;
+    }
+    const info = describeLeaveExpiry(this.memberBalance(member, type));
+    return info.expiringSoon || info.hasExpired;
   }
 
   protected memberUsed(member: StaffLeaveBalances, type: LeaveType): string | number {
@@ -498,12 +524,14 @@ export class LeavePage {
   }
 
   protected openRequestLeave(): void {
+    const usesHireAnniversary = this.balances().some((row) => row.usesHireAnniversary);
     const ref = this.dialog.open(
       RequestLeaveDialog,
       fitDialogToHandset(
         {
           width: 'min(32rem, 78vw)',
           maxWidth: 'calc(100vw - 32px)',
+          data: { usesHireAnniversary },
         },
         this.breakpoints.isHandset(),
       ),
@@ -523,7 +551,7 @@ export class LeavePage {
         {
           width: 'min(32rem, 78vw)',
           maxWidth: 'calc(100vw - 32px)',
-          data: { people: this.eligiblePeople() },
+          data: { people: this.eligiblePeople(), teamRows: this.teamRows() },
         },
         this.breakpoints.isHandset(),
       ),
@@ -705,7 +733,7 @@ export class LeavePage {
 
     if (decide) {
       this.teamBalancesLoaded.set(false);
-      this.api.shopBalances(this.year).subscribe({
+      this.api.shopBalances().subscribe({
         next: (team) => {
           if (Array.isArray(team) && team.length > 0 && 'staffId' in team[0]) {
             this.teamBalances.set(team);
@@ -720,7 +748,7 @@ export class LeavePage {
     }
     if (!owner) {
       this.balancesLoaded.set(false);
-      this.api.balances(this.year).subscribe({
+      this.api.balances().subscribe({
         next: (rows) => {
           this.balances.set(rows);
           this.balancesLoaded.set(true);

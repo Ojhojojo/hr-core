@@ -81,6 +81,8 @@ public static class HrModel
                 .HasDefaultValue(Branch.DefaultAllowOffsitePunchWithApproval);
             e.Property(x => x.WeekStartDay)
                 .HasDefaultValue(Branch.DefaultWeekStartDay);
+            e.Property(x => x.LeaveExpirationMode)
+                .HasDefaultValue(Branch.DefaultLeaveExpirationMode);
         });
 
         modelBuilder.Entity<Profile>(e =>
@@ -135,6 +137,7 @@ public static class HrModel
         modelBuilder.Entity<LeaveAllotment>(e =>
         {
             e.Property(x => x.Days).HasPrecision(8, 2);
+            e.Property(x => x.ExpiresOn);
             e.HasIndex(x => new { x.StaffId, x.Year, x.LeaveType }).IsUnique();
             e.HasOne(x => x.Staff).WithMany().HasForeignKey(x => x.StaffId)
                 .OnDelete(DeleteBehavior.Restrict);

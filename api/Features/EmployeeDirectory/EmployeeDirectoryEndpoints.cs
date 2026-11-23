@@ -86,12 +86,34 @@ public static class EmployeeDirectoryEndpoints
             revealStatutoryIds: canManage || (actor is not null && s.Id == actor.Id),
             revealPayAndAccess)).ToList();
         var today = ManilaTime.Today();
-        var silAllotted = await db.LeaveAllotments.AsNoTracking()
-            .Where(a => a.LeaveType == LeaveType.ServiceIncentive && a.Year == today.Year)
-            .Select(a => a.StaffId)
-            .ToListAsync(cancellationToken);
+        var cycleYears = items.ToDictionary(
+            s => s.Id,
+            s => LeaveCycle.Resolve(branch.LeaveExpirationMode, s.HireDate, today).CycleYear);
+        var staffIds = items.Select(s => s.Id).ToArray();
+        HashSet<Guid> silAllotted;
+        if (staffIds.Length == 0)
+        {
+            silAllotted = [];
+        }
+        else
+        {
+            var minCycleYear = cycleYears.Values.Min();
+            var maxCycleYear = cycleYears.Values.Max();
+            var silAllotmentRows = await db.LeaveAllotments.AsNoTracking()
+                .Where(a => a.LeaveType == LeaveType.ServiceIncentive
+                    && a.Year >= minCycleYear
+                    && a.Year <= maxCycleYear
+                    && staffIds.Contains(a.StaffId))
+                .Select(a => new { a.StaffId, a.Year })
+                .ToListAsync(cancellationToken);
+            silAllotted = silAllotmentRows
+                .Where(a => cycleYears.TryGetValue(a.StaffId, out var cycleYear) && a.Year == cycleYear)
+                .Select(a => a.StaffId)
+                .ToHashSet();
+        }
+
         var health = canManage
-            ? BuildConfigHealth(items, branch.MinimumDailyWagePhp, silAllotted.ToHashSet(), today)
+            ? BuildConfigHealth(items, branch.MinimumDailyWagePhp, silAllotted, today)
             : null;
         return Results.Ok(new EmployeeDirectoryListResponse(headcount, cards, health));
     }

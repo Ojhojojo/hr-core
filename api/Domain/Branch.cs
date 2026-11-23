@@ -94,6 +94,10 @@ public sealed partial class Branch
     public const DayOfWeek DefaultWeekStartDay = DayOfWeek.Monday;
     public DayOfWeek WeekStartDay { get; set; } = DefaultWeekStartDay;
 
+    /// <summary>When annual leave cycles reset and unused non-SIL leave expires. Seeded at CalendarYear.</summary>
+    public const LeaveExpirationMode DefaultLeaveExpirationMode = LeaveExpirationMode.CalendarYear;
+    public LeaveExpirationMode LeaveExpirationMode { get; set; } = DefaultLeaveExpirationMode;
+
     /// <summary>
     /// First day this system should pay. Null until an owner or admin sets it.
     /// Not required at deploy. The shop's first payroll run cannot be locked until it is set.

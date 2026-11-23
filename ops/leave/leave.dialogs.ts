@@ -76,6 +76,10 @@ export function crossYearSplitHint(
   return `Leave can't cross New Year because balances are tracked per calendar year. Split it into separate requests per calendar year (starting with ${formatDay(startIso)}–Dec 31, ${startYear}).`;
 }
 
+export interface RequestLeaveDialogData {
+  usesHireAnniversary?: boolean;
+}
+
 @Component({
   selector: 'app-request-leave-dialog',
   imports: [
@@ -185,6 +189,9 @@ export function crossYearSplitHint(
 })
 export class RequestLeaveDialog {
   protected readonly dialogRef = inject(MatDialogRef<RequestLeaveDialog>);
+  private readonly data = inject<RequestLeaveDialogData | null>(MAT_DIALOG_DATA, {
+    optional: true,
+  });
   private readonly api = inject(LeaveApi);
 
   protected leaveType: LeaveType = 'vacation';
@@ -195,7 +202,7 @@ export class RequestLeaveDialog {
   protected readonly saving = signal(false);
   protected readonly error = signal('');
   protected readonly crossYearHint = computed(() =>
-    crossYearSplitHint(this.startDate(), this.endDate()),
+    this.data?.usesHireAnniversary ? null : crossYearSplitHint(this.startDate(), this.endDate()),
   );
   protected readonly isSingleDay = computed(() => {
     const start = toIsoDay(this.startDate());
@@ -214,7 +221,9 @@ export class RequestLeaveDialog {
       this.error.set('Start and end dates are required.');
       return;
     }
-    const crossYear = crossYearSplitHint(startDate, endDate);
+    const crossYear = this.data?.usesHireAnniversary
+      ? null
+      : crossYearSplitHint(startDate, endDate);
     if (crossYear) {
       this.error.set(crossYear);
       return;
@@ -254,6 +263,7 @@ function halfDayValue(
 
 export interface AddLeaveDialogData {
   people: LeavePerson[];
+  teamRows?: StaffLeaveBalances[];
 }
 
 @Component({
@@ -282,7 +292,12 @@ export interface AddLeaveDialogData {
       >
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Person</mat-label>
-          <select matNativeControl name="addLeaveStaff" [(ngModel)]="staffId">
+          <select
+            matNativeControl
+            name="addLeaveStaff"
+            [ngModel]="staffId()"
+            (ngModelChange)="staffId.set($event)"
+          >
             @for (person of people; track person.id) {
               <option [value]="person.id">{{ person.displayName }}</option>
             }
@@ -382,7 +397,7 @@ export class AddLeaveDialog {
   private readonly api = inject(LeaveApi);
 
   protected readonly people = this.data.people;
-  protected staffId = this.people[0]?.id ?? '';
+  protected readonly staffId = signal(this.people[0]?.id ?? '');
   protected leaveType: LeaveType = 'vacation';
   protected readonly startDate = signal<Date | string>('');
   protected readonly endDate = signal<Date | string>('');
@@ -390,8 +405,14 @@ export class AddLeaveDialog {
   protected note = '';
   protected readonly saving = signal(false);
   protected readonly error = signal('');
+  private readonly selectedUsesHireAnniversary = computed(() => {
+    const member = this.data.teamRows?.find((m) => m.staffId === this.staffId());
+    return member?.balances?.some((b) => b.usesHireAnniversary) ?? false;
+  });
   protected readonly crossYearHint = computed(() =>
-    crossYearSplitHint(this.startDate(), this.endDate()),
+    this.selectedUsesHireAnniversary()
+      ? null
+      : crossYearSplitHint(this.startDate(), this.endDate()),
   );
   protected readonly isSingleDay = computed(() => {
     const start = toIsoDay(this.startDate());
@@ -399,7 +420,8 @@ export class AddLeaveDialog {
   });
 
   protected submit(startModel: NgModel, endModel: NgModel): void {
-    if (!this.staffId) {
+    const staffId = this.staffId();
+    if (!staffId) {
       this.error.set('Choose a person.');
       return;
     }
@@ -414,7 +436,9 @@ export class AddLeaveDialog {
       this.error.set('Start and end dates are required.');
       return;
     }
-    const crossYear = crossYearSplitHint(startDate, endDate);
+    const crossYear = this.selectedUsesHireAnniversary()
+      ? null
+      : crossYearSplitHint(startDate, endDate);
     if (crossYear) {
       this.error.set(crossYear);
       return;
@@ -424,7 +448,7 @@ export class AddLeaveDialog {
     this.error.set('');
     this.api
       .recordForStaff({
-        staffId: this.staffId,
+        staffId,
         leaveType: this.leaveType,
         startDate,
         endDate,
@@ -455,9 +479,11 @@ export interface SetAllotmentDialogData {
   imports: [
     FormsModule,
     MatButton,
+    MatError,
     MatFormField,
     MatLabel,
     MatInput,
+    OpsDateModule,
     DialogComponent,
     BannerComponent,
   ],
@@ -466,10 +492,20 @@ export interface SetAllotmentDialogData {
       @if (error()) {
         <ops-banner tone="danger" role="alert" [message]="error()" />
       }
-      <form id="leave-allotment" class="leave-dialog-form" data-allotment (ngSubmit)="submit()">
+      <form
+        id="leave-allotment"
+        class="leave-dialog-form"
+        data-allotment
+        (ngSubmit)="submit(expiresModel)"
+      >
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Person</mat-label>
-          <select matNativeControl name="allotmentStaff" [(ngModel)]="staffId">
+          <select
+            matNativeControl
+            name="allotmentStaff"
+            [ngModel]="staffId()"
+            (ngModelChange)="onStaffChange($event)"
+          >
             @for (person of people; track person.id) {
               <option [value]="person.id">{{ person.displayName }}</option>
             }
@@ -481,7 +517,12 @@ export interface SetAllotmentDialogData {
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Type</mat-label>
-          <select matNativeControl name="allotmentType" [(ngModel)]="leaveType">
+          <select
+            matNativeControl
+            name="allotmentType"
+            [ngModel]="leaveType()"
+            (ngModelChange)="onLeaveTypeChange($event)"
+          >
             <option value="vacation">Vacation</option>
             <option value="sick">Sick</option>
             <option value="service_incentive">Service incentive (SIL)</option>
@@ -498,6 +539,23 @@ export interface SetAllotmentDialogData {
             [(ngModel)]="days"
             required
           />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Expires on (optional)</mat-label>
+          <input
+            matInput
+            [matDatepicker]="allotmentExpiresPicker"
+            name="allotmentExpiresOn"
+            placeholder="Auto (cycle end)"
+            [ngModel]="expiresOn()"
+            (ngModelChange)="expiresOn.set($event)"
+            #expiresModel="ngModel"
+          />
+          <mat-datepicker-toggle matIconSuffix [for]="allotmentExpiresPicker" />
+          <mat-datepicker #allotmentExpiresPicker />
+          @if (expiresModel.hasError('matDatepickerParse')) {
+            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+          }
         </mat-form-field>
 
         <div class="ops-hint-tile">
@@ -547,35 +605,65 @@ export class SetAllotmentDialog {
 
   protected readonly people = this.data.people;
   protected readonly teamRows = this.data.teamRows;
-  protected staffId = this.people[0]?.id ?? '';
+  protected readonly staffId = signal(this.people[0]?.id ?? '');
   protected year = this.data.year;
-  protected leaveType: LeaveType = 'vacation';
+  protected readonly leaveType = signal<LeaveType>('vacation');
   protected days = 0;
+  protected readonly expiresOn = signal<Date | string | null>(
+    this.prefillExpiresOn(this.people[0]?.id ?? '', 'vacation'),
+  );
   protected readonly saving = signal(false);
   protected readonly error = signal('');
 
   protected currentAllottedDays = computed(() => {
-    if (!this.staffId) return 0;
-    const member = this.teamRows.find((m) => m.staffId === this.staffId);
+    const staffId = this.staffId();
+    if (!staffId) return 0;
+    const member = this.teamRows.find((m) => m.staffId === staffId);
     if (!member) return 0;
-    const b = member.balances?.find((row) => row.leaveType === this.leaveType);
+    const b = member.balances?.find((row) => row.leaveType === this.leaveType());
     return b?.allotment ?? 0;
   });
 
-  protected submit(): void {
-    if (!this.staffId) {
+  protected onStaffChange(nextStaffId: string): void {
+    this.staffId.set(nextStaffId);
+    this.expiresOn.set(this.prefillExpiresOn(nextStaffId, this.leaveType()));
+  }
+
+  protected onLeaveTypeChange(nextType: LeaveType): void {
+    this.leaveType.set(nextType);
+    this.expiresOn.set(this.prefillExpiresOn(this.staffId(), nextType));
+  }
+
+  private prefillExpiresOn(staffId: string, leaveType: LeaveType): string {
+    if (!staffId) {
+      return '';
+    }
+    const member = this.teamRows.find((m) => m.staffId === staffId);
+    const bal = member?.balances?.find((row) => row.leaveType === leaveType);
+    return bal?.hasCustomExpiry && bal.expiresOn ? bal.expiresOn : '';
+  }
+
+  protected submit(expiresModel: NgModel): void {
+    const staffId = this.staffId();
+    if (!staffId) {
       this.error.set('Choose a person.');
       return;
     }
+    if (expiresModel.hasError('matDatepickerParse')) {
+      expiresModel.control.markAsTouched();
+      return;
+    }
 
+    const expiresOn = toIsoDay(this.expiresOn());
     this.saving.set(true);
     this.error.set('');
     this.api
       .saveAllotment({
-        staffId: this.staffId,
+        staffId,
         year: Number(this.year),
-        leaveType: this.leaveType,
+        leaveType: this.leaveType(),
         days: Number(this.days),
+        expiresOn: expiresOn || null,
       })
       .subscribe({
         next: () => {

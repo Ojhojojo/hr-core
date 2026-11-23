@@ -29,6 +29,7 @@ public static class HrChangeField
     public const string PayslipIssued = "payslip.issued";
     public const string StaffMustClock = "staff.must_clock";
     public const string LeaveAllotment = "leave.allotment";
+    public const string LeaveAllotmentExpiry = "leave.allotment_expiry";
     public const string LeaveDecision = "leave.decision";
     public const string LeaveCancelReason = "leave.cancel_reason";
     public const string LeaveRequest = "leave.request";

@@ -111,9 +111,12 @@ public sealed partial class PayrollService
             return new PayrollFinalPaySil(false, 0m, 0m, 0m, 0m, 0m, 0m);
         }
 
+        var mode = staff.Branch?.LeaveExpirationMode ?? Branch.DefaultLeaveExpirationMode;
+        var cycle = LeaveCycle.Resolve(mode, hired, separation);
+
         var allotted = await db.LeaveAllotments.AsNoTracking()
             .Where(a => a.StaffId == staff.Id
-                && a.Year == separation.Year
+                && a.Year == cycle.CycleYear
                 && a.LeaveType == LeaveType.ServiceIncentive)
             .Select(a => (decimal?)a.Days)
             .FirstOrDefaultAsync(cancellationToken) ?? 0m;
@@ -121,7 +124,8 @@ public sealed partial class PayrollService
         var requests = await db.LeaveRequests.AsNoTracking()
             .Where(l => l.StaffId == staff.Id
                 && l.LeaveType == LeaveType.ServiceIncentive
-                && l.StartDate.Year == separation.Year)
+                && l.StartDate >= cycle.StartsOn
+                && l.StartDate <= cycle.ExpiresOn)
             .ToListAsync(cancellationToken);
         var calendarFrom = requests.Count == 0 ? separation : requests.Min(r => r.StartDate);
         var calendarTo = requests.Count == 0 ? separation : requests.Max(r => r.EndDate);

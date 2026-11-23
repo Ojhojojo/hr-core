@@ -91,6 +91,8 @@ async function mount(
   customRequests?: LeaveRequestRow[],
   confirmObj = confirmStub(true),
   subrole?: string | null,
+  customBalances?: LeaveBalance[],
+  customTeamBalances?: StaffLeaveBalances[],
 ) {
   await TestBed.configureTestingModule({
     imports: [LeavePage],
@@ -120,14 +122,16 @@ async function mount(
       (req) => req.url.includes('/api/leave/balances') && !req.urlWithParams.includes('shop=1'),
     );
     expect(balanceReq.request.method).toBe('GET');
-    balanceReq.flush(structuredClone(balances));
+    expect(balanceReq.request.params.get('year')).toBeNull();
+    balanceReq.flush(structuredClone(customBalances ?? balances));
   }
   if (decide) {
     const shopBalanceReq = http.expectOne(
       (req) => req.url.includes('/api/leave/balances') && req.urlWithParams.includes('shop=1'),
     );
     expect(shopBalanceReq.request.method).toBe('GET');
-    shopBalanceReq.flush(structuredClone(teamBalances));
+    expect(shopBalanceReq.request.params.get('year')).toBeNull();
+    shopBalanceReq.flush(structuredClone(customTeamBalances ?? teamBalances));
   }
 
   const shopRows = customRequests ?? [pending, approvedHistory];
@@ -380,7 +384,12 @@ describe('Leave', () => {
       cancelReason: null,
     };
 
-    const { host } = await mount('admin', [pending, nextYearPending], confirmStub(true), 'general_manager');
+    const { host } = await mount(
+      'admin',
+      [pending, nextYearPending],
+      confirmStub(true),
+      'general_manager',
+    );
     expect(host.textContent).toContain('New year trip');
     expect(host.textContent).toContain('Jan 1 – 5, 2027');
     expect(host.querySelectorAll('button[name="approve"]')).toHaveLength(2);
@@ -402,6 +411,200 @@ describe('Leave', () => {
     fixture.detectChanges();
 
     expect(host.textContent).toContain('No decision history for 2027.');
+  });
+
+  it('shows expiry subtext on balance cards and warns when expired', async () => {
+    const expiringBalances: LeaveBalance[] = [
+      {
+        leaveType: 'vacation',
+        allotment: 10,
+        used: 6,
+        pending: 0,
+        remaining: 0,
+        expiresOn: '2026-06-30',
+        expired: 4,
+        convertibleToCash: false,
+        hasCustomExpiry: true,
+      },
+      {
+        leaveType: 'sick',
+        allotment: 5,
+        used: 0,
+        pending: 0,
+        remaining: 5,
+        expiresOn: '2099-12-31',
+        expired: 0,
+        convertibleToCash: false,
+      },
+      {
+        leaveType: 'unpaid',
+        allotment: 0,
+        used: 0,
+        pending: 0,
+        remaining: 0,
+        expiresOn: null,
+        expired: 0,
+        convertibleToCash: false,
+      },
+      {
+        leaveType: 'service_incentive',
+        allotment: 5,
+        used: 1,
+        pending: 0,
+        remaining: 4,
+        expiresOn: '2026-12-31',
+        expired: 0,
+        convertibleToCash: true,
+      },
+    ];
+
+    const { host } = await mount(
+      'technician',
+      undefined,
+      confirmStub(true),
+      null,
+      expiringBalances,
+    );
+
+    const vacCard = host.querySelector('[data-balance="vacation"]');
+    expect(vacCard?.textContent).toContain('4 expired on Jun 30, 2026');
+    expect(vacCard?.querySelector('.ops-tile.warn')).toBeTruthy();
+
+    const silCard = host.querySelector('[data-balance="service_incentive"]');
+    expect(silCard?.textContent).toContain('Cycle ends Dec 31, 2026 · convertible to cash');
+    expect(silCard?.querySelector('.ops-tile.warn')).toBeNull();
+  });
+
+  it('shows compact expiry subtext in team balances and prefills custom expiry in Set allotment', async () => {
+    const teamWithExpiry: StaffLeaveBalances[] = [
+      {
+        staffId: 'tech-1',
+        displayName: 'Shop Tech',
+        role: 'technician',
+        balances: [
+          {
+            leaveType: 'vacation',
+            allotment: 10,
+            used: 2,
+            pending: 0,
+            remaining: 8,
+            expiresOn: '2099-09-30',
+            expired: 0,
+            convertibleToCash: false,
+            hasCustomExpiry: true,
+          },
+          {
+            leaveType: 'sick',
+            allotment: 5,
+            used: 0,
+            pending: 0,
+            remaining: 5,
+            expiresOn: '2099-07-14',
+            expired: 0,
+            convertibleToCash: false,
+            usesHireAnniversary: true,
+          },
+          { leaveType: 'unpaid', allotment: 0, used: 0, pending: 0, remaining: 0 },
+          {
+            leaveType: 'service_incentive',
+            allotment: 5,
+            used: 0,
+            pending: 0,
+            remaining: 5,
+            expiresOn: '2099-07-14',
+            expired: 0,
+            convertibleToCash: true,
+            usesHireAnniversary: true,
+          },
+        ],
+      },
+    ];
+
+    const { http, fixture, host } = await mount(
+      'owner',
+      undefined,
+      confirmStub(true),
+      null,
+      undefined,
+      teamWithExpiry,
+    );
+
+    expect(host.textContent).toContain('Expires Sep 30, 2099 (custom)');
+    expect(host.textContent).toContain('Expires Jul 14, 2099');
+    expect(host.textContent).toContain('Cycle ends Jul 14, 2099');
+
+    // Open Set allotment dialog and verify custom expiry prefill and submission.
+    const moreBtn = host.querySelector('button[name="leaveMoreMenu"]') as HTMLButtonElement;
+    moreBtn.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const setAllotmentBtn = document.body.querySelector(
+      'button[name="setAllotment"]',
+    ) as HTMLButtonElement;
+    setAllotmentBtn.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const dialog = document.body.querySelector('mat-dialog-container') as HTMLElement;
+    const expiresInput = dialog.querySelector(
+      'input[name="allotmentExpiresOn"]',
+    ) as HTMLInputElement;
+    expect(expiresInput).toBeTruthy();
+    expect(expiresInput.value).toBe('Sep 30, 2099');
+
+    // Bad typed date shows parse error.
+    expiresInput.value = '13/45/2099';
+    expiresInput.dispatchEvent(new Event('input'));
+    expiresInput.dispatchEvent(new Event('change'));
+    expiresInput.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(dialog.textContent).toContain('Enter a date as MM/DD/YYYY.');
+
+    // Valid date submits custom expiresOn.
+    expiresInput.value = '09/30/2099';
+    expiresInput.dispatchEvent(new Event('input'));
+    expiresInput.dispatchEvent(new Event('change'));
+    expiresInput.dispatchEvent(new Event('blur'));
+    const daysInput = dialog.querySelector('input[name="allotmentDays"]') as HTMLInputElement;
+    daysInput.value = '12';
+    daysInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const saveBtn = dialog.querySelector('button[name="saveAllotment"]') as HTMLButtonElement;
+    saveBtn.click();
+    fixture.detectChanges();
+
+    const putReq = http.expectOne(
+      (req) => req.method === 'PUT' && req.url.includes('/api/leave/allotments'),
+    );
+    expect(putReq.request.body).toEqual({
+      staffId: 'tech-1',
+      year: new Date().getFullYear(),
+      leaveType: 'vacation',
+      days: 12,
+      expiresOn: '2099-09-30',
+    });
+    putReq.flush({
+      staffId: 'tech-1',
+      year: new Date().getFullYear(),
+      leaveType: 'vacation',
+      days: 12,
+      expiresOn: '2099-09-30',
+    });
+
+    // Reload after dialog closes.
+    http
+      .expectOne((r) => r.url.includes('/api/leave/balances') && r.urlWithParams.includes('shop=1'))
+      .flush([]);
+    http
+      .expectOne((r) => r.url.includes('/api/leave') && r.params.get('status') === 'pending')
+      .flush([]);
+    http
+      .expectOne((r) => r.url.includes('/api/leave') && r.params.get('status') === 'decided')
+      .flush([]);
   });
 });
 
