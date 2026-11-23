@@ -59,8 +59,6 @@ public sealed class PayrollRateService(IHrDb db, HrChangeLogService hr)
             return (null, $"Reason must be {MaxReasonLength} characters or fewer.");
         }
 
-        var (otAfterHours, otMultiplier) = PayrollService.NormaliseOt(
-            request.Basis, request.OtAfterHoursPerDay, request.OtMultiplier);
         var rate = PayrollService.RoundMoney(request.RatePhp);
         var effectiveFrom = request.EffectiveFrom;
         if (await PayrollRunService.IsPeriodLockedAsync(db, staff.Id, effectiveFrom, effectiveFrom, cancellationToken))
@@ -79,8 +77,6 @@ public sealed class PayrollRateService(IHrDb db, HrChangeLogService hr)
                 EffectiveFrom = effectiveFrom,
                 Basis = request.Basis,
                 RatePhp = rate,
-                OtAfterHoursPerDay = otAfterHours,
-                OtMultiplier = otMultiplier,
                 CreatedAtUtc = DateTime.UtcNow,
                 CreatedByStaffId = actorStaffId,
                 Reason = BlankToNull(request.Reason)
@@ -91,17 +87,13 @@ public sealed class PayrollRateService(IHrDb db, HrChangeLogService hr)
             // Same effective date: correct that row instead of breaking the unique index.
             existing.Basis = request.Basis;
             existing.RatePhp = rate;
-            existing.OtAfterHoursPerDay = otAfterHours;
-            existing.OtMultiplier = otMultiplier;
             existing.Reason = BlankToNull(request.Reason) ?? existing.Reason;
         }
 
-        RecordSnapshotChanges(staff, request.Basis, rate, otAfterHours, otMultiplier, actorStaffId);
+        RecordSnapshotChanges(staff, request.Basis, rate, actorStaffId);
 
         staff.PayBasis = request.Basis;
         staff.RatePhp = rate;
-        staff.OtAfterHoursPerDay = otAfterHours;
-        staff.OtMultiplier = otMultiplier;
         await db.SaveChangesAsync(cancellationToken);
 
         var history = await HistoryRowsAsync(staff.Id, cancellationToken);
@@ -226,8 +218,6 @@ public sealed class PayrollRateService(IHrDb db, HrChangeLogService hr)
         Domain.Staff staff,
         PayBasis basis,
         decimal rate,
-        decimal? otAfterHours,
-        decimal? otMultiplier,
         Guid? actorStaffId)
     {
         hr.Record(
@@ -237,10 +227,6 @@ public sealed class PayrollRateService(IHrDb db, HrChangeLogService hr)
             staff.PayBasis?.ToString(),
             basis.ToString());
         hr.RecordMoney(actorStaffId, staff.Id, HrChangeField.StaffRate, staff.RatePhp, rate);
-        hr.RecordMoney(
-            actorStaffId, staff.Id, HrChangeField.StaffOtAfterHours, staff.OtAfterHoursPerDay, otAfterHours);
-        hr.RecordMoney(
-            actorStaffId, staff.Id, HrChangeField.StaffOtMultiplier, staff.OtMultiplier, otMultiplier);
     }
 
     // Tracked on purpose: SetRateAsync refreshes the current snapshot on this row.
@@ -270,15 +256,11 @@ public sealed class PayrollRateService(IHrDb db, HrChangeLogService hr)
             staff.Branch?.Name,
             staff.PayBasis,
             staff.RatePhp,
-            staff.OtAfterHoursPerDay,
-            staff.OtMultiplier,
             history.Select(row => new PayrollRateHistoryRowDto(
                 row.Id,
                 row.EffectiveFrom,
                 row.Basis,
                 row.RatePhp,
-                row.OtAfterHoursPerDay,
-                row.OtMultiplier,
                 row.CreatedAtUtc,
                 row.CreatedByStaff?.Profile.DisplayName,
                 row.Reason)).ToList());
