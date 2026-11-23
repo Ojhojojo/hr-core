@@ -142,8 +142,42 @@ async function mountDetail(
     docReq.flush([]);
   } else if (tab === 'leave' && desk) {
     const balReq = http.expectOne((req) => req.url.includes('/api/leave/balances'));
-    balReq.flush([]);
-    const listReq = http.expectOne((req) => req.url.includes('/api/leave'));
+    expect(balReq.request.params.get('year')).toBeNull();
+    balReq.flush([
+      {
+        staffId: employee.id,
+        displayName: employee.displayName,
+        role: employee.role,
+        balances: [
+          {
+            leaveType: 'vacation',
+            allotment: 10,
+            used: 2,
+            pending: 0,
+            remaining: 8,
+            expiresOn: '2099-07-14',
+            expired: 0,
+            convertibleToCash: false,
+            usesHireAnniversary: true,
+          },
+          {
+            leaveType: 'service_incentive',
+            allotment: 5,
+            used: 0,
+            pending: 0,
+            remaining: 5,
+            expiresOn: '2099-07-14',
+            expired: 0,
+            convertibleToCash: true,
+            usesHireAnniversary: true,
+          },
+        ],
+      },
+    ]);
+    const listReq = http.expectOne(
+      (req) => req.url.includes('/api/leave') && !req.url.includes('/balances'),
+    );
+    expect(listReq.request.params.get('year')).toBeNull();
     listReq.flush([]);
   } else if (tab === 'history' && desk) {
     const histReq = http.expectOne((req) => req.url.includes('/api/hr/change-log'));
@@ -387,5 +421,11 @@ describe('EmployeeDetailPage', () => {
     expect(host.querySelector('ops-skeleton')).toBeNull();
     expect(host.textContent).toContain('Your profile is not available.');
     http.expectNone((req) => req.url.includes('/api/employee-directory/'));
+  });
+
+  it('loads active-cycle leave balances without forcing calendar year and shows expiry subtext', async () => {
+    const { host } = await mountDetail('owner', 'leave');
+    expect(host.textContent).toContain('Expires Jul 14, 2099');
+    expect(host.textContent).toContain('Cycle ends Jul 14, 2099 · convertible to cash');
   });
 });

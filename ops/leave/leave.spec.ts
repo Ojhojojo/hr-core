@@ -492,6 +492,7 @@ describe('Leave', () => {
             expired: 0,
             convertibleToCash: false,
             hasCustomExpiry: true,
+            cycleYear: 2099,
           },
           {
             leaveType: 'sick',
@@ -503,8 +504,9 @@ describe('Leave', () => {
             expired: 0,
             convertibleToCash: false,
             usesHireAnniversary: true,
+            cycleYear: 2099,
           },
-          { leaveType: 'unpaid', allotment: 0, used: 0, pending: 0, remaining: 0 },
+          { leaveType: 'unpaid', allotment: 0, used: 0, pending: 0, remaining: 0, cycleYear: 2099 },
           {
             leaveType: 'service_incentive',
             allotment: 5,
@@ -515,6 +517,7 @@ describe('Leave', () => {
             expired: 0,
             convertibleToCash: true,
             usesHireAnniversary: true,
+            cycleYear: 2099,
           },
         ],
       },
@@ -547,27 +550,65 @@ describe('Leave', () => {
     await fixture.whenStable();
 
     const dialog = document.body.querySelector('mat-dialog-container') as HTMLElement;
+    const yearInput = dialog.querySelector('input[name="allotmentYear"]') as HTMLInputElement;
+    const daysInput = dialog.querySelector('input[name="allotmentDays"]') as HTMLInputElement;
     const expiresInput = dialog.querySelector(
       'input[name="allotmentExpiresOn"]',
     ) as HTMLInputElement;
+    expect(yearInput.value).toBe('2099');
+    expect(daysInput.value).toBe('10');
     expect(expiresInput).toBeTruthy();
     expect(expiresInput.value).toBe('Sep 30, 2099');
 
+    // Changing year away from active cycle clears custom expiry and hides active-cycle hint.
+    yearInput.value = '2100';
+    yearInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(expiresInput.value).toBe('');
+    expect(dialog.textContent).not.toContain('Current allotted days:');
+
+    // Switching back to active cycle year restores prefill and hint.
+    yearInput.value = '2099';
+    yearInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(dialog.textContent).toContain('Current allotted days:');
+
+    // Switching to SIL hides custom expiry picker and shows cash-conversion note.
+    const typeSelect = dialog.querySelector('select[name="allotmentType"]') as HTMLSelectElement;
+    typeSelect.value = 'service_incentive';
+    typeSelect.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(dialog.querySelector('input[name="allotmentExpiresOn"]')).toBeNull();
+    expect(dialog.textContent).toContain('Service incentive leave (SIL) does not expire');
+    expect(daysInput.value).toBe('5');
+
+    // Switch back to vacation to test parse error and custom expiry submission.
+    typeSelect.value = 'vacation';
+    typeSelect.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const vacExpiresInput = dialog.querySelector(
+      'input[name="allotmentExpiresOn"]',
+    ) as HTMLInputElement;
+    expect(vacExpiresInput).toBeTruthy();
+
     // Bad typed date shows parse error.
-    expiresInput.value = '13/45/2099';
-    expiresInput.dispatchEvent(new Event('input'));
-    expiresInput.dispatchEvent(new Event('change'));
-    expiresInput.dispatchEvent(new Event('blur'));
+    vacExpiresInput.value = '13/45/2099';
+    vacExpiresInput.dispatchEvent(new Event('input'));
+    vacExpiresInput.dispatchEvent(new Event('change'));
+    vacExpiresInput.dispatchEvent(new Event('blur'));
     fixture.detectChanges();
     await fixture.whenStable();
     expect(dialog.textContent).toContain('Enter a date as MM/DD/YYYY.');
 
-    // Valid date submits custom expiresOn.
-    expiresInput.value = '09/30/2099';
-    expiresInput.dispatchEvent(new Event('input'));
-    expiresInput.dispatchEvent(new Event('change'));
-    expiresInput.dispatchEvent(new Event('blur'));
-    const daysInput = dialog.querySelector('input[name="allotmentDays"]') as HTMLInputElement;
+    // Valid date submits custom expiresOn without wiping allotted days.
+    vacExpiresInput.value = '09/30/2099';
+    vacExpiresInput.dispatchEvent(new Event('input'));
+    vacExpiresInput.dispatchEvent(new Event('change'));
+    vacExpiresInput.dispatchEvent(new Event('blur'));
     daysInput.value = '12';
     daysInput.dispatchEvent(new Event('input'));
     fixture.detectChanges();
@@ -582,18 +623,20 @@ describe('Leave', () => {
     );
     expect(putReq.request.body).toEqual({
       staffId: 'tech-1',
-      year: new Date().getFullYear(),
+      year: 2099,
       leaveType: 'vacation',
       days: 12,
       expiresOn: '2099-09-30',
     });
     putReq.flush({
       staffId: 'tech-1',
-      year: new Date().getFullYear(),
+      year: 2099,
       leaveType: 'vacation',
       days: 12,
       expiresOn: '2099-09-30',
     });
+    fixture.detectChanges();
+    await fixture.whenStable();
 
     // Reload after dialog closes.
     http

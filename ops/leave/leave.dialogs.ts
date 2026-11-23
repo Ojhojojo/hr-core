@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule, NgModel } from '@angular/forms';
 import { MatButton } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -16,6 +16,7 @@ import {
 import {
   LeaveAffectedJob,
   LeaveApi,
+  LeaveBalance,
   LeaveHalfDay,
   LeavePerson,
   LeaveReassignment,
@@ -492,12 +493,7 @@ export interface SetAllotmentDialogData {
       @if (error()) {
         <ops-banner tone="danger" role="alert" [message]="error()" />
       }
-      <form
-        id="leave-allotment"
-        class="leave-dialog-form"
-        data-allotment
-        (ngSubmit)="submit(expiresModel)"
-      >
+      <form id="leave-allotment" class="leave-dialog-form" data-allotment (ngSubmit)="submit()">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Person</mat-label>
           <select
@@ -513,7 +509,14 @@ export interface SetAllotmentDialogData {
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Year</mat-label>
-          <input matInput name="allotmentYear" type="number" [(ngModel)]="year" required />
+          <input
+            matInput
+            name="allotmentYear"
+            type="number"
+            [ngModel]="year()"
+            (ngModelChange)="onYearChange($event)"
+            required
+          />
         </mat-form-field>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Type</mat-label>
@@ -536,32 +539,41 @@ export interface SetAllotmentDialogData {
             type="number"
             min="0"
             step="0.5"
-            [(ngModel)]="days"
+            [ngModel]="days()"
+            (ngModelChange)="days.set($event)"
             required
           />
         </mat-form-field>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Expires on (optional)</mat-label>
-          <input
-            matInput
-            [matDatepicker]="allotmentExpiresPicker"
-            name="allotmentExpiresOn"
-            placeholder="Auto (cycle end)"
-            [ngModel]="expiresOn()"
-            (ngModelChange)="expiresOn.set($event)"
-            #expiresModel="ngModel"
-          />
-          <mat-datepicker-toggle matIconSuffix [for]="allotmentExpiresPicker" />
-          <mat-datepicker #allotmentExpiresPicker />
-          @if (expiresModel.hasError('matDatepickerParse')) {
-            <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
-          }
-        </mat-form-field>
+        @if (leaveType() !== 'service_incentive') {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Expires on (optional)</mat-label>
+            <input
+              matInput
+              [matDatepicker]="allotmentExpiresPicker"
+              name="allotmentExpiresOn"
+              placeholder="Auto (cycle end)"
+              [ngModel]="expiresOn()"
+              (ngModelChange)="expiresOn.set($event)"
+              #expiresModel="ngModel"
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="allotmentExpiresPicker" />
+            <mat-datepicker #allotmentExpiresPicker />
+            @if (expiresModel.hasError('matDatepickerParse')) {
+              <mat-error>Enter a date as MM/DD/YYYY.</mat-error>
+            }
+          </mat-form-field>
+        } @else {
+          <p class="ops-muted leave-sil-hint">
+            Service incentive leave (SIL) does not expire — unused days are convertible to cash.
+          </p>
+        }
 
-        <div class="ops-hint-tile">
-          <span class="ops-muted">Current allotted days:</span>
-          <strong>{{ currentAllottedDays() }}</strong>
-        </div>
+        @if (isActiveCycleYear()) {
+          <div class="ops-hint-tile">
+            <span class="ops-muted">Current allotted days:</span>
+            <strong>{{ currentAllottedDays() }}</strong>
+          </div>
+        }
       </form>
       <div dialogActions>
         <button matButton="text" type="button" (click)="dialogRef.close(false)">Cancel</button>
@@ -586,6 +598,10 @@ export interface SetAllotmentDialogData {
     .leave-dialog-form mat-form-field {
       width: 100%;
     }
+    .leave-sil-hint {
+      margin: 0;
+      font-size: 0.88rem;
+    }
     .ops-hint-tile {
       display: flex;
       align-items: center;
@@ -602,68 +618,106 @@ export class SetAllotmentDialog {
   protected readonly dialogRef = inject(MatDialogRef<SetAllotmentDialog>);
   private readonly data = inject<SetAllotmentDialogData>(MAT_DIALOG_DATA);
   private readonly api = inject(LeaveApi);
+  private readonly expiresModel = viewChild<NgModel>('expiresModel');
 
   protected readonly people = this.data.people;
   protected readonly teamRows = this.data.teamRows;
   protected readonly staffId = signal(this.people[0]?.id ?? '');
-  protected year = this.data.year;
+  protected readonly activeCycleYear = computed(() => this.activeCycleYearFor(this.staffId()));
+  protected readonly year = signal(this.activeCycleYearFor(this.people[0]?.id ?? ''));
   protected readonly leaveType = signal<LeaveType>('vacation');
-  protected days = 0;
+  protected readonly isActiveCycleYear = computed(
+    () => Number(this.year()) === this.activeCycleYear(),
+  );
+  protected readonly days = signal<number>(
+    this.balanceFor(this.people[0]?.id ?? '', 'vacation')?.allotment ?? 0,
+  );
   protected readonly expiresOn = signal<Date | string | null>(
     this.prefillExpiresOn(this.people[0]?.id ?? '', 'vacation'),
   );
   protected readonly saving = signal(false);
   protected readonly error = signal('');
 
-  protected currentAllottedDays = computed(() => {
-    const staffId = this.staffId();
-    if (!staffId) return 0;
-    const member = this.teamRows.find((m) => m.staffId === staffId);
-    if (!member) return 0;
-    const b = member.balances?.find((row) => row.leaveType === this.leaveType());
-    return b?.allotment ?? 0;
-  });
+  protected currentAllottedDays = computed(
+    () => this.balanceFor(this.staffId(), this.leaveType())?.allotment ?? 0,
+  );
 
   protected onStaffChange(nextStaffId: string): void {
     this.staffId.set(nextStaffId);
+    this.year.set(this.activeCycleYearFor(nextStaffId));
+    this.days.set(this.balanceFor(nextStaffId, this.leaveType())?.allotment ?? 0);
     this.expiresOn.set(this.prefillExpiresOn(nextStaffId, this.leaveType()));
   }
 
   protected onLeaveTypeChange(nextType: LeaveType): void {
     this.leaveType.set(nextType);
-    this.expiresOn.set(this.prefillExpiresOn(this.staffId(), nextType));
+    if (this.isActiveCycleYear()) {
+      this.days.set(this.balanceFor(this.staffId(), nextType)?.allotment ?? 0);
+      this.expiresOn.set(this.prefillExpiresOn(this.staffId(), nextType));
+    } else {
+      this.expiresOn.set('');
+    }
+  }
+
+  protected onYearChange(nextYear: number | string): void {
+    const parsed = Number(nextYear);
+    this.year.set(parsed);
+    if (parsed === this.activeCycleYear()) {
+      this.days.set(this.balanceFor(this.staffId(), this.leaveType())?.allotment ?? 0);
+      this.expiresOn.set(this.prefillExpiresOn(this.staffId(), this.leaveType()));
+    } else {
+      this.expiresOn.set('');
+    }
+  }
+
+  private activeCycleYearFor(staffId: string): number {
+    if (!staffId) {
+      return this.data.year;
+    }
+    const member = this.teamRows.find((m) => m.staffId === staffId);
+    const cycleYear = member?.balances?.find((row) => row.cycleYear != null)?.cycleYear;
+    return cycleYear ?? this.data.year;
+  }
+
+  private balanceFor(staffId: string, leaveType: LeaveType): LeaveBalance | undefined {
+    if (!staffId) {
+      return undefined;
+    }
+    const member = this.teamRows.find((m) => m.staffId === staffId);
+    return member?.balances?.find((row) => row.leaveType === leaveType);
   }
 
   private prefillExpiresOn(staffId: string, leaveType: LeaveType): string {
-    if (!staffId) {
+    if (!staffId || leaveType === 'service_incentive') {
       return '';
     }
-    const member = this.teamRows.find((m) => m.staffId === staffId);
-    const bal = member?.balances?.find((row) => row.leaveType === leaveType);
+    const bal = this.balanceFor(staffId, leaveType);
     return bal?.hasCustomExpiry && bal.expiresOn ? bal.expiresOn : '';
   }
 
-  protected submit(expiresModel: NgModel): void {
+  protected submit(): void {
     const staffId = this.staffId();
     if (!staffId) {
       this.error.set('Choose a person.');
       return;
     }
-    if (expiresModel.hasError('matDatepickerParse')) {
-      expiresModel.control.markAsTouched();
+    const isSil = this.leaveType() === 'service_incentive';
+    const expiresCtrl = this.expiresModel();
+    if (!isSil && expiresCtrl?.hasError('matDatepickerParse')) {
+      expiresCtrl.control.markAsTouched();
       return;
     }
 
-    const expiresOn = toIsoDay(this.expiresOn());
+    const expiresOn = isSil ? null : toIsoDay(this.expiresOn()) || null;
     this.saving.set(true);
     this.error.set('');
     this.api
       .saveAllotment({
         staffId,
-        year: Number(this.year),
+        year: Number(this.year()),
         leaveType: this.leaveType(),
-        days: Number(this.days),
-        expiresOn: expiresOn || null,
+        days: Number(this.days()),
+        expiresOn,
       })
       .subscribe({
         next: () => {

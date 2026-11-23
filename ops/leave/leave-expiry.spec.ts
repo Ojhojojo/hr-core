@@ -81,8 +81,20 @@ describe('describeLeaveExpiry', () => {
     });
 
     expect(describeLeaveExpiry(makeBalance(), '2026-12-31')).toEqual({
-      label: 'Expires Dec 31, 2026 (0d left)',
+      label: 'Expires Dec 31, 2026 (today)',
       expiringSoon: true,
+      hasExpired: false,
+    });
+
+    // Past expiry date with zero forfeited days uses past tense.
+    expect(
+      describeLeaveExpiry(
+        makeBalance({ used: 10, remaining: 0, expired: 0, expiresOn: '2026-06-30' }),
+        '2026-07-05',
+      ),
+    ).toEqual({
+      label: 'Expired Jun 30, 2026',
+      expiringSoon: false,
       hasExpired: false,
     });
 

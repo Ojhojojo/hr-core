@@ -71,18 +71,26 @@ export function describeLeaveExpiry(
 
   const expiresMs = parseUtcDayMs(balance.expiresOn);
   const todayMs = parseUtcDayMs(todayIso);
-  if (balance.remaining > 0 && expiresMs !== null && todayMs !== null) {
+  const customSuffix = balance.hasCustomExpiry ? ' (custom)' : '';
+  if (expiresMs !== null && todayMs !== null) {
     const daysLeft = Math.round((expiresMs - todayMs) / MS_PER_DAY);
-    if (daysLeft >= 0 && daysLeft <= LEAVE_EXPIRING_SOON_DAYS) {
+    if (daysLeft < 0) {
       return {
-        label: `Expires ${formatted} (${daysLeft}d left)`,
+        label: `Expired ${formatted}${customSuffix}`,
+        expiringSoon: false,
+        hasExpired: false,
+      };
+    }
+    if (balance.remaining > 0 && daysLeft <= LEAVE_EXPIRING_SOON_DAYS) {
+      const leftLabel = daysLeft === 0 ? 'today' : `${daysLeft}d left`;
+      return {
+        label: `Expires ${formatted} (${leftLabel})`,
         expiringSoon: true,
         hasExpired: false,
       };
     }
   }
 
-  const customSuffix = balance.hasCustomExpiry ? ' (custom)' : '';
   return {
     label: `Expires ${formatted}${customSuffix}`,
     expiringSoon: false,
@@ -119,9 +127,7 @@ export function teamExpirySubtext(
   }
 
   if (balance.usesHireAnniversary) {
-    return balance.convertibleToCash
-      ? `Cycle ends ${formatDay(balance.expiresOn)}`
-      : `Expires ${formatDay(balance.expiresOn)}`;
+    return balance.convertibleToCash ? `Cycle ends ${formatDay(balance.expiresOn)}` : info.label;
   }
 
   return null;

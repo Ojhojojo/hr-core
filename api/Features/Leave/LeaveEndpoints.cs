@@ -73,7 +73,8 @@ public static class LeaveEndpoints
             return Results.BadRequest(new { error = "Status must be pending or decided." });
         }
 
-        var currentYear = ManilaTime.Today().Year;
+        var today = ManilaTime.Today();
+        var currentYear = today.Year;
         var query = db.LeaveRequests.AsNoTracking()
             .Include(r => r.Staff)
             .ThenInclude(s => s.Profile)
@@ -81,7 +82,7 @@ public static class LeaveEndpoints
 
         if (year is int explicitYear)
         {
-            query = query.Where(r => r.StartDate.Year == explicitYear);
+            query = query.Where(r => r.StartDate.Year == explicitYear || r.EndDate.Year == explicitYear);
         }
         else if (statusFilter == "pending")
         {
@@ -89,11 +90,13 @@ public static class LeaveEndpoints
         }
         else if (mine && string.IsNullOrEmpty(statusFilter))
         {
-            query = query.Where(r => r.Status == LeaveRequestStatus.Pending || r.StartDate.Year >= currentYear);
+            var (mode, hireDate) = await StaffLeavePolicyAsync(db, actor.Id, cancellationToken);
+            var activeCycle = LeaveCycle.Resolve(mode, hireDate, today);
+            query = query.Where(r => r.Status == LeaveRequestStatus.Pending || r.EndDate >= activeCycle.StartsOn);
         }
         else
         {
-            query = query.Where(r => r.StartDate.Year == currentYear);
+            query = query.Where(r => r.StartDate.Year == currentYear || r.EndDate.Year == currentYear);
         }
 
         // mine=true is "My requests" for every role. Shop-wide list is leave managers only.
@@ -258,14 +261,32 @@ public static class LeaveEndpoints
 
         var (mode, hireDate) = await StaffLeavePolicyAsync(db, request.StaffId, cancellationToken);
         var cycle = LeaveCycle.ForYear(mode, hireDate, request.Year);
-        if (request.ExpiresOn is DateOnly customExpiresOn && customExpiresOn < cycle.StartsOn)
+        if (request.ExpiresOn is DateOnly customExpiresOn)
         {
-            return Results.BadRequest(new
+            if (!HasExpiry(request.LeaveType.Value))
             {
-                error = string.Create(
-                    CultureInfo.InvariantCulture,
-                    $"Expiry date can't be before the leave cycle start ({cycle.StartsOn:MMM d, yyyy}).")
-            });
+                return Results.BadRequest(new { error = "Only vacation and sick leave can have a custom expiry date." });
+            }
+
+            if (customExpiresOn < cycle.StartsOn)
+            {
+                return Results.BadRequest(new
+                {
+                    error = string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"Expiry date can't be before the leave cycle start ({cycle.StartsOn:MMM d, yyyy}).")
+                });
+            }
+
+            if (customExpiresOn > cycle.ExpiresOn)
+            {
+                return Results.BadRequest(new
+                {
+                    error = string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"Expiry date can't be after the leave cycle end ({cycle.ExpiresOn:MMM d, yyyy}).")
+                });
+            }
         }
 
         if (HasDayLimit(request.LeaveType.Value))
@@ -604,6 +625,12 @@ public static class LeaveEndpoints
         var days = calendar.Count(row.StartDate, row.EndDate, row.HalfDay);
         if (request.Decision == LeaveRequestStatus.Approved)
         {
+            var endCycle = LeaveCycle.Resolve(mode, row.Staff.HireDate, row.EndDate);
+            if (CrossCycleError(startCycle, endCycle) is { } crossCycleError)
+            {
+                return crossCycleError;
+            }
+
             if (await ExpiryErrorAsync(db, row.StaffId, row.LeaveType, startCycle, row.EndDate, cancellationToken) is { } expiryError)
             {
                 return expiryError;
@@ -906,27 +933,30 @@ public static class LeaveEndpoints
                 Expired: 0m,
                 ConvertibleToCash: false,
                 UsesHireAnniversary: false,
-                HasCustomExpiry: false);
+                HasCustomExpiry: false,
+                CycleYear: cycle.CycleYear);
         }
-
-        var customExpiresOn = allotmentRow?.ExpiresOn;
-        var effectiveExpiresOn = LeaveCycle.EffectiveExpiresOn(cycle, customExpiresOn);
-        var hasCustomExpiry = customExpiresOn is not null;
 
         if (type == LeaveType.ServiceIncentive)
         {
+            // PH Labor Code Art. 95: SIL never expires/forfeits and cannot have a custom expiry date.
             return new LeaveBalanceResponse(
                 type,
                 allotment,
                 used,
                 pending,
                 allotment - used - pending,
-                ExpiresOn: effectiveExpiresOn,
+                ExpiresOn: cycle.ExpiresOn,
                 Expired: 0m,
                 ConvertibleToCash: true,
                 UsesHireAnniversary: cycle.UsesHireAnniversary,
-                HasCustomExpiry: hasCustomExpiry);
+                HasCustomExpiry: false,
+                CycleYear: cycle.CycleYear);
         }
+
+        var customExpiresOn = allotmentRow?.ExpiresOn;
+        var effectiveExpiresOn = LeaveCycle.EffectiveExpiresOn(cycle, customExpiresOn);
+        var hasCustomExpiry = customExpiresOn is not null;
 
         var rawRemaining = allotment - used - pending;
         if (today > effectiveExpiresOn)
@@ -942,7 +972,8 @@ public static class LeaveEndpoints
                 Expired: expired,
                 ConvertibleToCash: false,
                 UsesHireAnniversary: cycle.UsesHireAnniversary,
-                HasCustomExpiry: hasCustomExpiry);
+                HasCustomExpiry: hasCustomExpiry,
+                CycleYear: cycle.CycleYear);
         }
 
         return new LeaveBalanceResponse(
@@ -955,7 +986,8 @@ public static class LeaveEndpoints
             Expired: 0m,
             ConvertibleToCash: false,
             UsesHireAnniversary: cycle.UsesHireAnniversary,
-            HasCustomExpiry: hasCustomExpiry);
+            HasCustomExpiry: hasCustomExpiry,
+            CycleYear: cycle.CycleYear);
     }
 
     private static async Task<(LeaveExpirationMode Mode, DateOnly? HireDate)> StaffLeavePolicyAsync(
@@ -1163,7 +1195,8 @@ public sealed record LeaveBalanceResponse(
     decimal Expired = 0m,
     bool ConvertibleToCash = false,
     bool UsesHireAnniversary = false,
-    bool HasCustomExpiry = false);
+    bool HasCustomExpiry = false,
+    int? CycleYear = null);
 
 public sealed record StaffLeaveBalancesResponse(
     Guid StaffId,

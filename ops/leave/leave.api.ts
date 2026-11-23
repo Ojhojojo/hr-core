@@ -47,6 +47,7 @@ export interface LeaveBalance {
   convertibleToCash?: boolean;
   usesHireAnniversary?: boolean;
   hasCustomExpiry?: boolean;
+  cycleYear?: number | null;
 }
 
 export interface StaffLeaveBalances {

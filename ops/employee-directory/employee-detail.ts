@@ -45,6 +45,7 @@ import {
   LeaveRequestRow,
   LeaveType,
 } from '../leave/leave.api';
+import { describeLeaveExpiry } from '../leave/leave-expiry';
 import { AllowanceDialogResult, StaffAllowanceDialog } from '../payroll/payroll-allowance-dialog';
 import { allowancePerLabel } from '../payroll/payroll-allowances.format';
 import { LoanDialogResult, StaffLoanDialog } from '../payroll/payroll-loan-dialog';
@@ -704,22 +705,21 @@ export class EmployeeDetailPage implements OnInit {
     const p = this.person();
     if (!p) return;
     this.leaveLoading.set(true);
-    const currentYear = new Date().getFullYear();
 
     if (this.isManager()) {
-      this.leaveApi.shopBalances(currentYear).subscribe({
+      this.leaveApi.shopBalances().subscribe({
         next: (allBalances) => {
           const match = allBalances.find((b) => b.staffId === p.id);
           this.leaveBalances.set(match?.balances ?? []);
         },
       });
     } else {
-      this.leaveApi.balances(currentYear).subscribe({
+      this.leaveApi.balances().subscribe({
         next: (b) => this.leaveBalances.set(b),
       });
     }
 
-    this.leaveApi.list(currentYear).subscribe({
+    this.leaveApi.list(undefined, !this.isManager()).subscribe({
       next: (reqs) => {
         const staffReqs = reqs.filter((r) => r.staffId === p.id);
         this.leaveRequests.set(staffReqs);
@@ -727,6 +727,10 @@ export class EmployeeDetailPage implements OnInit {
       },
       error: () => this.leaveLoading.set(false),
     });
+  }
+
+  protected leaveExpiryLabel(balance: LeaveBalance): string | null {
+    return describeLeaveExpiry(balance).label;
   }
 
   protected loadHistory(): void {

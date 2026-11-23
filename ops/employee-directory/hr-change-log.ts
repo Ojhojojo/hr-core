@@ -40,6 +40,7 @@ const FIELD_LABELS: Record<string, string> = {
   'staff.pagibig': 'Pag-IBIG',
   'staff.must_clock': 'Uses time clock',
   'leave.allotment': 'Leave allotment',
+  'leave.allotment_expiry': 'Leave allotment expiry',
   'leave.decision': 'Leave decision',
   'leave.request': 'Leave request',
   'payroll.deduction.sss': 'SSS deduction',
