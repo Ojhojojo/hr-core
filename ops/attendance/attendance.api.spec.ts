@@ -123,9 +123,7 @@ describe('AttendanceApi', () => {
     pendingReq.flush({ from: '2026-09-13', to: '2026-09-19', rows: [] });
 
     api.overtime(undefined, undefined, true, 'pending').subscribe();
-    const minePendingReq = http.expectOne(
-      '/api/ops/attendance/overtime?mine=true&status=pending',
-    );
+    const minePendingReq = http.expectOne('/api/ops/attendance/overtime?mine=true&status=pending');
     expect(minePendingReq.request.params.get('mine')).toBe('true');
     expect(minePendingReq.request.params.get('status')).toBe('pending');
     minePendingReq.flush({ from: '2026-09-13', to: '2026-09-19', rows: [] });

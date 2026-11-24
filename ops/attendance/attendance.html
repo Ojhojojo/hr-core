@@ -392,11 +392,7 @@
     @if (overtimeLoading() && myOvertimeRows().length === 0) {
       <ops-skeleton [rows]="3" label="Loading overtime" />
     } @else if (myOvertimeRows().length === 0) {
-      <ops-empty-state
-        title="No overtime"
-        message="No overtime of yours this week."
-        icon="inbox"
-      />
+      <ops-empty-state title="No overtime" message="No overtime of yours this week." icon="inbox" />
     } @else {
       <div class="ops-table-wrap">
         <table mat-table [dataSource]="myOvertimeRows()" class="ops-table">
