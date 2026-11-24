@@ -29,6 +29,13 @@ import { defaultPayrollPeriod, earlyPayFromWarning, PayFromDateResponse } from '
 import { PayrollApi } from './payroll.api';
 import { AllowanceOverrideDialog } from './payroll-allowance-dialog';
 import { rowHasAllowances } from './payroll-allowances.format';
+import {
+  deductionDraftDirty,
+  premiumSettingsDirty,
+  rememberDeductionAmount,
+  thirteenthDraftDirty,
+  unsavedPayrollDraftKinds,
+} from './payroll-draft';
 import { LoanOverrideDialog } from './payroll-loan-dialog';
 import { loanItemLabel, loanOverrideKey, rowHasLoans } from './payroll-loans.format';
 import {
@@ -369,6 +376,8 @@ export class PayrollPage {
   protected readonly holidayYear = signal(Number(manilaToday().slice(0, 4)));
   protected readonly holidays = signal<ShopHoliday[]>([]);
   protected readonly settingsDraft = signal<UpdatePayrollPremiumSettings | null>(null);
+  /** Last saved premium settings; draft is mutated in place by the form, so dirty checks need this copy. */
+  private readonly settingsSaved = signal<UpdatePayrollPremiumSettings | null>(null);
   protected readonly premiumsLoading = signal(false);
   protected readonly premiumsSaving = signal(false);
   protected readonly holidayBusy = signal(false);
@@ -624,8 +633,8 @@ export class PayrollPage {
       .subscribe((openRows) => {
         const warning = openPunchWarning(openRows.map((row) => row.staffName));
         this.openPunchNames.set(openRows.map((row) => row.staffName));
-        // Totals and the locked snapshot must use saved deductions, not on-screen drafts.
-        this.ensureSavedDeductionsThen(() => this.confirmLock(branchId, warning));
+        // Totals and the locked snapshot must use saved drafts, not on-screen edits.
+        this.ensureSavedDraftsThen(() => this.confirmLock(branchId, warning));
       });
   }
 
@@ -1113,11 +1122,11 @@ export class PayrollPage {
     const next: Record<string, PayrollDeductionDraft> = {};
     for (const row of rows) {
       next[row.staffId] = {
-        sss: rememberAmount(row.sss),
-        philHealth: rememberAmount(row.philHealth),
-        pagIbig: rememberAmount(row.pagIbig),
-        wht: rememberAmount(row.wht),
-        other: rememberAmount(row.other),
+        sss: rememberDeductionAmount(row.sss),
+        philHealth: rememberDeductionAmount(row.philHealth),
+        pagIbig: rememberDeductionAmount(row.pagIbig),
+        wht: rememberDeductionAmount(row.wht),
+        other: rememberDeductionAmount(row.other),
       };
     }
     this.drafts.set(next);
@@ -1128,7 +1137,7 @@ export class PayrollPage {
       this.error.set('Choose a period before opening a payslip.');
       return;
     }
-    this.ensureSavedDeductionsThen(() => this.openPayslipNow(row));
+    this.ensureSavedDraftsThen(() => this.openPayslipNow(row));
   }
 
   private openPayslipNow(row: PayrollStaffRow): void {
@@ -1174,7 +1183,7 @@ export class PayrollPage {
     if (this.ratedRows().length === 0) {
       return;
     }
-    this.ensureSavedDeductionsThen(() => this.openAllPayslipsNow());
+    this.ensureSavedDraftsThen(() => this.openAllPayslipsNow());
   }
 
   private openAllPayslipsNow(): void {
@@ -1210,74 +1219,98 @@ export class PayrollPage {
     if (this.isLocked()) {
       return false;
     }
-    return this.rows().some((row) => {
-      const draft = this.drafts()[row.staffId];
-      if (!draft) {
-        return false;
-      }
-      return (
-        draft.sss !== rememberAmount(row.sss) ||
-        draft.philHealth !== rememberAmount(row.philHealth) ||
-        draft.pagIbig !== rememberAmount(row.pagIbig) ||
-        draft.wht !== rememberAmount(row.wht) ||
-        draft.other !== rememberAmount(row.other)
-      );
-    });
+    return this.rows().some((row) => deductionDraftDirty(this.drafts()[row.staffId], row));
+  }
+
+  /** True when holiday / NSD / OT premium settings differ from the last saved copy. */
+  hasUnsavedPremiumSettingsEdits(): boolean {
+    return premiumSettingsDirty(this.settingsDraft(), this.settingsSaved());
+  }
+
+  /** True when any 13th-month override draft differs from the saved override. */
+  hasUnsavedThirteenthEdits(): boolean {
+    return this.thirteenthRows().some((row) =>
+      thirteenthDraftDirty(this.thirteenthDrafts()[row.staffId]?.amount, row.basicEarnedOverride),
+    );
+  }
+
+  /** True when any editable payroll draft (deductions, premiums, 13th month) is unsaved. */
+  hasUnsavedDraftEdits(): boolean {
+    return (
+      unsavedPayrollDraftKinds({
+        deductionsDirty: this.hasUnsavedDeductionEdits(),
+        settingsDirty: this.hasUnsavedPremiumSettingsEdits(),
+        thirteenthDirty: this.hasUnsavedThirteenthEdits(),
+      }).length > 0
+    );
   }
 
   /**
-   * Lock and print must use saved figures. When drafts differ from the register, ask to save
-   * first; on confirm, persist every dirty row then run the action.
+   * Lock and print must use saved figures. When any editable draft differs from what is stored,
+   * ask to save first; on confirm, persist every dirty draft then run the action.
    */
-  private ensureSavedDeductionsThen(action: () => void): void {
-    if (!this.hasUnsavedDeductionEdits()) {
+  private ensureSavedDraftsThen(action: () => void): void {
+    if (!this.hasUnsavedDraftEdits()) {
       action();
       return;
     }
 
     this.confirm
       .confirm({
-        title: 'Save deductions first?',
+        title: 'Save first?',
         message:
-          'You have unsaved deduction edits. Save them before continuing so the lock totals and payslips match what is stored.',
+          'You have unsaved edits. Save them before continuing so the lock totals and payslips match what is stored.',
         confirmLabel: 'Save and continue',
       })
       .subscribe((result) => {
         if (!result.confirmed) {
           return;
         }
-        this.saveDirtyDeductionsThen(action);
+        this.saveDirtyDraftsThen(action);
       });
   }
 
-  private saveDirtyDeductionsThen(action: () => void): void {
-    if (!this.from() || !this.to() || this.isLocked()) {
-      action();
-      return;
-    }
+  private saveDirtyDraftsThen(action: () => void): void {
+    const deductionCalls = this.dirtyDeductionSaveCalls();
+    const settingsCall = this.dirtySettingsSaveCall();
+    const thirteenthCalls = this.dirtyThirteenthSaveCalls();
+    const calls = [...deductionCalls, ...settingsCall, ...thirteenthCalls];
 
-    const dirtyRows = this.rows().filter((row) => {
-      const draft = this.drafts()[row.staffId];
-      if (!draft || !hasPayRate(row)) {
-        return false;
-      }
-      return (
-        draft.sss !== rememberAmount(row.sss) ||
-        draft.philHealth !== rememberAmount(row.philHealth) ||
-        draft.pagIbig !== rememberAmount(row.pagIbig) ||
-        draft.wht !== rememberAmount(row.wht) ||
-        draft.other !== rememberAmount(row.other)
-      );
-    });
-
-    if (dirtyRows.length === 0) {
+    if (calls.length === 0) {
       action();
       return;
     }
 
     this.savingAll.set(true);
     this.error.set('');
-    const calls = dirtyRows.map((row) => {
+    this.premiumsError.set('');
+    this.thirteenthError.set('');
+    forkJoin(calls).subscribe({
+      next: (results) => {
+        this.savingAll.set(false);
+        if (results.some((result) => result === null)) {
+          this.error.set('Could not save all edits. Fix the errors and try again.');
+          return;
+        }
+        action();
+      },
+      error: (err: unknown) => {
+        this.savingAll.set(false);
+        this.error.set(apiErrorMessage(err));
+      },
+    });
+  }
+
+  private dirtyDeductionSaveCalls() {
+    if (!this.from() || !this.to() || this.isLocked()) {
+      return [];
+    }
+
+    const dirtyRows = this.rows().filter(
+      (row) => hasPayRate(row) && deductionDraftDirty(this.drafts()[row.staffId], row),
+    );
+
+    return dirtyRows.map((row) => {
       const draft = this.drafts()[row.staffId]!;
       return this.api
         .saveDeductions(
@@ -1293,58 +1326,146 @@ export class PayrollPage {
           },
           { includeInactive: this.includeInactive() },
         )
-        .pipe(catchError(() => of(null)));
-    });
-
-    forkJoin(calls).subscribe({
-      next: (results) => {
-        this.savingAll.set(false);
-        const validResults = results.filter((r): r is NonNullable<typeof r> => r !== null);
-        if (validResults.length !== dirtyRows.length) {
-          this.error.set('Could not save all deduction edits. Fix the errors and try again.');
-          return;
-        }
-        const byStaffId = new Map(validResults.map((s) => [s.staffId, s]));
-        this.rows.update((list) =>
-          list.map((item) => {
-            const saved = byStaffId.get(item.staffId);
-            if (!saved) {
-              return item;
-            }
-            return {
-              ...item,
-              sss: saved.sss,
-              philHealth: saved.philHealth,
-              pagIbig: saved.pagIbig,
-              wht: saved.wht,
-              other: saved.other,
-              statutorySuggested: false,
-              statutoryNote: null,
-              deductions: roundMoney(saved.deductions + loanAmountOf(item)),
-              net: roundMoney((Number(item.amount) || 0) - saved.deductions - loanAmountOf(item)),
-            };
+        .pipe(
+          map((saved) => {
+            this.rows.update((list) =>
+              list.map((item) => {
+                if (item.staffId !== saved.staffId) {
+                  return item;
+                }
+                return {
+                  ...item,
+                  sss: saved.sss,
+                  philHealth: saved.philHealth,
+                  pagIbig: saved.pagIbig,
+                  wht: saved.wht,
+                  other: saved.other,
+                  statutorySuggested: false,
+                  statutoryNote: null,
+                  deductions: roundMoney(saved.deductions + loanAmountOf(item)),
+                  net: roundMoney((Number(item.amount) || 0) - saved.deductions - loanAmountOf(item)),
+                };
+              }),
+            );
+            this.drafts.update((draftMap) => ({
+              ...draftMap,
+              [saved.staffId]: {
+                sss: saved.sss,
+                philHealth: saved.philHealth,
+                pagIbig: saved.pagIbig,
+                wht: saved.wht,
+                other: saved.other,
+              },
+            }));
+            return saved;
           }),
+          catchError(() => of(null)),
         );
-        this.drafts.update((map) => {
-          const next = { ...map };
-          for (const saved of validResults) {
-            next[saved.staffId] = {
-              sss: saved.sss,
-              philHealth: saved.philHealth,
-              pagIbig: saved.pagIbig,
-              wht: saved.wht,
-              other: saved.other,
-            };
-          }
-          return next;
-        });
-        action();
-      },
-      error: (err: unknown) => {
-        this.savingAll.set(false);
-        this.error.set(apiErrorMessage(err));
-      },
     });
+  }
+
+  private dirtySettingsSaveCall() {
+    const draft = this.settingsDraft();
+    if (!draft || !this.hasUnsavedPremiumSettingsEdits() || !this.canEditPremiums()) {
+      return [];
+    }
+
+    const percents = [
+      draft.regularHolidayPercent,
+      draft.specialDayPercent,
+      draft.restDayPercent,
+      draft.nightDiffPercent,
+      draft.otPremiumPercent,
+    ];
+    if (
+      percents.some(
+        (value) => !Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 1000,
+      )
+    ) {
+      this.premiumsError.set('Percents must be from 0 through 1000.');
+      return [of(null)];
+    }
+
+    this.premiumsSaving.set(true);
+    return [
+      this.api
+        .saveSettings({
+          ...draft,
+          regularHolidayPercent: Number(draft.regularHolidayPercent),
+          specialDayPercent: Number(draft.specialDayPercent),
+          restDayPercent: Number(draft.restDayPercent),
+          nightDiffPercent: Number(draft.nightDiffPercent),
+          nightStart: toApiTime(draft.nightStart),
+          nightEnd: toApiTime(draft.nightEnd),
+          shiftEnd: toApiTime(draft.shiftEnd),
+          otGraceMinutes: Number(draft.otGraceMinutes),
+          adminsCanApproveOt: draft.adminsCanApproveOt,
+          otPremiumPercent: Number(draft.otPremiumPercent),
+          otMonthlyDayDivisor: Number(draft.otMonthlyDayDivisor),
+        })
+        .pipe(
+          map((saved) => {
+            const next = toSettingsDraft(saved);
+            this.settingsDraft.set(next);
+            this.settingsSaved.set({ ...next });
+            this.premiumsSaving.set(false);
+            this.premiumsNotice.set('Premium settings saved.');
+            return saved;
+          }),
+          catchError((err: unknown) => {
+            this.premiumsSaving.set(false);
+            this.premiumsError.set(apiErrorMessage(err));
+            return of(null);
+          }),
+        ),
+    ];
+  }
+
+  private dirtyThirteenthSaveCalls() {
+    const year = this.thirteenthYear();
+    if (!Number.isInteger(year)) {
+      return [];
+    }
+
+    return this.thirteenthRows()
+      .filter((row) =>
+        thirteenthDraftDirty(this.thirteenthDrafts()[row.staffId]?.amount, row.basicEarnedOverride),
+      )
+      .map((row) => {
+        const amount = this.thirteenthDrafts()[row.staffId]?.amount ?? null;
+        if (amount == null) {
+          return this.api.clearThirteenthOverride(row.staffId, year).pipe(
+            map((saved) => {
+              this.replaceThirteenthRow(saved);
+              return saved;
+            }),
+            catchError((err: unknown) => {
+              this.thirteenthError.set(apiErrorMessage(err));
+              return of(null);
+            }),
+          );
+        }
+        if (amount < 0) {
+          this.thirteenthError.set('Override must be zero or more.');
+          return of(null);
+        }
+        return this.api
+          .saveThirteenthOverride({
+            staffId: row.staffId,
+            year,
+            basicEarnedOverride: amount,
+          })
+          .pipe(
+            map((saved) => {
+              this.replaceThirteenthRow(saved);
+              return saved;
+            }),
+            catchError((err: unknown) => {
+              this.thirteenthError.set(apiErrorMessage(err));
+              return of(null);
+            }),
+          );
+      });
   }
 
   exportCsv(): void {
@@ -1608,7 +1729,9 @@ export class PayrollPage {
       holidays: this.api.listHolidays(this.holidayYear()),
     }).subscribe({
       next: ({ settings, holidays }) => {
-        this.settingsDraft.set(toSettingsDraft(settings));
+        const draft = toSettingsDraft(settings);
+        this.settingsDraft.set(draft);
+        this.settingsSaved.set({ ...draft });
         this.holidays.set(holidays.holidays ?? []);
         if (holidays.year) {
           this.holidayYear.set(holidays.year);
@@ -1671,7 +1794,9 @@ export class PayrollPage {
       })
       .subscribe({
         next: (saved) => {
-          this.settingsDraft.set(toSettingsDraft(saved));
+          const next = toSettingsDraft(saved);
+          this.settingsDraft.set(next);
+          this.settingsSaved.set({ ...next });
           this.premiumsSaving.set(false);
           this.premiumsNotice.set('Premium settings saved.');
         },
@@ -1997,11 +2122,6 @@ function toSettingsDraft(settings: {
     otPremiumPercent: settings.otPremiumPercent ?? 125,
     otMonthlyDayDivisor: settings.otMonthlyDayDivisor ?? 313,
   };
-}
-
-function rememberAmount(value: number | null | undefined): number {
-  const amount = Number(value ?? 0);
-  return Number.isFinite(amount) ? amount : 0;
 }
 
 function parseFileName(header: string | null): string | null {
