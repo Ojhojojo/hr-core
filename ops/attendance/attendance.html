@@ -248,7 +248,7 @@
       />
     } @else {
       <div class="ops-table-wrap">
-        <table mat-table [dataSource]="overtimeRows()" class="ops-table">
+        <table mat-table [dataSource]="pagedOvertimeRows()" class="ops-table">
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef>Name</th>
             <td mat-cell *matCellDef="let row" data-label="Name">{{ row.staffName }}</td>
@@ -313,69 +313,134 @@
           <tr mat-row *matRowDef="let row; columns: overtimeColumns"></tr>
         </table>
       </div>
+      <mat-paginator
+        [length]="overtimeRows().length"
+        [pageIndex]="otPageIndex()"
+        [pageSize]="otPageSize()"
+        [pageSizeOptions]="pageSizeOptions"
+        showFirstLastButtons
+        (page)="onOtPage($event)"
+      />
     }
   </ops-card>
+}
 
-  @if (canManage() && role() === 'admin') {
-    <ops-card title="My overtime" [bleed]="myOvertimeRows().length > 0">
-      @if (overtimeLoading() && myOvertimeRows().length === 0) {
-        <ops-skeleton [rows]="3" label="Loading overtime" />
-      } @else if (myOvertimeRows().length === 0) {
-        <ops-empty-state
-          title="No overtime"
-          message="No overtime of yours this week."
-          icon="inbox"
-        />
-      } @else {
-        <div class="ops-table-wrap">
-          <table mat-table [dataSource]="myOvertimeRows()" class="ops-table">
-            <ng-container matColumnDef="date">
-              <th mat-header-cell *matHeaderCellDef>Date</th>
-              <td mat-cell *matCellDef="let row" data-label="Date">
-                {{ formatDay(row.workDate) }}
-              </td>
-            </ng-container>
-            <ng-container matColumnDef="kind">
-              <th mat-header-cell *matHeaderCellDef>Source</th>
-              <td mat-cell *matCellDef="let row" data-label="Source">
-                {{ overtimeKind(row) }}
-                @if (row.reason) {
-                  <span class="ops-attend-reason">{{ row.reason }}</span>
-                }
-                @if (row.decisionNote) {
-                  <span class="ops-attend-reason">{{ row.decisionNote }}</span>
-                }
-              </td>
-            </ng-container>
-            <ng-container matColumnDef="hours">
-              <th mat-header-cell *matHeaderCellDef class="num">Hours</th>
-              <td mat-cell *matCellDef="let row" class="num" data-label="Hours">
-                {{ overtimeHours(row) }}
-              </td>
-            </ng-container>
-            <ng-container matColumnDef="status">
-              <th mat-header-cell *matHeaderCellDef>Status</th>
-              <td mat-cell *matCellDef="let row" data-label="Status">
-                <ops-status-badge
-                  [tone]="punchStatusTone(row.status)"
-                  [label]="punchStatusLabel(row.status)"
-                />
-              </td>
-            </ng-container>
-            <tr mat-header-row *matHeaderRowDef="myOvertimeColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: myOvertimeColumns"></tr>
-          </table>
-        </div>
-      }
-    </ops-card>
-  }
-} @else {
-  <ops-card title="My overtime" [bleed]="overtimeRows().length > 0">
-    @if (canFileOvertime()) {
+@if (canFileOvertime()) {
+  <ops-card title="Pending OT" [bleed]="pendingOtRows().length > 0">
+    @if (!canManage()) {
       <div class="ops-attend-toolbar">
         <button matButton="filled" type="button" (click)="requestOvertime()">Request OT</button>
       </div>
     }
+    @if (overtimeLoading() && pendingOtRows().length === 0) {
+      <ops-skeleton [rows]="3" label="Loading pending overtime" />
+    } @else if (pendingOtRows().length === 0) {
+      <ops-empty-state
+        title="No pending overtime"
+        message="Filed or punched overtime waiting for a decision shows up here."
+        icon="inbox"
+      />
+    } @else {
+      <div class="ops-table-wrap">
+        <table mat-table [dataSource]="pagedPendingOtRows()" class="ops-table">
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let row" data-label="Date">{{ formatDay(row.workDate) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="kind">
+            <th mat-header-cell *matHeaderCellDef>Source</th>
+            <td mat-cell *matCellDef="let row" data-label="Source">
+              {{ overtimeKind(row) }}
+              @if (row.reason) {
+                <span class="ops-attend-reason">{{ row.reason }}</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="hours">
+            <th mat-header-cell *matHeaderCellDef class="num">Hours</th>
+            <td mat-cell *matCellDef="let row" class="num" data-label="Hours">
+              {{ overtimeHours(row) }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row" data-label="Status">
+              <ops-status-badge
+                [tone]="punchStatusTone(row.status)"
+                [label]="punchStatusLabel(row.status)"
+              />
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="myOvertimeColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: myOvertimeColumns"></tr>
+        </table>
+      </div>
+      <mat-paginator
+        [length]="pendingOtRows().length"
+        [pageIndex]="pendingOtPageIndex()"
+        [pageSize]="pendingOtPageSize()"
+        [pageSizeOptions]="pageSizeOptions"
+        showFirstLastButtons
+        (page)="onPendingOtPage($event)"
+      />
+    }
+  </ops-card>
+}
+
+@if (canManage() && role() === 'admin') {
+  <ops-card title="My overtime" [bleed]="myOvertimeRows().length > 0">
+    @if (overtimeLoading() && myOvertimeRows().length === 0) {
+      <ops-skeleton [rows]="3" label="Loading overtime" />
+    } @else if (myOvertimeRows().length === 0) {
+      <ops-empty-state
+        title="No overtime"
+        message="No overtime of yours this week."
+        icon="inbox"
+      />
+    } @else {
+      <div class="ops-table-wrap">
+        <table mat-table [dataSource]="myOvertimeRows()" class="ops-table">
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let row" data-label="Date">
+              {{ formatDay(row.workDate) }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="kind">
+            <th mat-header-cell *matHeaderCellDef>Source</th>
+            <td mat-cell *matCellDef="let row" data-label="Source">
+              {{ overtimeKind(row) }}
+              @if (row.reason) {
+                <span class="ops-attend-reason">{{ row.reason }}</span>
+              }
+              @if (row.decisionNote) {
+                <span class="ops-attend-reason">{{ row.decisionNote }}</span>
+              }
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="hours">
+            <th mat-header-cell *matHeaderCellDef class="num">Hours</th>
+            <td mat-cell *matCellDef="let row" class="num" data-label="Hours">
+              {{ overtimeHours(row) }}
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row" data-label="Status">
+              <ops-status-badge
+                [tone]="punchStatusTone(row.status)"
+                [label]="punchStatusLabel(row.status)"
+              />
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="myOvertimeColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: myOvertimeColumns"></tr>
+        </table>
+      </div>
+    }
+  </ops-card>
+} @else if (!canManage()) {
+  <ops-card title="My overtime" [bleed]="overtimeRows().length > 0">
     @if (overtimeLoading() && overtimeRows().length === 0) {
       <ops-skeleton [rows]="3" label="Loading overtime" />
     } @else if (overtimeRows().length === 0) {

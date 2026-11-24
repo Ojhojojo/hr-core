@@ -215,7 +215,10 @@ export class AttendancePage {
   protected readonly approvalFilter = signal<'all' | AttendanceApprovalFilter>('all');
   protected readonly staff = signal<AttendanceStaffOption[]>([]);
   protected readonly rows = signal<AttendanceRegisterRow[]>([]);
+  /** Shop pending OT for managers ("OT to approve"), or week OT for staff. */
   protected readonly overtimeRows = signal<OvertimeRow[]>([]);
+  /** Own pending OT for anyone who files OT (not week-bound). */
+  protected readonly pendingOtRows = signal<OvertimeRow[]>([]);
   protected readonly myOvertimeRows = signal<OvertimeRow[]>([]);
   protected readonly overtimeLoading = signal(true);
   protected readonly overtimeColumns = ['name', 'date', 'kind', 'hours', 'status', 'actions'];
@@ -244,6 +247,17 @@ export class AttendancePage {
     const start = page * size;
     return items.slice(start, start + size);
   });
+
+  protected readonly otPageIndex = signal(0);
+  protected readonly otPageSize = signal(10);
+  protected readonly pendingOtPageIndex = signal(0);
+  protected readonly pendingOtPageSize = signal(10);
+  protected readonly pagedOvertimeRows = computed(() =>
+    pageSlice(this.overtimeRows(), this.otPageIndex(), this.otPageSize()),
+  );
+  protected readonly pagedPendingOtRows = computed(() =>
+    pageSlice(this.pendingOtRows(), this.pendingOtPageIndex(), this.pendingOtPageSize()),
+  );
 
   protected readonly role = computed(() => this.auth.me()?.staffRole);
   protected readonly subrole = computed(() => this.auth.me()?.subrole);
@@ -285,6 +299,8 @@ export class AttendancePage {
     this.overtimeLoading.set(true);
     this.error.set('');
     this.pageIndex.set(0);
+    this.otPageIndex.set(0);
+    this.pendingOtPageIndex.set(0);
     this.api.register(this.registerQuery()).subscribe({
       next: (body) => {
         this.from.set(body.from);
@@ -303,9 +319,11 @@ export class AttendancePage {
 
   loadOvertime(from: string, to: string): void {
     this.overtimeLoading.set(true);
-    // Shop HR desk loads shop OT + own OT; everyone else loads one self-scoped list (#885).
-    const loadOwnToo = this.canManage() && this.role() === 'admin';
-    let pending = loadOwnToo ? 2 : 1;
+    // Managers: shop pending (OT to approve). Staff: week self list (#885).
+    // Anyone who files OT also loads own pending (not week-bound), like leave.
+    const loadOwnWeek = this.canManage() && this.role() === 'admin';
+    const loadOwnPending = this.canFileOvertime();
+    let pending = 1 + (loadOwnWeek ? 1 : 0) + (loadOwnPending ? 1 : 0);
     const done = () => {
       pending -= 1;
       if (pending <= 0) {
@@ -313,7 +331,10 @@ export class AttendancePage {
       }
     };
 
-    this.api.overtime(from, to).subscribe({
+    const shopOrSelf$ = this.canManage()
+      ? this.api.overtime(undefined, undefined, false, 'pending')
+      : this.api.overtime(from, to);
+    shopOrSelf$.subscribe({
       next: (body) => {
         this.overtimeRows.set(body.rows);
         done();
@@ -324,7 +345,22 @@ export class AttendancePage {
       },
     });
 
-    if (loadOwnToo) {
+    if (loadOwnPending) {
+      this.api.overtime(undefined, undefined, true, 'pending').subscribe({
+        next: (body) => {
+          this.pendingOtRows.set(body.rows);
+          done();
+        },
+        error: (err: unknown) => {
+          this.error.set(apiErrorMessage(err));
+          done();
+        },
+      });
+    } else {
+      this.pendingOtRows.set([]);
+    }
+
+    if (loadOwnWeek) {
       this.api.overtime(from, to, true).subscribe({
         next: (body) => {
           this.myOvertimeRows.set(body.rows);
@@ -419,6 +455,16 @@ export class AttendancePage {
   onPage(event: PageEvent): void {
     this.pageIndex.set(event.pageIndex);
     this.pageSize.set(event.pageSize);
+  }
+
+  onOtPage(event: PageEvent): void {
+    this.otPageIndex.set(event.pageIndex);
+    this.otPageSize.set(event.pageSize);
+  }
+
+  onPendingOtPage(event: PageEvent): void {
+    this.pendingOtPageIndex.set(event.pageIndex);
+    this.pendingOtPageSize.set(event.pageSize);
   }
 
   onPeriodChange(range: PeriodRange): void {
@@ -634,6 +680,14 @@ export class AttendancePage {
       approval: this.canManage() && approval !== 'all' ? approval : undefined,
     };
   }
+}
+
+function pageSlice<T>(items: T[], pageIndex: number, pageSize: number): T[] {
+  const size = pageSize;
+  const maxPage = Math.max(0, Math.ceil(items.length / size) - 1);
+  const page = Math.min(pageIndex, maxPage);
+  const start = page * size;
+  return items.slice(start, start + size);
 }
 
 /**

@@ -65,9 +65,17 @@ public sealed class OvertimeService(IHrDb db, HrChangeLogService hr)
         DateOnly? from,
         DateOnly? to,
         bool mine,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? status = null)
     {
+        var statusFilter = NormalizeStatus(status);
+        // Pending claims wait across weeks (like leave "Needs a decision"), so skip the
+        // date window unless the caller passed from/to explicitly.
+        var boundDates = statusFilter != "pending" || from is not null || to is not null;
         var (start, end) = Range(from, to);
+        DateOnly? rangeStart = boundDates ? start : null;
+        DateOnly? rangeEnd = boundDates ? end : null;
+
         if (mine)
         {
             if (actor.Role == StaffRole.Owner)
@@ -75,13 +83,21 @@ public sealed class OvertimeService(IHrDb db, HrChangeLogService hr)
                 return new OvertimeListResponse(start, end, []);
             }
 
-            var ownRows = await LoadRowsAsync(actor, [actor.Id], start, end, mine: true, cancellationToken);
+            var ownRows = await LoadRowsAsync(
+                actor, [actor.Id], rangeStart, rangeEnd, mine: true, statusFilter, cancellationToken);
             return new OvertimeListResponse(start, end, ownRows);
         }
 
         var staffIds = await VisibleStaffIdsAsync(actor, shops, cancellationToken);
-        var rows = await LoadRowsAsync(actor, staffIds, start, end, mine: false, cancellationToken);
+        var rows = await LoadRowsAsync(
+            actor, staffIds, rangeStart, rangeEnd, mine: false, statusFilter, cancellationToken);
         return new OvertimeListResponse(start, end, rows);
+    }
+
+    private static string? NormalizeStatus(string? status)
+    {
+        var value = status?.Trim().ToLowerInvariant();
+        return value is "pending" or "decided" ? value : null;
     }
 
     public async Task<OvertimeRowDto> FileAsync(
@@ -423,9 +439,10 @@ public sealed class OvertimeService(IHrDb db, HrChangeLogService hr)
     private async Task<IReadOnlyList<OvertimeRowDto>> LoadRowsAsync(
         Domain.Staff actor,
         IReadOnlyList<Guid> staffIds,
-        DateOnly start,
-        DateOnly end,
+        DateOnly? start,
+        DateOnly? end,
         bool mine,
+        string? statusFilter,
         CancellationToken cancellationToken)
     {
         if (staffIds.Count == 0)
@@ -433,13 +450,27 @@ public sealed class OvertimeService(IHrDb db, HrChangeLogService hr)
             return [];
         }
 
-        var rows = await db.OvertimeEntries.AsNoTracking()
+        var query = db.OvertimeEntries.AsNoTracking()
             .Include(entry => entry.Staff).ThenInclude(staff => staff.Profile)
             .Include(entry => entry.Branch)
             .Include(entry => entry.DecidedByStaff).ThenInclude(staff => staff!.Profile)
-            .Where(entry => staffIds.Contains(entry.StaffId)
-                && entry.WorkDate >= start
-                && entry.WorkDate <= end)
+            .Where(entry => staffIds.Contains(entry.StaffId));
+
+        if (start is DateOnly fromDate && end is DateOnly toDate)
+        {
+            query = query.Where(entry => entry.WorkDate >= fromDate && entry.WorkDate <= toDate);
+        }
+
+        if (statusFilter == "pending")
+        {
+            query = query.Where(entry => entry.Status == OvertimeStatus.Pending);
+        }
+        else if (statusFilter == "decided")
+        {
+            query = query.Where(entry => entry.Status != OvertimeStatus.Pending);
+        }
+
+        var rows = await query
             .OrderBy(entry => entry.WorkDate)
             .ThenBy(entry => entry.Staff.Profile.DisplayName)
             .ToListAsync(cancellationToken);
