@@ -9,6 +9,7 @@ import {
   ClosePunchBody,
   OpenPunchRow,
   OvertimeListResponse,
+  OvertimeStatusFilter,
   PunchForBody,
 } from './attendance.models';
 import { AttendancePunch } from '../clock/clock.models';
@@ -68,7 +69,12 @@ export class AttendanceApi {
     );
   }
 
-  overtime(from?: string, to?: string, mine?: boolean): Observable<OvertimeListResponse> {
+  overtime(
+    from?: string,
+    to?: string,
+    mine?: boolean,
+    status?: OvertimeStatusFilter,
+  ): Observable<OvertimeListResponse> {
     let params = new HttpParams();
     if (from) {
       params = params.set('from', from);
@@ -78,6 +84,9 @@ export class AttendanceApi {
     }
     if (mine) {
       params = params.set('mine', 'true');
+    }
+    if (status) {
+      params = params.set('status', status);
     }
     return this.http.get<OvertimeListResponse>(`${this.base}/api/ops/attendance/overtime`, {
       params,

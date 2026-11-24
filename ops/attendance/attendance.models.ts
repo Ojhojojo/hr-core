@@ -51,6 +51,8 @@ export interface ReviewPunchBody {
 
 export type OvertimeKind = 'punch' | 'request';
 export type OvertimeStatus = 'pending' | 'approved' | 'rejected';
+/** Query filter for GET /overtime. Matches leave's pending/decided split. */
+export type OvertimeStatusFilter = 'pending' | 'decided';
 
 export interface OvertimeRow {
   id: string;

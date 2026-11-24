@@ -99,7 +99,7 @@ describe('AttendanceApi', () => {
     req.flush(new Blob(['Name\n']));
   });
 
-  it('passes from, to, and mine to GET /overtime', () => {
+  it('passes from, to, mine, and status to GET /overtime', () => {
     const { api, http } = setup();
     api.overtime('2026-09-13', '2026-09-19', true).subscribe();
 
@@ -115,5 +115,17 @@ describe('AttendanceApi', () => {
     expect(regularReq.request.method).toBe('GET');
     expect(regularReq.request.params.has('mine')).toBe(false);
     regularReq.flush({ from: '2026-09-13', to: '2026-09-19', rows: [] });
+
+    api.overtime(undefined, undefined, false, 'pending').subscribe();
+    const pendingReq = http.expectOne('/api/ops/attendance/overtime?status=pending');
+    expect(pendingReq.request.method).toBe('GET');
+    expect(pendingReq.request.params.get('status')).toBe('pending');
+    pendingReq.flush({ from: '2026-09-13', to: '2026-09-19', rows: [] });
+
+    api.overtime(undefined, undefined, true, 'pending').subscribe();
+    const minePendingReq = http.expectOne('/api/ops/attendance/overtime?mine=true&status=pending');
+    expect(minePendingReq.request.params.get('mine')).toBe('true');
+    expect(minePendingReq.request.params.get('status')).toBe('pending');
+    minePendingReq.flush({ from: '2026-09-13', to: '2026-09-19', rows: [] });
   });
 });

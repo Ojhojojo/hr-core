@@ -614,9 +614,7 @@ describe('PayrollPage lock controls', () => {
 
     const save = http.expectOne((r) => r.url.endsWith('/api/ops/payroll/deductions'));
     expect(save.request.method).toBe('PUT');
-    expect(save.request.body).toEqual(
-      jasmine.objectContaining({ staffId: 'staff-1', sss: 250 }),
-    );
+    expect(save.request.body).toEqual(jasmine.objectContaining({ staffId: 'staff-1', sss: 250 }));
     save.flush({
       staffId: 'staff-1',
       from: '2026-09-14',
@@ -665,25 +663,29 @@ describe('PayrollPage lock controls', () => {
     page.openAllPayslips();
     fixture.detectChanges();
     expect(confirm.calls[0].title).toBe('Save deductions first?');
-    http.expectOne((r) => r.url.endsWith('/api/ops/payroll/deductions')).flush({
-      staffId: 'staff-1',
-      from: '2026-09-14',
-      to: '2026-09-20',
-      sss: 300,
-      philHealth: 0,
-      pagIbig: 0,
-      wht: 0,
-      other: 0,
-      deductions: 300,
-    });
+    http
+      .expectOne((r) => r.url.endsWith('/api/ops/payroll/deductions'))
+      .flush({
+        staffId: 'staff-1',
+        from: '2026-09-14',
+        to: '2026-09-20',
+        sss: 300,
+        philHealth: 0,
+        pagIbig: 0,
+        wht: 0,
+        other: 0,
+        deductions: 300,
+      });
     fixture.detectChanges();
     await fixture.whenStable();
-    http.expectOne((r) => r.url.endsWith('/api/ops/shop')).flush({
-      name: 'Rakkii',
-      address: 'QC',
-      phone: null,
-      tin: null,
-    });
+    http
+      .expectOne((r) => r.url.endsWith('/api/ops/shop'))
+      .flush({
+        name: 'Rakkii',
+        address: 'QC',
+        phone: null,
+        tin: null,
+      });
     fixture.detectChanges();
     http.verify();
   });

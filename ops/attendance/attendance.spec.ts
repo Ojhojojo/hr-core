@@ -96,8 +96,12 @@ const emptyOvertime = (from: string, to: string): OvertimeListResponse => ({
   rows: [],
 });
 
-/** After register succeeds, AttendancePage calls GET /api/ops/attendance/overtime. */
-function flushOvertime(
+function isOvertime(r: { url: string }): boolean {
+  return r.url === '/api/ops/attendance/overtime';
+}
+
+/** Staff week list: from/to, no mine, no status. */
+function flushWeekOvertime(
   http: HttpTestingController,
   from: string,
   to: string,
@@ -105,13 +109,53 @@ function flushOvertime(
 ): void {
   const req = http.expectOne(
     (r) =>
-      r.url === '/api/ops/attendance/overtime' &&
+      isOvertime(r) &&
       r.params.get('from') === from &&
       r.params.get('to') === to &&
-      !r.params.has('mine'),
+      !r.params.has('mine') &&
+      !r.params.has('status'),
   );
   expect(req.request.method).toBe('GET');
   req.flush(body);
+}
+
+/** Manager "OT to approve": status=pending, no date window. */
+function flushPendingShopOvertime(http: HttpTestingController): void {
+  const req = http.expectOne(
+    (r) =>
+      isOvertime(r) &&
+      r.params.get('status') === 'pending' &&
+      !r.params.has('mine') &&
+      !r.params.has('from') &&
+      !r.params.has('to'),
+  );
+  expect(req.request.method).toBe('GET');
+  req.flush(emptyOvertime('', ''));
+}
+
+/** Own pending OT (employees and admins who file OT). */
+function flushPendingMineOvertime(http: HttpTestingController): void {
+  const req = http.expectOne(
+    (r) =>
+      isOvertime(r) &&
+      r.params.get('status') === 'pending' &&
+      r.params.get('mine') === 'true' &&
+      !r.params.has('from') &&
+      !r.params.has('to'),
+  );
+  expect(req.request.method).toBe('GET');
+  req.flush(emptyOvertime('', ''));
+}
+
+/** After register succeeds, flush the overtime GETs for a staff (non-manager) page. */
+function flushStaffOvertime(http: HttpTestingController, from: string, to: string): void {
+  flushWeekOvertime(http, from, to);
+  flushPendingMineOvertime(http);
+}
+
+/** After register succeeds, flush the overtime GETs for an owner page. */
+function flushOwnerOvertime(http: HttpTestingController): void {
+  flushPendingShopOvertime(http);
 }
 
 describe('AttendancePage', () => {
@@ -147,11 +191,12 @@ describe('AttendancePage', () => {
       to: '2026-09-19',
       rows: [{ ...openRow, punchId: 'punch-1', hasInPhoto: true }],
     } satisfies AttendanceRegisterResponse);
-    flushOvertime(http, '2026-09-13', '2026-09-19');
+    flushStaffOvertime(http, '2026-09-13', '2026-09-19');
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('My week');
+    expect(text).toContain('Pending OT');
     expect(text).toContain('Open');
     expect(text).toContain('In photo');
     expect(text).not.toContain('All staff');
@@ -185,7 +230,7 @@ describe('AttendancePage', () => {
     http.expectOne('/api/staff').flush([]);
     http.expectOne((req) => req.url === '/api/ops/attendance/open-punches').flush([]);
     http.expectOne('/api/ops/attendance/register').flush(register);
-    flushOvertime(http, '2026-09-13', '2026-09-19');
+    flushOwnerOvertime(http);
     fixture.detectChanges();
 
     const menuBtn = fixture.nativeElement.querySelector(
@@ -226,7 +271,7 @@ describe('AttendancePage', () => {
     http.expectOne('/api/staff').flush([]);
     http.expectOne((req) => req.url === '/api/ops/attendance/open-punches').flush([]);
     http.expectOne('/api/ops/attendance/register').flush(register);
-    flushOvertime(http, '2026-09-13', '2026-09-19');
+    flushOwnerOvertime(http);
     fixture.detectChanges();
 
     // Trigger period change
@@ -245,7 +290,7 @@ describe('AttendancePage', () => {
       to: '2026-10-07',
       rows: [],
     });
-    flushOvertime(http, '2026-10-01', '2026-10-07');
+    flushOwnerOvertime(http);
   });
 
   it('manilaWeekRange is Monday through Sunday, like the API', () => {
@@ -283,7 +328,7 @@ describe('AttendancePage', () => {
       to: '2026-09-19',
       rows: manyRows,
     });
-    flushOvertime(http, '2026-09-13', '2026-09-19');
+    flushOwnerOvertime(http);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Worker 01');
@@ -316,17 +361,18 @@ describe('AttendancePage', () => {
     fixture.detectChanges();
 
     http.expectOne('/api/ops/attendance/register').flush(register);
-    flushOvertime(http, '2026-09-13', '2026-09-19');
+    flushStaffOvertime(http, '2026-09-13', '2026-09-19');
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('My week');
+    expect(text).toContain('Pending OT');
     expect(text).not.toContain('Punch for');
     expect(http.match('/api/staff')).toEqual([]);
     expect(http.match((req) => req.url === '/api/ops/attendance/open-punches')).toEqual([]);
   });
 
-  it('admin loads shop-wide overtime and own overtime with mine=true', async () => {
+  it('admin loads shop pending OT, own pending OT, and own week OT', async () => {
     await TestBed.configureTestingModule({
       imports: [AttendancePage],
       providers: [
@@ -347,25 +393,19 @@ describe('AttendancePage', () => {
     http.expectOne((req) => req.url === '/api/ops/attendance/open-punches').flush([]);
     http.expectOne('/api/ops/attendance/register').flush(register);
 
-    const shopOtReq = http.expectOne(
-      (r) =>
-        r.url === '/api/ops/attendance/overtime' &&
-        r.params.get('from') === '2026-09-13' &&
-        r.params.get('to') === '2026-09-19' &&
-        !r.params.has('mine'),
-    );
-    expect(shopOtReq.request.method).toBe('GET');
-    shopOtReq.flush(emptyOvertime('2026-09-13', '2026-09-19'));
+    flushPendingShopOvertime(http);
+    flushPendingMineOvertime(http);
 
-    const mineOtReq = http.expectOne(
+    const mineWeekReq = http.expectOne(
       (r) =>
-        r.url === '/api/ops/attendance/overtime' &&
+        isOvertime(r) &&
         r.params.get('from') === '2026-09-13' &&
         r.params.get('to') === '2026-09-19' &&
-        r.params.get('mine') === 'true',
+        r.params.get('mine') === 'true' &&
+        !r.params.has('status'),
     );
-    expect(mineOtReq.request.method).toBe('GET');
-    mineOtReq.flush(emptyOvertime('2026-09-13', '2026-09-19'));
+    expect(mineWeekReq.request.method).toBe('GET');
+    mineWeekReq.flush(emptyOvertime('2026-09-13', '2026-09-19'));
   });
 
   it('punch-for dialog shows the MM/DD/YYYY error for a typed clock-in date that is not a real day', async () => {

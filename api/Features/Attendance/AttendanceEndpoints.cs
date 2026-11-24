@@ -35,7 +35,9 @@ public static class AttendanceEndpoints
             .WithDescription(
                 "Punch time past shift end, after the grace, is claimed and is not paid until approved. " +
                 "Staff can also file a request ahead of time. Technician and sales see only their own; " +
-                "owner and admin see shop scope; mine=true returns the caller's own claims (empty for the owner, who has no OT).");
+                "owner and admin see shop scope; mine=true returns the caller's own claims (empty for the owner, who has no OT). " +
+                "Optional status=pending|decided. Pending with no from/to lists every open claim in scope " +
+                "(not limited to the current week).");
         api.MapPost("/overtime", FileOvertime)
             .WithName("FileOvertime")
             .WithSummary("File an overtime request");
@@ -577,6 +579,7 @@ public static class AttendanceEndpoints
         DateOnly? from,
         DateOnly? to,
         bool? mine,
+        string? status,
         HttpContext http,
         BranchResolver branches,
         OvertimeService overtime,
@@ -588,13 +591,20 @@ public static class AttendanceEndpoints
             return Results.Unauthorized();
         }
 
+        var statusFilter = status?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrEmpty(statusFilter) && statusFilter is not ("pending" or "decided"))
+        {
+            return Results.BadRequest(new { error = "Status must be pending or decided." });
+        }
+
         IReadOnlyList<Domain.Branch>? shops = null;
         if (HrRoles.CanManageShopHr(actor))
         {
             shops = await branches.ResolveOpsReportScopeAsync(http, cancellationToken);
         }
 
-        var list = await overtime.ListAsync(actor, shops, from, to, mine ?? false, cancellationToken);
+        var list = await overtime.ListAsync(
+            actor, shops, from, to, mine ?? false, cancellationToken, statusFilter);
         return Results.Ok(list);
     }
 
