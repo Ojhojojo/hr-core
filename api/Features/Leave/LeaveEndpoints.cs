@@ -453,6 +453,7 @@ public static class LeaveEndpoints
         HttpContext http,
         BranchResolver branches,
         IHrDb db,
+        HrChangeLogService hr,
         CancellationToken cancellationToken)
     {
         var actor = http.GetStaff();
@@ -565,6 +566,21 @@ public static class LeaveEndpoints
             DecidedAtUtc = DateTime.UtcNow
         };
         db.LeaveRequests.Add(row);
+
+        // Owner-recorded leave: who, for whom, dates, and leave type (#961 / leave.request).
+        var half = request.HalfDay is null ? "" : $" half={request.HalfDay}";
+        hr.Record(
+            actor.Id,
+            targetStaff.Id,
+            HrChangeField.LeaveRequest,
+            null,
+            $"{request.LeaveType.Value} {start:yyyy-MM-dd}..{end:yyyy-MM-dd}{half}",
+            periodFrom: start,
+            periodTo: end,
+            year: start.Year,
+            refType: "leave_request",
+            refId: row.Id);
+
         await db.SaveChangesAsync(cancellationToken);
 
         var name = targetStaff.Profile?.DisplayName ?? "";
