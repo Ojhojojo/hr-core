@@ -624,7 +624,8 @@ export class PayrollPage {
       .subscribe((openRows) => {
         const warning = openPunchWarning(openRows.map((row) => row.staffName));
         this.openPunchNames.set(openRows.map((row) => row.staffName));
-        this.confirmLock(branchId, warning);
+        // Totals and the locked snapshot must use saved deductions, not on-screen drafts.
+        this.ensureSavedDeductionsThen(() => this.confirmLock(branchId, warning));
       });
   }
 
@@ -1127,6 +1128,11 @@ export class PayrollPage {
       this.error.set('Choose a period before opening a payslip.');
       return;
     }
+    this.ensureSavedDeductionsThen(() => this.openPayslipNow(row));
+  }
+
+  private openPayslipNow(row: PayrollStaffRow): void {
+    const current = this.rows().find((item) => item.staffId === row.staffId) ?? row;
     this.shopApi.getShop().subscribe({
       next: (shop) => {
         const ref = this.dialog.open(
@@ -1139,10 +1145,10 @@ export class PayrollPage {
                 periodFrom: this.from(),
                 periodTo: this.to(),
                 lockLine: this.lockLine(),
-                slips: [buildPayslipView(row, this.drafts()[row.staffId])],
+                slips: [buildPayslipView(current, this.drafts()[current.staffId])],
                 issue: {
-                  staffId: row.staffId,
-                  issuedLine: this.issuedLine(row),
+                  staffId: current.staffId,
+                  issuedLine: this.issuedLine(current),
                 },
               },
             },
@@ -1156,7 +1162,7 @@ export class PayrollPage {
           this.toast.success('Payslip issued.');
           this.issuedAt.update((map) => ({
             ...map,
-            [row.staffId]: result.issuedAtUtc ?? '',
+            [current.staffId]: result.issuedAtUtc ?? '',
           }));
         });
       },
@@ -1165,6 +1171,13 @@ export class PayrollPage {
   }
 
   openAllPayslips(): void {
+    if (this.ratedRows().length === 0) {
+      return;
+    }
+    this.ensureSavedDeductionsThen(() => this.openAllPayslipsNow());
+  }
+
+  private openAllPayslipsNow(): void {
     const slips = this.ratedRows().map((row) => buildPayslipView(row, this.drafts()[row.staffId]));
     if (slips.length === 0) {
       return;
@@ -1189,6 +1202,148 @@ export class PayrollPage {
         );
       },
       error: (err: unknown) => this.error.set(apiErrorMessage(err)),
+    });
+  }
+
+  /** True when any on-screen deduction draft differs from the last saved register row. */
+  hasUnsavedDeductionEdits(): boolean {
+    if (this.isLocked()) {
+      return false;
+    }
+    return this.rows().some((row) => {
+      const draft = this.drafts()[row.staffId];
+      if (!draft) {
+        return false;
+      }
+      return (
+        draft.sss !== rememberAmount(row.sss) ||
+        draft.philHealth !== rememberAmount(row.philHealth) ||
+        draft.pagIbig !== rememberAmount(row.pagIbig) ||
+        draft.wht !== rememberAmount(row.wht) ||
+        draft.other !== rememberAmount(row.other)
+      );
+    });
+  }
+
+  /**
+   * Lock and print must use saved figures. When drafts differ from the register, ask to save
+   * first; on confirm, persist every dirty row then run the action.
+   */
+  private ensureSavedDeductionsThen(action: () => void): void {
+    if (!this.hasUnsavedDeductionEdits()) {
+      action();
+      return;
+    }
+
+    this.confirm
+      .confirm({
+        title: 'Save deductions first?',
+        message:
+          'You have unsaved deduction edits. Save them before continuing so the lock totals and payslips match what is stored.',
+        confirmLabel: 'Save and continue',
+      })
+      .subscribe((result) => {
+        if (!result.confirmed) {
+          return;
+        }
+        this.saveDirtyDeductionsThen(action);
+      });
+  }
+
+  private saveDirtyDeductionsThen(action: () => void): void {
+    if (!this.from() || !this.to() || this.isLocked()) {
+      action();
+      return;
+    }
+
+    const dirtyRows = this.rows().filter((row) => {
+      const draft = this.drafts()[row.staffId];
+      if (!draft || !hasPayRate(row)) {
+        return false;
+      }
+      return (
+        draft.sss !== rememberAmount(row.sss) ||
+        draft.philHealth !== rememberAmount(row.philHealth) ||
+        draft.pagIbig !== rememberAmount(row.pagIbig) ||
+        draft.wht !== rememberAmount(row.wht) ||
+        draft.other !== rememberAmount(row.other)
+      );
+    });
+
+    if (dirtyRows.length === 0) {
+      action();
+      return;
+    }
+
+    this.savingAll.set(true);
+    this.error.set('');
+    const calls = dirtyRows.map((row) => {
+      const draft = this.drafts()[row.staffId]!;
+      return this.api
+        .saveDeductions(
+          {
+            staffId: row.staffId,
+            from: this.from(),
+            to: this.to(),
+            sss: draft.sss,
+            philHealth: draft.philHealth,
+            pagIbig: draft.pagIbig,
+            wht: draft.wht,
+            other: draft.other,
+          },
+          { includeInactive: this.includeInactive() },
+        )
+        .pipe(catchError(() => of(null)));
+    });
+
+    forkJoin(calls).subscribe({
+      next: (results) => {
+        this.savingAll.set(false);
+        const validResults = results.filter((r): r is NonNullable<typeof r> => r !== null);
+        if (validResults.length !== dirtyRows.length) {
+          this.error.set('Could not save all deduction edits. Fix the errors and try again.');
+          return;
+        }
+        const byStaffId = new Map(validResults.map((s) => [s.staffId, s]));
+        this.rows.update((list) =>
+          list.map((item) => {
+            const saved = byStaffId.get(item.staffId);
+            if (!saved) {
+              return item;
+            }
+            return {
+              ...item,
+              sss: saved.sss,
+              philHealth: saved.philHealth,
+              pagIbig: saved.pagIbig,
+              wht: saved.wht,
+              other: saved.other,
+              statutorySuggested: false,
+              statutoryNote: null,
+              deductions: roundMoney(saved.deductions + loanAmountOf(item)),
+              net: roundMoney((Number(item.amount) || 0) - saved.deductions - loanAmountOf(item)),
+            };
+          }),
+        );
+        this.drafts.update((map) => {
+          const next = { ...map };
+          for (const saved of validResults) {
+            next[saved.staffId] = {
+              sss: saved.sss,
+              philHealth: saved.philHealth,
+              pagIbig: saved.pagIbig,
+              wht: saved.wht,
+              other: saved.other,
+            };
+          }
+          return next;
+        });
+        action();
+      },
+      error: (err: unknown) => {
+        this.savingAll.set(false);
+        this.error.set(apiErrorMessage(err));
+      },
     });
   }
 

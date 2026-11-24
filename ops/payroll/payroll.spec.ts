@@ -592,6 +592,102 @@ describe('PayrollPage', () => {
 });
 
 describe('PayrollPage lock controls', () => {
+  it('asks to save unsaved deduction edits before lock or print', async () => {
+    const { http, fixture, confirm, button } = await mountPayroll();
+    const page = fixture.componentInstance as unknown as {
+      setDraft: (staffId: string, field: string, value: number) => void;
+      hasUnsavedDeductionEdits: () => boolean;
+      openAllPayslips: () => void;
+    };
+
+    page.setDraft('staff-1', 'sss', 250);
+    fixture.detectChanges();
+    expect(page.hasUnsavedDeductionEdits()).toBe(true);
+
+    button('lockPeriod')!.click();
+    fixture.detectChanges();
+    http.expectOne((r) => r.url.endsWith('/api/ops/attendance/open-punches')).flush([]);
+    fixture.detectChanges();
+
+    expect(confirm.calls[0].title).toBe('Save deductions first?');
+    expect(confirm.calls[0].confirmLabel).toBe('Save and continue');
+
+    const save = http.expectOne((r) => r.url.endsWith('/api/ops/payroll/deductions'));
+    expect(save.request.method).toBe('PUT');
+    expect(save.request.body).toEqual(
+      jasmine.objectContaining({ staffId: 'staff-1', sss: 250 }),
+    );
+    save.flush({
+      staffId: 'staff-1',
+      from: '2026-09-14',
+      to: '2026-09-20',
+      sss: 250,
+      philHealth: 0,
+      pagIbig: 0,
+      wht: 0,
+      other: 0,
+      deductions: 250,
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(confirm.calls.some((call) => call.title === 'Lock period')).toBe(true);
+    expect(page.hasUnsavedDeductionEdits()).toBe(false);
+
+    // Cancel the lock confirm's POST so the rest of the suite stays clean.
+    const lock = http.expectOne((r) => r.url.endsWith('/api/ops/payroll/runs'));
+    lock.flush({
+      id: 'run-1',
+      branchId: 'branch-1',
+      branchName: 'Roosevelt Main',
+      from: '2026-09-14',
+      to: '2026-09-20',
+      status: 'locked',
+      note: null,
+      totalGross: 24550,
+      totalDeductions: 250,
+      totalNet: 24300,
+      lineCount: 3,
+      createdAtUtc: '2026-10-07T02:00:00Z',
+      createdByName: 'Owner Apple',
+      lockedAtUtc: '2026-10-07T02:00:00Z',
+      lockedByName: 'Owner Apple',
+      voidedAtUtc: null,
+      voidedByName: null,
+    });
+    flushRegisterReload(http, lockedRegister);
+    fixture.detectChanges();
+
+    // Print path uses the same save-first prompt when drafts are dirty again.
+    confirm.calls.length = 0;
+    page.setDraft('staff-1', 'sss', 300);
+    fixture.detectChanges();
+    page.openAllPayslips();
+    fixture.detectChanges();
+    expect(confirm.calls[0].title).toBe('Save deductions first?');
+    http.expectOne((r) => r.url.endsWith('/api/ops/payroll/deductions')).flush({
+      staffId: 'staff-1',
+      from: '2026-09-14',
+      to: '2026-09-20',
+      sss: 300,
+      philHealth: 0,
+      pagIbig: 0,
+      wht: 0,
+      other: 0,
+      deductions: 300,
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    http.expectOne((r) => r.url.endsWith('/api/ops/shop')).flush({
+      name: 'Rakkii',
+      address: 'QC',
+      phone: null,
+      tin: null,
+    });
+    fixture.detectChanges();
+    http.verify();
+  });
+
   it('locks the period after confirming the totals and reloads the register', async () => {
     const { http, fixture, host, confirm, button } = await mountPayroll();
 
