@@ -2,12 +2,23 @@
 export const DEFAULT_CLOCK_RADIUS_METERS = 150;
 
 export const OFFSITE_WARNING = "You're not at the shop";
+export const LOCATION_DENIED_WARNING =
+  'Location access was denied. Allow location in your browser and try again, or enter a reason below for approval.';
+export const LOCATION_UNAVAILABLE_WARNING =
+  "Couldn't read your location. Check GPS or signal and try again, or enter a reason below for approval.";
+export const LOCATION_DENIED_BLOCKED =
+  'Location access was denied. Allow location in your browser settings and try again.';
 export const OFFSITE_REASON_REQUIRED = 'A reason is required for an off-site punch.';
 
 export type GpsReading =
   | { status: 'unknown' }
+  | { status: 'denied' }
   | { status: 'unavailable' }
   | { status: 'ok'; latitude: number; longitude: number };
+
+export function isGpsMissing(gps: GpsReading): boolean {
+  return gps.status === 'denied' || gps.status === 'unavailable';
+}
 
 export interface ShopPin {
   latitude?: number | null;
@@ -72,10 +83,21 @@ export function needsOffsiteReason(input: OffsitePunchInput): boolean {
   if (input.gps.status === 'unknown') {
     return false;
   }
-  if (input.gps.status === 'unavailable') {
+  if (isGpsMissing(input.gps)) {
     return true;
   }
   return isOutsideShopRadius(input.shop, input.gps);
+}
+
+/** Warning shown above the reason field so denied/unavailable GPS is not mislabeled as off-site. */
+export function locationWarningMessage(input: OffsitePunchInput): string {
+  if (input.gps.status === 'denied') {
+    return LOCATION_DENIED_WARNING;
+  }
+  if (input.gps.status === 'unavailable') {
+    return LOCATION_UNAVAILABLE_WARNING;
+  }
+  return OFFSITE_WARNING;
 }
 
 /**
@@ -89,7 +111,7 @@ export function canSubmitPunch(input: OffsitePunchInput): boolean {
     return false;
   }
   if (!input.allowOffsitePunchWithApproval) {
-    if (input.gps.status === 'unavailable') {
+    if (isGpsMissing(input.gps)) {
       return false;
     }
     if (isOutsideShopRadius(input.shop, input.gps)) {

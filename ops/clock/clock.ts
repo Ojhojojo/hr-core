@@ -26,12 +26,16 @@ import { ClockApi } from './clock.api';
 import { AttendanceMe, AttendancePunch, KioskStaff } from './clock.models';
 import {
   DEFAULT_CLOCK_RADIUS_METERS,
+  LOCATION_DENIED_BLOCKED,
   OFFSITE_REASON_REQUIRED,
   OFFSITE_WARNING,
   GpsReading,
   OffsitePunchInput,
   ShopPin,
   canSubmitPunch,
+  isGpsMissing,
+  isOutsideShopRadius,
+  locationWarningMessage,
   needsOffsiteReason,
 } from './offsite-punch';
 import { punchStatusLabel, punchStatusTone } from '../attendance/punch-review';
@@ -128,7 +132,8 @@ export class ClockPage {
   }));
   protected readonly needsReason = computed(() => needsOffsiteReason(this.offsiteInput()));
   protected readonly canSubmitNow = computed(() => canSubmitPunch(this.offsiteInput()));
-  protected readonly offsiteWarning = OFFSITE_WARNING;
+  protected readonly locationWarning = computed(() => locationWarningMessage(this.offsiteInput()));
+  protected readonly canRetryLocation = computed(() => isGpsMissing(this.gps()));
   protected readonly offsiteReasonRequired = OFFSITE_REASON_REQUIRED;
   protected readonly punchStatusLabel = punchStatusLabel;
   protected readonly punchStatusTone = punchStatusTone;
@@ -314,23 +319,57 @@ export class ClockPage {
     return true;
   }
 
-  private readGps(): Promise<{ latitude: number; longitude: number } | null> {
+  private readGps(): Promise<GpsReading> {
     const geo = typeof navigator === 'undefined' ? undefined : navigator.geolocation;
     if (!geo) {
-      return Promise.resolve(null);
+      return Promise.resolve({ status: 'unavailable' });
     }
 
     return new Promise((resolve) => {
       geo.getCurrentPosition(
         (pos) =>
           resolve({
+            status: 'ok',
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
           }),
-        () => resolve(null),
+        (err: { code?: number } | null | undefined) =>
+          resolve({ status: err?.code === 1 ? 'denied' : 'unavailable' }),
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 },
       );
     });
+  }
+
+  async retryLocation(): Promise<void> {
+    if (this.busy()) {
+      return;
+    }
+
+    this.busy.set(true);
+    this.error.set('');
+    this.busyMessage.set('Getting your location…');
+    const reading = await this.readGps();
+    this.gps.set(reading);
+    if (reading.status === 'ok') {
+      await this.ensureShopPin();
+      this.knownOffsite.set(false);
+      if (!this.allowOffsite() && isOutsideShopRadius(this.shopPin(), reading)) {
+        this.error.set(OFFSITE_WARNING);
+      }
+    } else if (!this.allowOffsite()) {
+      this.error.set(
+        this.missingGpsBlockedMessage(reading.status, this.clockedIn() ? 'out' : 'in'),
+      );
+    }
+    this.busy.set(false);
+    this.busyMessage.set('');
+  }
+
+  private missingGpsBlockedMessage(status: GpsReading['status'], side: 'in' | 'out'): string {
+    if (status === 'denied') {
+      return LOCATION_DENIED_BLOCKED;
+    }
+    return side === 'in' ? GPS_IN : GPS_OUT;
   }
 
   private async selfPunch(side: 'in' | 'out'): Promise<void> {
@@ -350,20 +389,21 @@ export class ClockPage {
     this.error.set('');
     this.busyMessage.set('Getting your location…');
     const photo = this.photoFile();
-    const coords = await this.readGps();
-    this.gps.set(
-      coords
-        ? { status: 'ok', latitude: coords.latitude, longitude: coords.longitude }
-        : { status: 'unavailable' },
-    );
+    const reading = await this.readGps();
+    this.gps.set(reading);
+    const coords =
+      reading.status === 'ok' ? { latitude: reading.latitude, longitude: reading.longitude } : null;
     if (coords) {
       await this.ensureShopPin();
     }
 
     const args = this.offsiteInput();
     if (!canSubmitPunch(args)) {
-      if (!this.allowOffsite() && !coords) {
-        this.error.set(side === 'in' ? GPS_IN : GPS_OUT);
+      if (
+        !this.allowOffsite() &&
+        (reading.status === 'denied' || reading.status === 'unavailable')
+      ) {
+        this.error.set(this.missingGpsBlockedMessage(reading.status, side));
       } else if (!this.allowOffsite()) {
         this.error.set(OFFSITE_WARNING);
       }

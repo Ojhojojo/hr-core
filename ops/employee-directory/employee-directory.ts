@@ -153,7 +153,18 @@ export class EmployeeDirectoryPage {
   protected readonly healthChips = computed(() => {
     const chips: { staffId: string; displayName: string; code: string; label: string }[] = [];
     for (const issue of this.configHealth()) {
-      for (const code of issue.issues ?? []) {
+      const rawCodes = issue.issues ?? [];
+      const hasClockNoRate = rawCodes.includes('must_clock_no_rate');
+      const seen = new Set<string>();
+      for (const code of rawCodes) {
+        // Avoid back-to-back "Missing pay rate" and "Uses clock, missing pay rate" for the same person.
+        if (code === 'missing_pay_rate' && hasClockNoRate) {
+          continue;
+        }
+        if (seen.has(code)) {
+          continue;
+        }
+        seen.add(code);
         chips.push({
           staffId: issue.staffId,
           displayName: issue.displayName,

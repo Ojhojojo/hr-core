@@ -685,14 +685,13 @@ public static class EmployeeDirectoryEndpoints
             var rateExpected = person.MustClock
                 || person.PayBasis is not null
                 || HrRoles.ClocksByDefault(person.Role);
-            if (rateBlank && rateExpected)
-            {
-                codes.Add(HealthMissingPayRate);
-            }
-
-            if (person.MustClock && rateBlank)
+            if (rateBlank && person.MustClock)
             {
                 codes.Add(HealthMustClockNoRate);
+            }
+            else if (rateBlank && rateExpected)
+            {
+                codes.Add(HealthMissingPayRate);
             }
 
             // Daily or hourly pay comes only from closed punches, so a person who never clocks earns nothing

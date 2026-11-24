@@ -288,4 +288,24 @@ describe('Employee directory', () => {
     fixture.detectChanges();
     http.expectNone((req) => req.method === 'PATCH');
   });
+
+  it('deduplicates missing_pay_rate when must_clock_no_rate is also present for the same person', async () => {
+    const { host } = await mount(
+      'owner',
+      [activePerson],
+      [
+        {
+          staffId: 'p-active',
+          displayName: 'Ana Active',
+          issues: ['missing_pay_rate', 'must_clock_no_rate', 'missing_hire_date'],
+        },
+      ],
+    );
+    const rows = Array.from(host.querySelectorAll('.dir-health-row')).map((el) =>
+      (el.textContent ?? '').trim(),
+    );
+    expect(rows.some((text) => text.includes('Uses clock, missing pay rate'))).toBe(true);
+    expect(rows.some((text) => text.includes('· Missing pay rate'))).toBe(false);
+    expect(rows.some((text) => text.includes('Missing hire date'))).toBe(true);
+  });
 });

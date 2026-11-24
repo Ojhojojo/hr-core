@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_CLOCK_RADIUS_METERS,
+  LOCATION_DENIED_WARNING,
+  LOCATION_UNAVAILABLE_WARNING,
+  OFFSITE_WARNING,
   canSubmitPunch,
   isOutsideShopRadius,
+  locationWarningMessage,
   metresBetween,
   needsOffsiteReason,
   type GpsReading,
@@ -20,6 +24,7 @@ const inside: GpsReading = { status: 'ok', latitude: 14.6406, longitude: 121.005
 const justInside: GpsReading = { status: 'ok', latitude: 14.6415, longitude: 121.0051 };
 const outside: GpsReading = { status: 'ok', latitude: 14.6906, longitude: 121.0051 };
 const unknown: GpsReading = { status: 'unknown' };
+const denied: GpsReading = { status: 'denied' };
 const unavailable: GpsReading = { status: 'unavailable' };
 
 function input(patch: Partial<OffsitePunchInput>): OffsitePunchInput {
@@ -39,6 +44,7 @@ describe('off-site punch', () => {
     );
     expect(isOutsideShopRadius(shop, justInside)).toBe(false);
     expect(isOutsideShopRadius(shop, outside)).toBe(true);
+    expect(isOutsideShopRadius(shop, denied)).toBe(false);
     expect(isOutsideShopRadius(shop, unavailable)).toBe(false);
     expect(isOutsideShopRadius({ ...shop, latitude: null, longitude: null }, outside)).toBe(false);
     expect(isOutsideShopRadius(null, outside)).toBe(false);
@@ -49,9 +55,13 @@ describe('off-site punch', () => {
     expect(needsOffsiteReason(input({ gps: inside }))).toBe(false);
     expect(needsOffsiteReason(input({ gps: justInside }))).toBe(false);
     expect(needsOffsiteReason(input({ gps: outside }))).toBe(true);
+    expect(needsOffsiteReason(input({ gps: denied }))).toBe(true);
     expect(needsOffsiteReason(input({ gps: unavailable }))).toBe(true);
     expect(needsOffsiteReason(input({ gps: outside, knownOffsite: true }))).toBe(true);
     expect(needsOffsiteReason(input({ allowOffsitePunchWithApproval: false, gps: outside }))).toBe(
+      false,
+    );
+    expect(needsOffsiteReason(input({ allowOffsitePunchWithApproval: false, gps: denied }))).toBe(
       false,
     );
     expect(
@@ -59,14 +69,28 @@ describe('off-site punch', () => {
     ).toBe(false);
   });
 
+  it('distinguishes denied and unavailable GPS from an out-of-radius shop punch', () => {
+    expect(locationWarningMessage(input({ gps: denied }))).toBe(LOCATION_DENIED_WARNING);
+    expect(locationWarningMessage(input({ gps: unavailable }))).toBe(LOCATION_UNAVAILABLE_WARNING);
+    expect(locationWarningMessage(input({ gps: outside }))).toBe(OFFSITE_WARNING);
+    expect(locationWarningMessage(input({ gps: inside, knownOffsite: true }))).toBe(
+      OFFSITE_WARNING,
+    );
+  });
+
   it('blocks submit until a non-blank reason is given for an off-site punch', () => {
     expect(canSubmitPunch(input({ gps: unknown }))).toBe(true);
     expect(canSubmitPunch(input({ gps: inside }))).toBe(true);
     expect(canSubmitPunch(input({ gps: outside }))).toBe(false);
+    expect(canSubmitPunch(input({ gps: denied }))).toBe(false);
     expect(canSubmitPunch(input({ gps: unavailable }))).toBe(false);
     expect(canSubmitPunch(input({ gps: outside, offsiteReason: '   ' }))).toBe(false);
     expect(canSubmitPunch(input({ gps: outside, offsiteReason: 'At a client site' }))).toBe(true);
+    expect(canSubmitPunch(input({ gps: denied, offsiteReason: 'Browser blocked' }))).toBe(true);
     expect(canSubmitPunch(input({ gps: unavailable, offsiteReason: 'Phone GPS off' }))).toBe(true);
+    expect(canSubmitPunch(input({ allowOffsitePunchWithApproval: false, gps: denied }))).toBe(
+      false,
+    );
     expect(canSubmitPunch(input({ allowOffsitePunchWithApproval: false, gps: unavailable }))).toBe(
       false,
     );

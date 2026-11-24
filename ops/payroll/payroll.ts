@@ -296,6 +296,120 @@ import { paidDaysLabel } from './paid-days-label';
         min-width: 11rem;
       }
     }
+
+    /* #7: keep 13th-month Calendar year separate from action buttons on mobile/tablet
+       (beats ops-theme.scss sticky .ops-form .ops-actions below 900px). */
+    .ops-thirteenth-form .ops-actions {
+      position: static;
+      margin: 0;
+      padding: 0;
+      background: none;
+    }
+    @media (min-width: 600px) {
+      .ops-thirteenth-form .ops-form-row {
+        grid-template-columns: minmax(10rem, 14rem);
+      }
+    }
+
+    /* #20: scroll cue on narrow viewports where the payroll register scrolls horizontally. */
+    .ops-payroll-scroll-cue {
+      margin: 0;
+      padding: var(--space-2) var(--space-4) var(--space-1);
+      font-size: 0.8rem;
+      color: var(--ops-muted, #5b6178);
+    }
+    @media (min-width: 760px) {
+      .ops-payroll-scroll-cue {
+        display: none;
+      }
+    }
+
+    /* #20: fit all 6 register columns (including ⋮ actions) on 768px tablet, and keep sticky
+       first column compact on phone so more numeric columns show beside it. */
+    @media screen and (max-width: 900px) {
+      .ops-payroll-table th,
+      .ops-payroll-table td {
+        padding: var(--space-2);
+      }
+      .ops-payroll-table th.mat-column-actions,
+      .ops-payroll-table td.mat-column-actions {
+        padding: var(--space-1);
+        width: 44px;
+      }
+      .ops-payroll-table .mat-column-name {
+        white-space: normal;
+        min-width: 9.5rem;
+        max-width: 13rem;
+      }
+    }
+
+    /* #20: 13th-month tablet table keeps Staff readable and Override compact inside 768px. */
+    @media screen and (min-width: 700px) and (max-width: 900px) {
+      .ops-thirteenth-table th,
+      .ops-thirteenth-table td {
+        padding: var(--space-2);
+      }
+      .ops-thirteenth-table .mat-column-name {
+        min-width: 11.5rem;
+      }
+      .ops-thirteenth-table .mat-column-override mat-form-field {
+        min-width: 7.5rem;
+        max-width: 8.5rem;
+      }
+      .ops-thirteenth-table td:not(.num) .ops-cell-stack {
+        align-items: flex-start;
+        text-align: left;
+      }
+    }
+
+    /* #20: 13th-month stacked phone cards (<700px): stack cell lines cleanly without mid-word breaks. */
+    @media (max-width: 699.98px) {
+      .ops-thirteenth-table td {
+        overflow-wrap: break-word;
+      }
+      .ops-thirteenth-table .ops-cell-stack {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
+      }
+      .ops-thirteenth-table .ops-thirteenth-rate {
+        white-space: nowrap;
+      }
+      .ops-thirteenth-table td.ops-td-actions button {
+        min-height: 44px;
+      }
+    }
+
+    /* #20: >= 36px (44px) mobile tap targets on period nav, statutory toggles, and actions. */
+    @media (max-width: 599.98px) {
+      .ops-payroll-table .mat-column-name {
+        min-width: 8.5rem;
+        max-width: 10.5rem;
+      }
+      .ops-statutory-toggle {
+        height: auto;
+        min-height: 44px;
+      }
+      :host ::ng-deep .ops-statutory-toggle .mat-button-toggle-button {
+        min-height: 44px;
+      }
+      :host ::ng-deep .ops-payroll-toolbar .ops-nav-arrow {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+      }
+      :host ::ng-deep .ops-payroll-toolbar .ops-this-week-btn,
+      :host ::ng-deep .ops-payroll-toolbar .ops-custom-toggle {
+        min-height: 44px;
+        height: auto;
+        line-height: 1.25;
+        padding: var(--space-1) var(--space-2);
+      }
+      .ops-payroll-toolbar-controls button[matButton],
+      .ops-thirteenth-form .ops-actions button {
+        min-height: 44px;
+      }
+    }
   `,
 })
 export class PayrollPage {

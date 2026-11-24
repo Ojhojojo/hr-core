@@ -26,6 +26,7 @@
     <button
       matIconButton
       type="button"
+      class="ops-row-menu"
       name="payrollMoreMenu"
       [matMenuTriggerFor]="payrollMenu"
       aria-label="More actions"
@@ -97,7 +98,7 @@
   <ops-banner
     tone="warn"
     data-rate-advisory
-    message="Some active staff have no pay rate, so their amount on this register is zero until a rate is set on Staff."
+    message="Some active staff have no pay rate, so their amount on this register is zero until a rate is set in Directory."
   />
 }
 
@@ -519,6 +520,9 @@
       icon="inbox"
     />
   } @else {
+    <p class="ops-payroll-scroll-cue" data-scroll-cue>
+      Swipe table sideways for Amount, Deductions, Net, and actions →
+    </p>
     <div class="ops-table-wrap ops-table-scroll ops-table-keep">
       <table
         mat-table
@@ -647,6 +651,7 @@
               <button
                 matIconButton
                 type="button"
+                class="ops-row-menu"
                 name="rowMenu"
                 [matMenuTriggerFor]="rowMenu"
                 [attr.aria-label]="'More actions for ' + row.staffName"
@@ -868,7 +873,7 @@
   @if (thirteenthError()) {
     <ops-banner tone="danger" [message]="thirteenthError()" />
   }
-  <form class="ops-form" (submit)="$event.preventDefault(); loadThirteenth()">
+  <form class="ops-form ops-thirteenth-form" (submit)="$event.preventDefault(); loadThirteenth()">
     <div class="ops-form-row">
       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
         <mat-label>Calendar year</mat-label>
@@ -914,19 +919,24 @@
     <ops-empty-state title="No staff" message="Try another year." icon="inbox" />
   } @else {
     <div class="ops-table-wrap ops-table-fit">
-      <table mat-table [dataSource]="thirteenthRows()" class="ops-table">
+      <table mat-table [dataSource]="thirteenthRows()" class="ops-table ops-thirteenth-table">
         <ng-container matColumnDef="name">
           <th mat-header-cell *matHeaderCellDef>Staff</th>
           <td mat-cell *matCellDef="let row" data-label="Staff">
-            <strong>{{ row.staffName }}</strong>
-            <span class="ops-cell-sub">
-              {{ formatRole(row.role) }} · {{ row.branch ?? '—' }} · hired
-              {{ formatDay(row.hireDate) }}
-            </span>
-            <span class="ops-cell-sub">
-              {{ formatPayBasis(row.payBasis) }}
-              {{ row.ratePhp == null ? '' : '· ' + formatMoney(row.ratePhp) }}
-            </span>
+            <div class="ops-cell-stack">
+              <strong>{{ row.staffName }}</strong>
+              <span class="ops-cell-sub">
+                {{ formatRole(row.role) }} · {{ row.branch ?? '—' }} · hired
+                {{ formatDay(row.hireDate) }}
+              </span>
+              @if (row.payBasis || row.ratePhp != null) {
+                <span class="ops-cell-sub ops-thirteenth-rate">
+                  {{ row.payBasis ? formatPayBasis(row.payBasis) : ''
+                  }}{{ row.payBasis && row.ratePhp != null ? ' · ' : ''
+                  }}{{ row.ratePhp != null ? formatMoney(row.ratePhp) : '' }}
+                </span>
+              }
+            </div>
           </td>
         </ng-container>
         <ng-container matColumnDef="override">
@@ -949,11 +959,15 @@
         <ng-container matColumnDef="basic">
           <th mat-header-cell *matHeaderCellDef class="num">Basic used</th>
           <td mat-cell *matCellDef="let row" data-label="Basic used" class="num">
-            {{ formatMoney(row.basicEarned) }}
-            @if (row.usedOverride) {
-              <span> (override)</span>
-            }
-            <span class="ops-cell-sub">Auto {{ formatMoney(row.basicEarnedAuto) }}</span>
+            <div class="ops-cell-stack">
+              <span>
+                {{ formatMoney(row.basicEarned) }}
+                @if (row.usedOverride) {
+                  <span> (override)</span>
+                }
+              </span>
+              <span class="ops-cell-sub">Auto {{ formatMoney(row.basicEarnedAuto) }}</span>
+            </div>
           </td>
         </ng-container>
         <ng-container matColumnDef="thirteenth">
