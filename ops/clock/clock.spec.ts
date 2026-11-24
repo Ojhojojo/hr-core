@@ -18,6 +18,11 @@ import {
 } from '@hr-host';
 import { ClockPage, clockModeFrom } from './clock';
 import { AttendanceMe } from './clock.models';
+import {
+  LOCATION_DENIED_BLOCKED,
+  LOCATION_DENIED_WARNING,
+  LOCATION_UNAVAILABLE_WARNING,
+} from './offsite-punch';
 import { formatDay } from '../hr-dates';
 
 const techMe: AuthMe = {
@@ -376,12 +381,99 @@ describe('ClockPage', () => {
     http.verify();
   });
 
-  it('does not call clock-in when location is off', async () => {
+  it('explains denied location with retry instead of "You\'re not at the shop"', async () => {
+    let deny = true;
     const original = Object.getOwnPropertyDescriptor(navigator, 'geolocation');
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,
       value: {
-        getCurrentPosition: (_ok: unknown, err?: (reason: unknown) => void) => err?.({ code: 1 }),
+        getCurrentPosition: (
+          ok: (pos: { coords: { latitude: number; longitude: number } }) => void,
+          err?: (reason: unknown) => void,
+        ) => {
+          if (deny) {
+            err?.({ code: 1 });
+          } else {
+            ok({ coords: { latitude: 14.6406, longitude: 121.0051 } });
+          }
+        },
+      },
+    });
+
+    try {
+      await TestBed.configureTestingModule({
+        imports: [ClockPage],
+        providers: [
+          provideZonelessChangeDetection(),
+          provideNoopAnimations(),
+          provideHttpClient(),
+          provideHttpClientTesting(),
+          clockRoute('self'),
+          { provide: AuthService, useValue: authStub(techMe) },
+          { provide: OpsConfirmService, useValue: confirmStub().service },
+          { provide: OpsToastService, useValue: { success: vi.fn(), error: vi.fn() } },
+          {
+            provide: ShopApiService,
+            useValue: {
+              getShop: () => of({ latitude: 14.6406, longitude: 121.0051, clockRadiusMeters: 150 }),
+            },
+          },
+        ],
+      }).compileComponents();
+
+      const http = TestBed.inject(HttpTestingController);
+      const fixture = TestBed.createComponent(ClockPage);
+      fixture.detectChanges();
+      http.expectOne('/api/ops/attendance/me').flush(clockedOut);
+      fixture.detectChanges();
+
+      const button = Array.from(
+        fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+      ).find((btn) => btn.textContent?.includes('Clock in'));
+      button?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).not.toContain("You're not at the shop");
+      expect(fixture.nativeElement.textContent).toContain(LOCATION_DENIED_WARNING);
+      expect(fixture.nativeElement.textContent).toContain(
+        'A reason is required for an off-site punch.',
+      );
+      const retryBtn = fixture.nativeElement.querySelector(
+        'button[name="retryLocation"]',
+      ) as HTMLButtonElement | null;
+      expect(retryBtn).toBeTruthy();
+      http.expectNone('/api/ops/attendance/clock-in');
+
+      // Grant permission and retry: warning clears and Clock in is enabled again.
+      deny = false;
+      retryBtn!.click();
+      await Promise.resolve();
+      await Promise.resolve();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).not.toContain(LOCATION_DENIED_WARNING);
+      expect(fixture.nativeElement.querySelector('button[name="retryLocation"]')).toBeNull();
+      http.verify();
+    } finally {
+      if (original) {
+        Object.defineProperty(navigator, 'geolocation', original);
+      } else {
+        Reflect.deleteProperty(navigator, 'geolocation');
+      }
+    }
+  });
+
+  it('shows unavailable location warning on GPS timeout/unavailable and denied error when offsite is off', async () => {
+    let code = 2;
+    const original = Object.getOwnPropertyDescriptor(navigator, 'geolocation');
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (_ok: unknown, err?: (reason: unknown) => void) => err?.({ code }),
       },
     });
 
@@ -403,23 +495,31 @@ describe('ClockPage', () => {
       const http = TestBed.inject(HttpTestingController);
       const fixture = TestBed.createComponent(ClockPage);
       fixture.detectChanges();
-      http.expectOne('/api/ops/attendance/me').flush(clockedOut);
+      http.expectOne('/api/ops/attendance/me').flush({
+        ...clockedOut,
+        allowOffsitePunchWithApproval: true,
+      });
       fixture.detectChanges();
 
-      const button = Array.from(
-        fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
-      ).find((btn) => btn.textContent?.includes('Clock in'));
-      button?.click();
+      const page = fixture.componentInstance;
+      page.clockIn();
       await Promise.resolve();
       await Promise.resolve();
       await fixture.whenStable();
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.textContent).toContain("You're not at the shop");
-      expect(fixture.nativeElement.textContent).toContain(
-        'A reason is required for an off-site punch.',
-      );
-      http.expectNone('/api/ops/attendance/clock-in');
+      expect(fixture.nativeElement.textContent).not.toContain("You're not at the shop");
+      expect(fixture.nativeElement.textContent).toContain(LOCATION_UNAVAILABLE_WARNING);
+      expect(fixture.nativeElement.querySelector('button[name="retryLocation"]')).toBeTruthy();
+
+      // When offsite is disallowed and geolocation is denied, show the denied message + retry button.
+      code = 1;
+      page['me'].set({ ...clockedOut, allowOffsitePunchWithApproval: false });
+      await page.retryLocation();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain(LOCATION_DENIED_BLOCKED);
+      expect(fixture.nativeElement.querySelector('button[name="retryLocation"]')).toBeTruthy();
       http.verify();
     } finally {
       if (original) {

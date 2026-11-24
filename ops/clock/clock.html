@@ -34,7 +34,20 @@
     }
 
     @if (needsReason()) {
-      <ops-banner tone="warn" [message]="offsiteWarning" />
+      <ops-banner tone="warn" [message]="locationWarning()" />
+      @if (canRetryLocation()) {
+        <div class="ops-actions">
+          <button
+            type="button"
+            matButton="outlined"
+            name="retryLocation"
+            [disabled]="busy()"
+            (click)="retryLocation()"
+          >
+            Retry location
+          </button>
+        </div>
+      }
       <section class="ops-clock-photo">
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
           <mat-label>Reason</mat-label>
@@ -49,6 +62,18 @@
           <mat-hint>A reason is required for an off-site punch.</mat-hint>
         </mat-form-field>
       </section>
+    } @else if (canRetryLocation()) {
+      <div class="ops-actions">
+        <button
+          type="button"
+          matButton="outlined"
+          name="retryLocation"
+          [disabled]="busy()"
+          (click)="retryLocation()"
+        >
+          Retry location
+        </button>
+      </div>
     }
 
     <div class="ops-clock-action">

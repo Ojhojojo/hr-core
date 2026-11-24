@@ -422,6 +422,101 @@ describe('PayrollPage', () => {
     http.verify();
   });
 
+  it('omits orphan dash on 13th-month rows without a pay rate and points rate advisory to Directory', async () => {
+    await TestBed.configureTestingModule({
+      imports: [PayrollPage],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideNoopAnimations(),
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: AuthService, useValue: authStub(ownerMe) },
+      ],
+    }).compileComponents();
+
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(PayrollPage);
+    fixture.detectChanges();
+    flushPayFrom(http);
+
+    http
+      .expectOne((r) => r.url.endsWith('/api/ops/payroll'))
+      .flush({
+        ...mockPayrollData,
+        rows: [
+          ...mockPayrollData.rows,
+          {
+            staffId: 'staff-no-rate',
+            staffName: 'Marco NoRate',
+            role: 'technician',
+            branchId: 'branch-1',
+            branchName: 'Roosevelt Main',
+            payBasis: null,
+            ratePhp: null,
+            regularHours: 8,
+            otHours: 0,
+            daysPaid: 1,
+            amount: 0,
+            active: true,
+          },
+        ],
+      });
+    http
+      .expectOne((r) => r.url.includes('/api/ops/payroll/thirteenth-month'))
+      .flush({
+        year: 2026,
+        rows: [
+          {
+            staffId: 'staff-1',
+            staffName: "Danilo 'Danny' Santos",
+            role: 'technician',
+            branch: 'Roosevelt Main',
+            hireDate: '2024-03-15',
+            payBasis: 'hourly',
+            ratePhp: 120,
+            basicEarnedAuto: 120000,
+            basicEarnedOverride: null,
+            basicEarned: 120000,
+            thirteenthMonth: 10000,
+            usedOverride: false,
+          },
+          {
+            staffId: 'staff-no-rate',
+            staffName: 'Marco NoRate',
+            role: 'technician',
+            branch: 'Roosevelt Main',
+            hireDate: '2026-11-10',
+            payBasis: null,
+            ratePhp: null,
+            basicEarnedAuto: 0,
+            basicEarnedOverride: null,
+            basicEarned: 0,
+            thirteenthMonth: 0,
+            usedOverride: false,
+          },
+        ],
+        totalThirteenthMonth: 10000,
+      });
+    fixture.detectChanges();
+
+    const advisory = fixture.nativeElement.querySelector('[data-rate-advisory]') as HTMLElement;
+    expect(advisory.textContent).toContain('until a rate is set in Directory.');
+
+    const thirteenthRows = fixture.nativeElement.querySelectorAll(
+      '.ops-thirteenth-table tbody tr',
+    ) as NodeListOf<HTMLTableRowElement>;
+    expect(thirteenthRows).toHaveLength(2);
+    const marcoStaffCell = thirteenthRows[1].querySelector('td') as HTMLElement;
+    const subLines = Array.from(marcoStaffCell.querySelectorAll('.ops-cell-sub')).map((el) =>
+      (el.textContent ?? '').trim(),
+    );
+    expect(subLines).toEqual(['Technician · Roosevelt Main · hired Nov 10, 2026']);
+    expect(subLines).not.toContain('—');
+
+    http.verify();
+  });
+
   it('shows role names as words, not raw codes', () => {
     const formatRole = PayrollPage.prototype.formatRole;
     expect(formatRole('front_desk')).toBe('Front desk');
