@@ -3,12 +3,17 @@ namespace HrCore.Features.Payroll;
 /// <summary>
 /// Holiday, rest-day, and night-differential premiums on top of <see cref="PayrollService.ComputePeriodGross"/>.
 /// Day premium uses one percent (the higher of holiday and rest day — they do not stack).
+/// Day premium hours are regular hours only (time punched past shift end is excluded so overtime is
+/// not also paid the day premium), minus one unpaid meal break hour.
 /// Night differential is a separate percent of the hourly rate and is not multiplied by the day percent.
 /// Only Hourly and Daily earn premiums. The day is the Asia/Manila date of the punch in-time.
 /// </summary>
 public static class PayrollPremiumCalculator
 {
     public const string OverrideKey = "premium";
+
+    /// <summary>Unpaid meal break subtracted once per day from holiday and rest-day premium hours.</summary>
+    public const decimal UnpaidMealBreakHours = 1m;
 
     public sealed record Settings(
         decimal RegularHolidayPercent,
@@ -19,7 +24,9 @@ public static class PayrollPremiumCalculator
         bool NightDiffEnabled,
         decimal NightDiffPercent,
         TimeOnly NightStart,
-        TimeOnly NightEnd)
+        TimeOnly NightEnd,
+        TimeOnly ShiftEnd,
+        int OtGraceMinutes)
     {
         public static Settings Defaults { get; } = FromBranch(new Branch());
 
@@ -32,7 +39,9 @@ public static class PayrollPremiumCalculator
             branch.PayrollNightDiffEnabled,
             branch.PayrollNightDiffPercent,
             branch.PayrollNightStart,
-            branch.PayrollNightEnd);
+            branch.PayrollNightEnd,
+            branch.ShiftEnd,
+            branch.OtGraceMinutes);
     }
 
     public readonly record struct Result(
@@ -72,16 +81,16 @@ public static class PayrollPremiumCalculator
             .Where(punch => punch.OutUtc > punch.InUtc)
             .GroupBy(punch => ManilaTime.ToManilaDate(punch.InUtc)))
         {
-            decimal dayHours = 0m;
+            decimal regularHours = 0m;
             foreach (var punch in dayGroup)
             {
-                var hours = (decimal)(punch.OutUtc - punch.InUtc).TotalHours;
-                if (hours > 0)
-                {
-                    dayHours += Math.Round(hours, 2, MidpointRounding.AwayFromZero);
-                }
+                // Regular hours only: punched time past shift end is overtime, paid on the OT path.
+                regularHours += OvertimeMath.SplitPunch(
+                    punch.InUtc, punch.OutUtc, settings.ShiftEnd, settings.OtGraceMinutes).RegularHours;
             }
 
+            // One unpaid meal break per day; never go below zero.
+            var dayHours = Math.Max(0m, regularHours - UnpaidMealBreakHours);
             if (dayHours <= 0)
             {
                 continue;

@@ -543,6 +543,11 @@ public static class LeaveEndpoints
             }
         }
 
+        if (await PayrollRunService.IsPeriodLockedAsync(db, targetStaff.Id, start, end, cancellationToken))
+        {
+            return Results.Conflict(new { error = PayrollRunService.LockedPeriodMessage });
+        }
+
         var branchId = await branches.ResolveOpsAsync(http, cancellationToken);
         var row = new LeaveRequest
         {

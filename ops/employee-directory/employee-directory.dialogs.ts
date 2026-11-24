@@ -465,30 +465,6 @@ const ROLE_HINTS: Record<DirectoryRole, string> = {
                     placeholder="Rate PHP"
                   />
                 </mat-form-field>
-                @if (payBasis === 'hourly') {
-                  <mat-form-field appearance="outline">
-                    <mat-label>OT after hours</mat-label>
-                    <input
-                      matInput
-                      name="otAfterHoursPerDay"
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      [(ngModel)]="otAfterHoursPerDay"
-                    />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline">
-                    <mat-label>OT multiplier</mat-label>
-                    <input
-                      matInput
-                      name="otMultiplier"
-                      type="number"
-                      step="0.05"
-                      min="1"
-                      [(ngModel)]="otMultiplier"
-                    />
-                  </mat-form-field>
-                }
               </div>
             </section>
           }
@@ -613,10 +589,6 @@ export class DirectoryPersonDialog {
   private mustClockTouched = false;
   protected payBasis: PayBasis | null = this.data.person?.payBasis ?? null;
   protected ratePhp: number | null = this.data.person?.ratePhp ?? null;
-  protected otAfterHoursPerDay: number | null =
-    this.data.person?.otAfterHoursPerDay ?? (this.payBasis === 'hourly' ? 8 : null);
-  protected otMultiplier: number | null =
-    this.data.person?.otMultiplier ?? (this.payBasis === 'hourly' ? 1.0 : null);
   protected restDays: number[] = [...(this.data.person?.restDays ?? [])];
   protected readonly restDayOptions = WEEKDAY_LABELS.map((label, value) => ({ value, label }));
 
@@ -648,8 +620,6 @@ export class DirectoryPersonDialog {
     mustClock: this.mustClock,
     payBasis: this.payBasis,
     ratePhp: this.ratePhp,
-    otAfterHoursPerDay: this.otAfterHoursPerDay,
-    otMultiplier: this.otMultiplier,
     restDays: [...this.restDays],
   };
 
@@ -682,8 +652,6 @@ export class DirectoryPersonDialog {
       this.mustClock !== this.initialSnapshot.mustClock ||
       this.payBasis !== this.initialSnapshot.payBasis ||
       this.ratePhp !== this.initialSnapshot.ratePhp ||
-      this.otAfterHoursPerDay !== this.initialSnapshot.otAfterHoursPerDay ||
-      this.otMultiplier !== this.initialSnapshot.otMultiplier ||
       !sameDays(this.restDays, this.initialSnapshot.restDays)
     );
   }
@@ -732,14 +700,6 @@ export class DirectoryPersonDialog {
   protected onPayBasisChange(basis: PayBasis | null): void {
     this.payBasis = basis;
     this.mustClock = mustClockAfterBasisChange(this.mustClock, basis);
-    if (basis === 'hourly') {
-      if (this.otAfterHoursPerDay == null) {
-        this.otAfterHoursPerDay = 8;
-      }
-      if (this.otMultiplier == null) {
-        this.otMultiplier = 1.0;
-      }
-    }
   }
 
   protected close(): void {
@@ -776,9 +736,6 @@ export class DirectoryPersonDialog {
     this.saving.set(true);
     this.error.set('');
     const rate = parseOptionalNumber(this.ratePhp);
-    const otHours =
-      this.payBasis === 'hourly' ? parseOptionalNumber(this.otAfterHoursPerDay) : null;
-    const otMult = this.payBasis === 'hourly' ? parseOptionalNumber(this.otMultiplier) : null;
 
     if (this.data.mode === 'add') {
       const email = this.email.trim();
@@ -823,8 +780,6 @@ export class DirectoryPersonDialog {
                   ? {
                       payBasis: this.payBasis,
                       ratePhp: rate,
-                      otAfterHoursPerDay: otHours,
-                      otMultiplier: otMult,
                     }
                   : {}),
               }
@@ -864,9 +819,7 @@ export class DirectoryPersonDialog {
 
     const payDirty =
       this.payBasis !== this.initialSnapshot.payBasis ||
-      !sameOptionalNumber(rate, this.initialSnapshot.ratePhp) ||
-      !sameOptionalNumber(otHours, this.initialSnapshot.otAfterHoursPerDay) ||
-      !sameOptionalNumber(otMult, this.initialSnapshot.otMultiplier);
+      !sameOptionalNumber(rate, this.initialSnapshot.ratePhp);
     const accessDirty =
       this.role !== this.initialSnapshot.role ||
       this.subrole !== this.initialSnapshot.subrole ||
@@ -915,8 +868,6 @@ export class DirectoryPersonDialog {
                 ? {
                     payBasis: this.payBasis,
                     ratePhp: rate,
-                    otAfterHoursPerDay: otHours,
-                    otMultiplier: otMult,
                     clearPayBasis: !this.payBasis,
                     clearRate: rate == null,
                   }

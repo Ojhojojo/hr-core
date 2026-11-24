@@ -63,16 +63,9 @@ export async function csvTextWithLockLine(blob: Blob, lockLine: string): Promise
 
 /** Readable one-liners for the rate spans of a mid-period rate change. */
 export function rateSliceLabels(slices: PayrollRateSlice[] | null | undefined): string[] {
-  return (slices ?? []).map((slice) => {
-    const parts = [`${slice.from} to ${slice.to}`, basisLabel(slice.basis), money(slice.ratePhp)];
-    if (slice.otAfterHoursPerDay != null) {
-      parts.push(`OT after ${trimNumber(slice.otAfterHoursPerDay)}h`);
-    }
-    if (slice.otMultiplier != null) {
-      parts.push(`×${trimNumber(slice.otMultiplier)}`);
-    }
-    return parts.join(' · ');
-  });
+  return (slices ?? []).map((slice) =>
+    [`${slice.from} to ${slice.to}`, basisLabel(slice.basis), money(slice.ratePhp)].join(' · '),
+  );
 }
 
 export function basisLabel(basis: PayBasis | null | undefined): string {
@@ -86,12 +79,6 @@ export function money(amount: number | null | undefined): string {
   const value = Number(amount ?? 0);
   const safe = Number.isFinite(value) ? value : 0;
   return `₱${safe.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function trimNumber(value: number): string {
-  return Number(value)
-    .toFixed(2)
-    .replace(/\.?0+$/, '');
 }
 
 /**

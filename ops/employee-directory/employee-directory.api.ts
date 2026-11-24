@@ -42,8 +42,6 @@ export interface EmployeeCard {
   mustClock?: boolean | null;
   payBasis?: PayBasis | null;
   ratePhp?: number | null;
-  otAfterHoursPerDay?: number | null;
-  otMultiplier?: number | null;
   /** Only present on the response to a deactivation. */
   deactivation?: DeactivationSummary | null;
 }
@@ -158,8 +156,6 @@ export interface CreateEmployee {
   mustClock?: boolean | null;
   payBasis?: PayBasis | null;
   ratePhp?: number | null;
-  otAfterHoursPerDay?: number | null;
-  otMultiplier?: number | null;
 }
 
 export interface UpdateEmployee {
@@ -195,8 +191,6 @@ export interface UpdateEmployee {
   mustClock?: boolean | null;
   payBasis?: PayBasis | null;
   ratePhp?: number | null;
-  otAfterHoursPerDay?: number | null;
-  otMultiplier?: number | null;
   clearPayBasis?: boolean;
   clearRate?: boolean;
 }

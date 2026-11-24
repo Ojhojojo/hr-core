@@ -140,16 +140,6 @@
                   label="Rate"
                   [value]="rates.ratePhp != null ? formatPeso(rates.ratePhp) : '—'"
                 />
-                <ops-key-value
-                  label="OT multiplier"
-                  [value]="rates.otMultiplier != null ? rates.otMultiplier + '×' : '—'"
-                />
-                <ops-key-value
-                  label="OT after hours"
-                  [value]="
-                    rates.otAfterHoursPerDay != null ? rates.otAfterHoursPerDay + ' hrs' : '—'
-                  "
-                />
                 <ops-key-value label="Rest day" [value]="restDayText(p.restDays)" />
               </ops-key-value-grid>
             } @else {
