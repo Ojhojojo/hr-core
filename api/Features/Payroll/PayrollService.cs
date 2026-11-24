@@ -218,8 +218,6 @@ public sealed partial class PayrollService(IHrDb db, HrCoreOptions? options = nu
                 BranchKind: staff.Branch?.Kind,
                 Basis: staff.PayBasis,
                 RatePhp: staff.RatePhp,
-                OtAfterHoursPerDay: staff.OtAfterHoursPerDay,
-                OtMultiplier: staff.OtMultiplier,
                 RegularHours: gross.RegularHours,
                 OtHours: overtime.Hours,
                 OtPay: overtime.Pay,
@@ -345,8 +343,6 @@ public sealed partial class PayrollService(IHrDb db, HrCoreOptions? options = nu
                     BranchKind: staff?.Branch?.Kind,
                     Basis: line.Basis,
                     RatePhp: line.RatePhp,
-                    OtAfterHoursPerDay: null,
-                    OtMultiplier: null,
                     RegularHours: line.RegularHours,
                     OtHours: line.OtHours,
                     DaysPaid: line.DaysPaid,
@@ -1138,28 +1134,6 @@ public sealed partial class PayrollService(IHrDb db, HrCoreOptions? options = nu
             s => PayrollRateService.BuildSlices(s, rowsByStaff.GetValueOrDefault(s.Id, []), start, end));
     }
 
-    /// <summary>
-    /// Hourly defaults OT to 8 hours a day at 1.00x, monthly clears both, and daily keeps whatever
-    /// was sent. Same rule the staff screens use.
-    /// </summary>
-    internal static (decimal? OtAfterHoursPerDay, decimal? OtMultiplier) NormaliseOt(
-        PayBasis basis,
-        decimal? otAfterHoursPerDay,
-        decimal? otMultiplier)
-    {
-        if (basis == PayBasis.Hourly)
-        {
-            return (otAfterHoursPerDay ?? 8m, otMultiplier ?? 1.00m);
-        }
-
-        if (basis == PayBasis.Monthly)
-        {
-            return (null, null);
-        }
-
-        return (otAfterHoursPerDay, otMultiplier);
-    }
-
     /// <summary>Rate slices for the row payload. Null when one rate covers the whole period.</summary>
     internal static IReadOnlyList<PayrollRateSliceDto>? ToRateSliceDtos(IReadOnlyList<RateSlice> slices)
     {
@@ -1169,9 +1143,7 @@ public sealed partial class PayrollService(IHrDb db, HrCoreOptions? options = nu
                 slice.From,
                 slice.To,
                 slice.Basis!.Value,
-                slice.RatePhp!.Value,
-                slice.OtAfterHoursPerDay,
-                slice.OtMultiplier))
+                slice.RatePhp!.Value))
             .ToList();
 
         return priced.Count > 1 ? priced : null;

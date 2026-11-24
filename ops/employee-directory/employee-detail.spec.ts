@@ -120,8 +120,6 @@ async function mountDetail(
       staffName: employee.displayName,
       basis: 'daily',
       ratePhp: 800,
-      otAfterHoursPerDay: 8,
-      otMultiplier: 1.25,
       history: [],
     });
     const allowanceReq = http.expectOne(

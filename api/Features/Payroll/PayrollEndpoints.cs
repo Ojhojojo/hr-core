@@ -120,9 +120,9 @@ public static class PayrollEndpoints
             .WithName("PayrollRateSet")
             .WithSummary("Set a dated pay rate")
             .WithDescription(
-                "Owner only. Body: effectiveFrom, basis, ratePhp (zero or more), otAfterHoursPerDay, otMultiplier, reason. " +
-                "Appends one history row and refreshes the current Staff snapshot. Hourly defaults OT to 8 hours " +
-                "a day at 1.00x; monthly clears both. 409 when effectiveFrom falls inside a locked run period. " +
+                "Owner only. Body: effectiveFrom, basis, ratePhp (zero or more), reason. " +
+                "Appends one history row and refreshes the current Staff snapshot. " +
+                "409 when effectiveFrom falls inside a locked run period. " +
                 "404 when the person is not on the payroll register scope.");
 
         api.MapPost("/payslips/issue", IssuePayslip)

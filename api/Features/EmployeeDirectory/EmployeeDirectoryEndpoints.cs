@@ -212,19 +212,6 @@ public static class EmployeeDirectoryEndpoints
             return home.Error;
         }
 
-        var otAfterHours = request.OtAfterHoursPerDay;
-        var otMultiplier = request.OtMultiplier;
-        if (request.PayBasis == PayBasis.Hourly)
-        {
-            otAfterHours ??= 8m;
-            otMultiplier ??= 1.00m;
-        }
-        else if (request.PayBasis == PayBasis.Monthly)
-        {
-            otAfterHours = null;
-            otMultiplier = null;
-        }
-
         var persisted = await StaffEndpoints.PersistStaffAsync(
             db,
             invite,
@@ -234,8 +221,6 @@ public static class EmployeeDirectoryEndpoints
             home.BranchId,
             request.PayBasis,
             request.RatePhp,
-            otAfterHours,
-            otMultiplier,
             actor: actor,
             appFields: request.AppFields,
             mustClock: request.MustClock,
@@ -527,8 +512,6 @@ public static class EmployeeDirectoryEndpoints
 
             var hasPayEdits = request.PayBasis != null
                 || request.RatePhp != null
-                || request.OtAfterHoursPerDay != null
-                || request.OtMultiplier != null
                 || request.ClearPayBasis
                 || request.ClearRate;
 
@@ -548,27 +531,6 @@ public static class EmployeeDirectoryEndpoints
             else if (request.RatePhp is not null)
             {
                 staff.RatePhp = request.RatePhp;
-            }
-
-            if (request.OtAfterHoursPerDay is not null)
-            {
-                staff.OtAfterHoursPerDay = request.OtAfterHoursPerDay;
-            }
-
-            if (request.OtMultiplier is not null)
-            {
-                staff.OtMultiplier = request.OtMultiplier;
-            }
-
-            if (staff.PayBasis == PayBasis.Hourly)
-            {
-                staff.OtAfterHoursPerDay ??= 8m;
-                staff.OtMultiplier ??= 1.00m;
-            }
-            else if (staff.PayBasis == PayBasis.Monthly)
-            {
-                staff.OtAfterHoursPerDay = null;
-                staff.OtMultiplier = null;
             }
 
             if (hasPayEdits)
@@ -746,7 +708,7 @@ public static class EmployeeDirectoryEndpoints
                 && person.PayBasis is { } basis)
             {
                 var dailyEquivalent = basis == PayBasis.Hourly
-                    ? rate * (person.OtAfterHoursPerDay ?? 8m)
+                    ? rate * 8m
                     : rate;
                 if (dailyEquivalent < minimum)
                 {
@@ -912,9 +874,7 @@ public static class EmployeeDirectoryEndpoints
         revealPayAndAccess ? staff.Branch?.Name : null,
         revealPayAndAccess ? staff.MustClock : null,
         revealPayAndAccess ? staff.PayBasis : null,
-        revealPayAndAccess ? staff.RatePhp : null,
-        revealPayAndAccess ? staff.OtAfterHoursPerDay : null,
-        revealPayAndAccess ? staff.OtMultiplier : null)
+        revealPayAndAccess ? staff.RatePhp : null)
         {
             AppFields = revealPayAndAccess ? StaffAccessFlags.Describe(staff) : null
         };
@@ -1060,10 +1020,6 @@ public sealed record EmployeeDirectoryCard(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     decimal? RatePhp = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    decimal? OtAfterHoursPerDay = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    decimal? OtMultiplier = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     DeactivationSummary? Deactivation = null)
 {
     /// <summary>
@@ -1095,8 +1051,6 @@ public sealed class CreateEmployeeDirectoryRequest
     public bool? MustClock { get; set; }
     public PayBasis? PayBasis { get; set; }
     public decimal? RatePhp { get; set; }
-    public decimal? OtAfterHoursPerDay { get; set; }
-    public decimal? OtMultiplier { get; set; }
 
     /// <summary>The app's own access flags (see <see cref="StaffAccessFlags"/>), sent as top-level fields.</summary>
     [JsonExtensionData]
@@ -1137,8 +1091,6 @@ public sealed class UpdateEmployeeDirectoryRequest
     public bool? MustClock { get; set; }
     public PayBasis? PayBasis { get; set; }
     public decimal? RatePhp { get; set; }
-    public decimal? OtAfterHoursPerDay { get; set; }
-    public decimal? OtMultiplier { get; set; }
     public bool ClearPayBasis { get; set; }
     public bool ClearRate { get; set; }
 
