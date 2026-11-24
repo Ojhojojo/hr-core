@@ -597,42 +597,80 @@ describe('PayrollPage lock controls', () => {
     const page = fixture.componentInstance as unknown as {
       setDraft: (staffId: string, field: string, value: number) => void;
       hasUnsavedDeductionEdits: () => boolean;
+      hasUnsavedDraftEdits: () => boolean;
       openAllPayslips: () => void;
     };
 
+    // Print path while the period is still live.
     page.setDraft('staff-1', 'sss', 250);
     fixture.detectChanges();
     expect(page.hasUnsavedDeductionEdits()).toBe(true);
+    expect(page.hasUnsavedDraftEdits()).toBe(true);
+
+    page.openAllPayslips();
+    fixture.detectChanges();
+    expect(confirm.calls[0].title).toBe('Save first?');
+    expect(confirm.calls[0].confirmLabel).toBe('Save and continue');
+
+    http
+      .expectOne((r) => r.url.endsWith('/api/ops/payroll/deductions'))
+      .flush({
+        staffId: 'staff-1',
+        from: '2026-09-14',
+        to: '2026-09-20',
+        sss: 250,
+        philHealth: 0,
+        pagIbig: 0,
+        wht: 0,
+        other: 0,
+        deductions: 250,
+      });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    http
+      .expectOne((r) => r.url.endsWith('/api/shop'))
+      .flush({
+        name: 'Rakkii',
+        address: 'QC',
+        phone: null,
+        tin: null,
+      });
+    fixture.detectChanges();
+    expect(page.hasUnsavedDeductionEdits()).toBe(false);
+
+    // Lock path uses the same save-first prompt when drafts are dirty again.
+    confirm.calls.length = 0;
+    page.setDraft('staff-1', 'sss', 300);
+    fixture.detectChanges();
+    expect(page.hasUnsavedDraftEdits()).toBe(true);
 
     button('lockPeriod')!.click();
     fixture.detectChanges();
     http.expectOne((r) => r.url.endsWith('/api/ops/attendance/open-punches')).flush([]);
     fixture.detectChanges();
 
-    expect(confirm.calls[0].title).toBe('Save deductions first?');
-    expect(confirm.calls[0].confirmLabel).toBe('Save and continue');
-
+    expect(confirm.calls[0].title).toBe('Save first?');
     const save = http.expectOne((r) => r.url.endsWith('/api/ops/payroll/deductions'));
     expect(save.request.method).toBe('PUT');
-    expect(save.request.body).toEqual(jasmine.objectContaining({ staffId: 'staff-1', sss: 250 }));
+    expect(save.request.body).toEqual(expect.objectContaining({ staffId: 'staff-1', sss: 300 }));
     save.flush({
       staffId: 'staff-1',
       from: '2026-09-14',
       to: '2026-09-20',
-      sss: 250,
+      sss: 300,
       philHealth: 0,
       pagIbig: 0,
       wht: 0,
       other: 0,
-      deductions: 250,
+      deductions: 300,
     });
     fixture.detectChanges();
     await fixture.whenStable();
 
     expect(confirm.calls.some((call) => call.title === 'Lock period')).toBe(true);
     expect(page.hasUnsavedDeductionEdits()).toBe(false);
+    expect(page.hasUnsavedDraftEdits()).toBe(false);
 
-    // Cancel the lock confirm's POST so the rest of the suite stays clean.
     const lock = http.expectOne((r) => r.url.endsWith('/api/ops/payroll/runs'));
     lock.flush({
       id: 'run-1',
@@ -643,8 +681,8 @@ describe('PayrollPage lock controls', () => {
       status: 'locked',
       note: null,
       totalGross: 24550,
-      totalDeductions: 250,
-      totalNet: 24300,
+      totalDeductions: 300,
+      totalNet: 24250,
       lineCount: 3,
       createdAtUtc: '2026-10-07T02:00:00Z',
       createdByName: 'Owner Apple',
@@ -655,37 +693,97 @@ describe('PayrollPage lock controls', () => {
     });
     flushRegisterReload(http, lockedRegister);
     fixture.detectChanges();
+    http.verify();
+  });
 
-    // Print path uses the same save-first prompt when drafts are dirty again.
-    confirm.calls.length = 0;
-    page.setDraft('staff-1', 'sss', 300);
+  it('asks to save unsaved holiday/NSD settings before lock', async () => {
+    const { http, fixture, confirm, button } = await mountPayroll();
+    const page = fixture.componentInstance as unknown as {
+      loadPremiums: () => void;
+      settingsDraft: () => { nightDiffEnabled: boolean } | null;
+      hasUnsavedPremiumSettingsEdits: () => boolean;
+      hasUnsavedDraftEdits: () => boolean;
+    };
+
+    page.loadPremiums();
     fixture.detectChanges();
-    page.openAllPayslips();
-    fixture.detectChanges();
-    expect(confirm.calls[0].title).toBe('Save deductions first?');
     http
-      .expectOne((r) => r.url.endsWith('/api/ops/payroll/deductions'))
+      .expectOne((r) => r.url.endsWith('/api/ops/payroll/settings'))
       .flush({
-        staffId: 'staff-1',
-        from: '2026-09-14',
-        to: '2026-09-20',
-        sss: 300,
-        philHealth: 0,
-        pagIbig: 0,
-        wht: 0,
-        other: 0,
-        deductions: 300,
+        branchId: 'branch-1',
+        regularHolidayPercent: 200,
+        specialDayPercent: 130,
+        restDayPercent: 130,
+        holidayPremiumEnabled: true,
+        restDayPremiumEnabled: true,
+        nightDiffEnabled: false,
+        nightDiffPercent: 10,
+        nightStart: '22:00:00',
+        nightEnd: '06:00:00',
+        shiftEnd: '17:00:00',
+        otGraceMinutes: 30,
+        adminsCanApproveOt: false,
+        otPremiumPercent: 125,
+        otMonthlyDayDivisor: 313,
       });
+    http
+      .expectOne((r) => r.url.includes('/api/ops/payroll/holidays'))
+      .flush({
+        year: 2026,
+        holidays: [],
+      });
+    fixture.detectChanges();
+
+    const draft = page.settingsDraft();
+    expect(draft).toBeTruthy();
+    draft!.nightDiffEnabled = true;
+    fixture.detectChanges();
+    expect(page.hasUnsavedPremiumSettingsEdits()).toBe(true);
+    expect(page.hasUnsavedDraftEdits()).toBe(true);
+
+    button('lockPeriod')!.click();
+    fixture.detectChanges();
+    http.expectOne((r) => r.url.endsWith('/api/ops/attendance/open-punches')).flush([]);
+    fixture.detectChanges();
+
+    expect(confirm.calls[0].title).toBe('Save first?');
+    expect(confirm.calls[0].message).toContain('unsaved edits');
+
+    const save = http.expectOne((r) => r.url.endsWith('/api/ops/payroll/settings'));
+    expect(save.request.method).toBe('PUT');
+    expect(save.request.body.nightDiffEnabled).toBe(true);
+    save.flush({
+      branchId: 'branch-1',
+      ...save.request.body,
+    });
     fixture.detectChanges();
     await fixture.whenStable();
+
+    expect(page.hasUnsavedPremiumSettingsEdits()).toBe(false);
+    expect(confirm.calls.some((call) => call.title === 'Lock period')).toBe(true);
+
     http
-      .expectOne((r) => r.url.endsWith('/api/ops/shop'))
+      .expectOne((r) => r.url.endsWith('/api/ops/payroll/runs'))
       .flush({
-        name: 'Rakkii',
-        address: 'QC',
-        phone: null,
-        tin: null,
+        id: 'run-1',
+        branchId: 'branch-1',
+        branchName: 'Roosevelt Main',
+        from: '2026-09-14',
+        to: '2026-09-20',
+        status: 'locked',
+        note: null,
+        totalGross: 24550,
+        totalDeductions: 0,
+        totalNet: 24550,
+        lineCount: 3,
+        createdAtUtc: '2026-10-07T02:00:00Z',
+        createdByName: 'Owner Apple',
+        lockedAtUtc: '2026-10-07T02:00:00Z',
+        lockedByName: 'Owner Apple',
+        voidedAtUtc: null,
+        voidedByName: null,
       });
+    flushRegisterReload(http, lockedRegister);
     fixture.detectChanges();
     http.verify();
   });
