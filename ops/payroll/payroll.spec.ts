@@ -628,7 +628,7 @@ describe('PayrollPage lock controls', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     http
-      .expectOne((r) => r.url.endsWith('/api/ops/shop'))
+      .expectOne((r) => r.url.endsWith('/api/shop'))
       .flush({
         name: 'Rakkii',
         address: 'QC',
