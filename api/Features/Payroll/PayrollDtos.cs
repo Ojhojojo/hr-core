@@ -11,8 +11,6 @@ public sealed record PayrollStaffRowDto(
     BranchKind? BranchKind,
     PayBasis? Basis,
     decimal? RatePhp,
-    decimal? OtAfterHoursPerDay,
-    decimal? OtMultiplier,
     decimal RegularHours,
     decimal OtHours,
     decimal DaysPaid,
@@ -103,9 +101,7 @@ public sealed record PayrollRateSliceDto(
     DateOnly From,
     DateOnly To,
     PayBasis Basis,
-    decimal RatePhp,
-    decimal? OtAfterHoursPerDay,
-    decimal? OtMultiplier);
+    decimal RatePhp);
 
 /// <summary>
 /// Pay-rate span used by the gross math. Covers one contiguous run of days at one rate.
@@ -336,8 +332,6 @@ public sealed record PayrollRatesResponse(
     string? BranchName,
     PayBasis? Basis,
     decimal? RatePhp,
-    decimal? OtAfterHoursPerDay,
-    decimal? OtMultiplier,
     IReadOnlyList<PayrollRateHistoryRowDto> History);
 
 public sealed record PayrollRateHistoryRowDto(
@@ -345,8 +339,6 @@ public sealed record PayrollRateHistoryRowDto(
     DateOnly EffectiveFrom,
     PayBasis Basis,
     decimal RatePhp,
-    decimal? OtAfterHoursPerDay,
-    decimal? OtMultiplier,
     DateTime CreatedAtUtc,
     string? CreatedByName,
     string? Reason);
@@ -356,8 +348,6 @@ public sealed record SetPayrollRateRequest(
     DateOnly EffectiveFrom,
     PayBasis Basis,
     decimal RatePhp,
-    decimal? OtAfterHoursPerDay = null,
-    decimal? OtMultiplier = null,
     string? Reason = null);
 
 /// <summary>

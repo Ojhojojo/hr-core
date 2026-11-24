@@ -10,8 +10,6 @@ export interface PayrollRateSlice {
   to: string;
   basis: PayBasis;
   ratePhp: number;
-  otAfterHoursPerDay?: number | null;
-  otMultiplier?: number | null;
 }
 
 export interface PayrollStaffRow {
@@ -25,8 +23,6 @@ export interface PayrollStaffRow {
   basis?: PayBasis | null;
   ratePhp?: number | null;
   rate?: number | null;
-  otAfterHoursPerDay?: number | null;
-  otMultiplier?: number | null;
   regularHours: number;
   otHours: number;
   otPay?: number;
@@ -172,8 +168,6 @@ export interface PayrollRateHistoryRow {
   effectiveFrom: string;
   basis: PayBasis;
   ratePhp: number;
-  otAfterHoursPerDay?: number | null;
-  otMultiplier?: number | null;
   createdAtUtc: string;
   createdByName?: string | null;
   reason?: string | null;
@@ -186,8 +180,6 @@ export interface PayrollRatesResponse {
   branchName?: string | null;
   basis?: PayBasis | null;
   ratePhp?: number | null;
-  otAfterHoursPerDay?: number | null;
-  otMultiplier?: number | null;
   history: PayrollRateHistoryRow[];
 }
 
@@ -195,8 +187,6 @@ export interface SetPayrollRate {
   effectiveFrom: string;
   basis: PayBasis;
   ratePhp: number;
-  otAfterHoursPerDay?: number | null;
-  otMultiplier?: number | null;
   reason?: string | null;
 }
 

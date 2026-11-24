@@ -62,10 +62,6 @@ export interface PayrollRateDialogData {
               <dd data-rate-basis>{{ basisLabel(rates()?.basis) }}</dd>
               <dt>Rate</dt>
               <dd data-rate-amount>{{ formatRate(rates()?.ratePhp) }}</dd>
-              <dt>OT after</dt>
-              <dd>{{ hoursLabel(rates()?.otAfterHoursPerDay) }}</dd>
-              <dt>OT multiplier</dt>
-              <dd>{{ multiplierLabel(rates()?.otMultiplier) }}</dd>
             </dl>
           </section>
 
@@ -104,10 +100,6 @@ export interface PayrollRateDialogData {
                     <td mat-cell *matCellDef="let row" data-label="Rate">
                       {{ money(row.ratePhp) }}
                     </td>
-                  </ng-container>
-                  <ng-container matColumnDef="ot">
-                    <th mat-header-cell *matHeaderCellDef>OT</th>
-                    <td mat-cell *matCellDef="let row" data-label="OT">{{ otLabel(row) }}</td>
                   </ng-container>
                   <ng-container matColumnDef="reason">
                     <th mat-header-cell *matHeaderCellDef>Reason</th>
@@ -158,28 +150,6 @@ export interface PayrollRateDialogData {
                     min="0"
                     step="0.01"
                     [(ngModel)]="ratePhp"
-                  />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
-                  <mat-label>OT after hours per day</mat-label>
-                  <input
-                    matInput
-                    name="rateOtAfter"
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    [(ngModel)]="otAfter"
-                  />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
-                  <mat-label>OT multiplier</mat-label>
-                  <input
-                    matInput
-                    name="rateOtMultiplier"
-                    type="number"
-                    min="0"
-                    step="0.05"
-                    [(ngModel)]="otMultiplier"
                   />
                 </mat-form-field>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ops-field">
@@ -291,7 +261,6 @@ export class PayrollRateDialog {
     'effectiveFrom',
     'basis',
     'rate',
-    'ot',
     'reason',
     'createdBy',
     'createdAt',
@@ -299,8 +268,6 @@ export class PayrollRateDialog {
 
   protected basis: PayBasis = 'hourly';
   protected ratePhp: number | null = null;
-  protected otAfter: number | null = null;
-  protected otMultiplier: number | null = null;
   protected effectiveFrom = manilaToday();
   protected reason = '';
 
@@ -323,28 +290,6 @@ export class PayrollRateDialog {
 
   protected formatRate(rate: number | null | undefined): string {
     return rate == null ? 'No rate' : money(rate);
-  }
-
-  protected hoursLabel(value: number | null | undefined): string {
-    return value == null ? '—' : `${value} h`;
-  }
-
-  protected multiplierLabel(value: number | null | undefined): string {
-    return value == null ? '—' : `×${value}`;
-  }
-
-  protected otLabel(row: {
-    otAfterHoursPerDay?: number | null;
-    otMultiplier?: number | null;
-  }): string {
-    const parts: string[] = [];
-    if (row.otAfterHoursPerDay != null) {
-      parts.push(`${row.otAfterHoursPerDay}h`);
-    }
-    if (row.otMultiplier != null) {
-      parts.push(`×${row.otMultiplier}`);
-    }
-    return parts.length ? parts.join(' ') : '—';
   }
 
   protected createdLabel(iso: string | null | undefined): string {
@@ -381,8 +326,6 @@ export class PayrollRateDialog {
         effectiveFrom: this.effectiveFrom,
         basis: this.basis,
         ratePhp: rate,
-        otAfterHoursPerDay: this.numberOrNull(this.otAfter),
-        otMultiplier: this.numberOrNull(this.otMultiplier),
         reason: this.reason.trim() || null,
       })
       .subscribe({
@@ -418,15 +361,6 @@ export class PayrollRateDialog {
   private fillForm(body: PayrollRatesResponse | null): void {
     this.basis = body?.basis ?? 'hourly';
     this.ratePhp = body?.ratePhp ?? null;
-    this.otAfter = body?.otAfterHoursPerDay ?? null;
-    this.otMultiplier = body?.otMultiplier ?? null;
     this.reason = '';
-  }
-
-  private numberOrNull(value: number | null): number | null {
-    if (value == null || !Number.isFinite(Number(value))) {
-      return null;
-    }
-    return Number(value);
   }
 }

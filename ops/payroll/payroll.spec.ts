@@ -165,16 +165,12 @@ const ratesResponse: PayrollRatesResponse = {
   branchName: 'Roosevelt Main',
   basis: 'hourly',
   ratePhp: 120,
-  otAfterHoursPerDay: 8,
-  otMultiplier: 1,
   history: [
     {
       id: 'h-1',
       effectiveFrom: '2026-01-01',
       basis: 'hourly',
       ratePhp: 100,
-      otAfterHoursPerDay: 8,
-      otMultiplier: 1,
       createdAtUtc: '2026-01-01T02:00:00Z',
       createdByName: 'Owner Apple',
       reason: 'Start rate',
@@ -184,8 +180,6 @@ const ratesResponse: PayrollRatesResponse = {
       effectiveFrom: '2026-09-19',
       basis: 'hourly',
       ratePhp: 120,
-      otAfterHoursPerDay: 8,
-      otMultiplier: 1,
       createdAtUtc: '2026-09-19T02:00:00Z',
       createdByName: 'Owner Apple',
       reason: 'Raise',
@@ -901,8 +895,6 @@ describe('PayrollPage lock controls', () => {
             effectiveFrom: '2026-10-01',
             basis: 'hourly',
             ratePhp: 150,
-            otAfterHoursPerDay: 8,
-            otMultiplier: 1,
             createdAtUtc: '2026-10-01T02:00:00Z',
             createdByName: 'Owner Apple',
             reason: 'Mid-year raise',
@@ -1028,18 +1020,17 @@ describe('PayrollPage lock controls', () => {
     it('labels the rate spans of a mid-period change', () => {
       expect(
         rateSliceLabels([
-          { from: '2026-09-14', to: '2026-09-18', basis: 'hourly', ratePhp: 120, otMultiplier: 1 },
+          { from: '2026-09-14', to: '2026-09-18', basis: 'hourly', ratePhp: 120 },
           {
             from: '2026-09-19',
             to: '2026-09-20',
             basis: 'daily',
             ratePhp: 800,
-            otAfterHoursPerDay: 8,
           },
         ]),
       ).toEqual([
-        '2026-09-14 to 2026-09-18 · Hourly · ₱120.00 · ×1',
-        '2026-09-19 to 2026-09-20 · Daily · ₱800.00 · OT after 8h',
+        '2026-09-14 to 2026-09-18 · Hourly · ₱120.00',
+        '2026-09-19 to 2026-09-20 · Daily · ₱800.00',
       ]);
       expect(rateSliceLabels(null)).toEqual([]);
     });

@@ -149,9 +149,7 @@ public static class StaffEndpoints
 
         var actor = http.GetStaff();
         var hasPayFields = request.PayBasis != null
-            || request.RatePhp != null
-            || request.OtAfterHoursPerDay != null
-            || request.OtMultiplier != null;
+            || request.RatePhp != null;
 
         if (hasPayFields && actor?.Role != StaffRole.Owner)
         {
@@ -200,22 +198,9 @@ public static class StaffEndpoints
             homeId = home.BranchId;
         }
 
-        var otAfterHours = request.OtAfterHoursPerDay;
-        var otMultiplier = request.OtMultiplier;
-        if (request.PayBasis == PayBasis.Hourly)
-        {
-            otAfterHours ??= 8m;
-            otMultiplier ??= 1.00m;
-        }
-        else if (request.PayBasis == PayBasis.Monthly)
-        {
-            otAfterHours = null;
-            otMultiplier = null;
-        }
-
         return ToCreatedStaff(await PersistStaffAsync(
             db, invite, request.Email, request.DisplayName, request.Role, homeId,
-            request.PayBasis, request.RatePhp, otAfterHours, otMultiplier,
+            request.PayBasis, request.RatePhp,
             actor, request.AppFields,
             request.MustClock,
             request.Mobile, request.HireDate, request.EmergencyContactName, request.EmergencyContactPhone,
@@ -338,8 +323,6 @@ public static class StaffEndpoints
 
         var hasPayEdits = request.PayBasis != null
             || request.RatePhp != null
-            || request.OtAfterHoursPerDay != null
-            || request.OtMultiplier != null
             || request.ClearPayBasis
             || request.ClearRate;
 
@@ -502,8 +485,6 @@ public static class StaffEndpoints
             staff.Profile.DisplayName,
             canViewPay ? staff.PayBasis : null,
             canViewPay ? staff.RatePhp : null,
-            canViewPay ? staff.OtAfterHoursPerDay : null,
-            canViewPay ? staff.OtMultiplier : null,
             inviteSent,
             inviteNote,
             string.IsNullOrWhiteSpace(staff.Profile.AuthUserId),
@@ -546,7 +527,7 @@ public static class StaffEndpoints
 
         return ToCreatedStaff(await PersistStaffAsync(
             db, invite, email, displayName, StaffRole.Owner, branchId,
-            payBasis: null, ratePhp: null, otAfterHoursPerDay: null, otMultiplier: null,
+            payBasis: null, ratePhp: null,
             actor: actor, cancellationToken: cancellationToken, hr: hr), actor);
     }
 
@@ -637,8 +618,6 @@ public static class StaffEndpoints
         Guid? branchId,
         PayBasis? payBasis = null,
         decimal? ratePhp = null,
-        decimal? otAfterHoursPerDay = null,
-        decimal? otMultiplier = null,
         Domain.Staff? actor = null,
         IReadOnlyDictionary<string, JsonElement>? appFields = null,
         bool? mustClock = null,
@@ -713,19 +692,6 @@ public static class StaffEndpoints
         {
             payBasis = null;
             ratePhp = null;
-            otAfterHoursPerDay = null;
-            otMultiplier = null;
-        }
-
-        if (payBasis == PayBasis.Hourly)
-        {
-            otAfterHoursPerDay ??= 8m;
-            otMultiplier ??= 1.00m;
-        }
-        else if (payBasis == PayBasis.Monthly)
-        {
-            otAfterHoursPerDay = null;
-            otMultiplier = null;
         }
 
         if (role == StaffRole.Owner && mustClock == true)
@@ -746,8 +712,6 @@ public static class StaffEndpoints
             Active = true,
             PayBasis = payBasis,
             RatePhp = ratePhp,
-            OtAfterHoursPerDay = otAfterHoursPerDay,
-            OtMultiplier = otMultiplier,
             MustClock = clock,
             HireDate = hireDate,
             EmergencyContactName = emergencyName,
@@ -837,31 +801,8 @@ public static class StaffEndpoints
             staff.RatePhp = request.RatePhp;
         }
 
-        if (request.OtAfterHoursPerDay is not null)
-        {
-            staff.OtAfterHoursPerDay = request.OtAfterHoursPerDay;
-        }
-
-        if (request.OtMultiplier is not null)
-        {
-            staff.OtMultiplier = request.OtMultiplier;
-        }
-
-        if (staff.PayBasis == PayBasis.Hourly)
-        {
-            staff.OtAfterHoursPerDay ??= 8m;
-            staff.OtMultiplier ??= 1.00m;
-        }
-        else if (staff.PayBasis == PayBasis.Monthly)
-        {
-            staff.OtAfterHoursPerDay = null;
-            staff.OtMultiplier = null;
-        }
-
         var payEdited = request.PayBasis is not null
             || request.RatePhp is not null
-            || request.OtAfterHoursPerDay is not null
-            || request.OtMultiplier is not null
             || request.ClearPayBasis
             || request.ClearRate;
 
@@ -988,8 +929,6 @@ public static class StaffEndpoints
         public Guid? BranchId { get; set; }
         public PayBasis? PayBasis { get; set; }
         public decimal? RatePhp { get; set; }
-        public decimal? OtAfterHoursPerDay { get; set; }
-        public decimal? OtMultiplier { get; set; }
         public bool? MustClock { get; set; }
         public string? Mobile { get; set; }
         public DateOnly? HireDate { get; set; }
@@ -1017,8 +956,6 @@ public static class StaffEndpoints
         public bool ClearHomeBranch { get; set; }
         public PayBasis? PayBasis { get; set; }
         public decimal? RatePhp { get; set; }
-        public decimal? OtAfterHoursPerDay { get; set; }
-        public decimal? OtMultiplier { get; set; }
         public bool ClearPayBasis { get; set; }
         public bool ClearRate { get; set; }
         public bool? MustClock { get; set; }
@@ -1052,8 +989,6 @@ public static class StaffEndpoints
         string DisplayName,
         PayBasis? PayBasis = null,
         decimal? RatePhp = null,
-        decimal? OtAfterHoursPerDay = null,
-        decimal? OtMultiplier = null,
         bool? InviteSent = null,
         string? InviteNote = null,
         bool WaitingForLogin = false,
@@ -1086,8 +1021,6 @@ public static class StaffEndpoints
         bool? Active,
         PayBasis? PayBasis,
         decimal? RatePhp,
-        decimal? OtAfterHoursPerDay,
-        decimal? OtMultiplier,
         DateOnly? HireDate,
         string? Position,
         string? Department,
@@ -1103,7 +1036,7 @@ public static class StaffEndpoints
         IReadOnlyDictionary<string, string?>? AccessFlags = null)
     {
         public static StaffAuditSnapshot Empty { get; } =
-            new(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+            new(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
         public static StaffAuditSnapshot Capture(Domain.Staff staff) =>
             new(
@@ -1111,8 +1044,6 @@ public static class StaffEndpoints
                 staff.Active,
                 staff.PayBasis,
                 staff.RatePhp,
-                staff.OtAfterHoursPerDay,
-                staff.OtMultiplier,
                 staff.HireDate,
                 staff.Position,
                 staff.Department,
@@ -1145,18 +1076,6 @@ public static class StaffEndpoints
             hr.Record(
                 actorStaffId, subject, HrChangeField.StaffPayBasis, Text(before.PayBasis), Text(staff.PayBasis));
             hr.RecordMoney(actorStaffId, subject, HrChangeField.StaffRate, before.RatePhp, staff.RatePhp);
-            hr.RecordMoney(
-                actorStaffId,
-                subject,
-                HrChangeField.StaffOtAfterHours,
-                before.OtAfterHoursPerDay,
-                staff.OtAfterHoursPerDay);
-            hr.RecordMoney(
-                actorStaffId,
-                subject,
-                HrChangeField.StaffOtMultiplier,
-                before.OtMultiplier,
-                staff.OtMultiplier);
             hr.Record(
                 actorStaffId, subject, HrChangeField.StaffHireDate, Text(before.HireDate), Text(staff.HireDate));
             hr.Record(actorStaffId, subject, HrChangeField.StaffPosition, before.Position, staff.Position);
@@ -1248,8 +1167,6 @@ public static class StaffEndpoints
                     EffectiveFrom = effectiveFrom,
                     Basis = basis,
                     RatePhp = rate,
-                    OtAfterHoursPerDay = staff.OtAfterHoursPerDay,
-                    OtMultiplier = staff.OtMultiplier,
                     CreatedAtUtc = DateTime.UtcNow,
                     CreatedByStaffId = actorStaffId,
                     Reason = "Staff record edit"
@@ -1259,8 +1176,6 @@ public static class StaffEndpoints
 
             existing.Basis = basis;
             existing.RatePhp = rate;
-            existing.OtAfterHoursPerDay = staff.OtAfterHoursPerDay;
-            existing.OtMultiplier = staff.OtMultiplier;
         }
 
         private static string? Emergency(StaffAuditSnapshot snapshot) =>
