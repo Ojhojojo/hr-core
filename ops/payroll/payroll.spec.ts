@@ -616,7 +616,7 @@ describe('PayrollPage lock controls', () => {
 
     const save = http.expectOne((r) => r.url.endsWith('/api/ops/payroll/deductions'));
     expect(save.request.method).toBe('PUT');
-    expect(save.request.body).toEqual(jasmine.objectContaining({ staffId: 'staff-1', sss: 250 }));
+    expect(save.request.body).toEqual(expect.objectContaining({ staffId: 'staff-1', sss: 250 }));
     save.flush({
       staffId: 'staff-1',
       from: '2026-09-14',
