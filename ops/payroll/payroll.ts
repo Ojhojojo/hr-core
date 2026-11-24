@@ -1343,7 +1343,9 @@ export class PayrollPage {
                   statutorySuggested: false,
                   statutoryNote: null,
                   deductions: roundMoney(saved.deductions + loanAmountOf(item)),
-                  net: roundMoney((Number(item.amount) || 0) - saved.deductions - loanAmountOf(item)),
+                  net: roundMoney(
+                    (Number(item.amount) || 0) - saved.deductions - loanAmountOf(item),
+                  ),
                 };
               }),
             );

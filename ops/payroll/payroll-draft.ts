@@ -9,13 +9,16 @@ export function rememberDeductionAmount(value: number | null | undefined): numbe
 /** True when the on-screen deduction draft differs from the last saved register amounts. */
 export function deductionDraftDirty(
   draft: PayrollDeductionDraft | null | undefined,
-  saved: {
-    sss?: number | null;
-    philHealth?: number | null;
-    pagIbig?: number | null;
-    wht?: number | null;
-    other?: number | null;
-  } | null | undefined,
+  saved:
+    | {
+        sss?: number | null;
+        philHealth?: number | null;
+        pagIbig?: number | null;
+        wht?: number | null;
+        other?: number | null;
+      }
+    | null
+    | undefined,
 ): boolean {
   if (!draft || !saved) {
     return false;

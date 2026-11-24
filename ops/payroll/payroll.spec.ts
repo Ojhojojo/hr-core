@@ -704,27 +704,31 @@ describe('PayrollPage lock controls', () => {
 
     page.loadPremiums();
     fixture.detectChanges();
-    http.expectOne((r) => r.url.endsWith('/api/ops/payroll/settings')).flush({
-      branchId: 'branch-1',
-      regularHolidayPercent: 200,
-      specialDayPercent: 130,
-      restDayPercent: 130,
-      holidayPremiumEnabled: true,
-      restDayPremiumEnabled: true,
-      nightDiffEnabled: false,
-      nightDiffPercent: 10,
-      nightStart: '22:00:00',
-      nightEnd: '06:00:00',
-      shiftEnd: '17:00:00',
-      otGraceMinutes: 30,
-      adminsCanApproveOt: false,
-      otPremiumPercent: 125,
-      otMonthlyDayDivisor: 313,
-    });
-    http.expectOne((r) => r.url.includes('/api/ops/payroll/holidays')).flush({
-      year: 2026,
-      holidays: [],
-    });
+    http
+      .expectOne((r) => r.url.endsWith('/api/ops/payroll/settings'))
+      .flush({
+        branchId: 'branch-1',
+        regularHolidayPercent: 200,
+        specialDayPercent: 130,
+        restDayPercent: 130,
+        holidayPremiumEnabled: true,
+        restDayPremiumEnabled: true,
+        nightDiffEnabled: false,
+        nightDiffPercent: 10,
+        nightStart: '22:00:00',
+        nightEnd: '06:00:00',
+        shiftEnd: '17:00:00',
+        otGraceMinutes: 30,
+        adminsCanApproveOt: false,
+        otPremiumPercent: 125,
+        otMonthlyDayDivisor: 313,
+      });
+    http
+      .expectOne((r) => r.url.includes('/api/ops/payroll/holidays'))
+      .flush({
+        year: 2026,
+        holidays: [],
+      });
     fixture.detectChanges();
 
     const draft = page.settingsDraft();
@@ -755,25 +759,27 @@ describe('PayrollPage lock controls', () => {
     expect(page.hasUnsavedPremiumSettingsEdits()).toBe(false);
     expect(confirm.calls.some((call) => call.title === 'Lock period')).toBe(true);
 
-    http.expectOne((r) => r.url.endsWith('/api/ops/payroll/runs')).flush({
-      id: 'run-1',
-      branchId: 'branch-1',
-      branchName: 'Roosevelt Main',
-      from: '2026-09-14',
-      to: '2026-09-20',
-      status: 'locked',
-      note: null,
-      totalGross: 24550,
-      totalDeductions: 0,
-      totalNet: 24550,
-      lineCount: 3,
-      createdAtUtc: '2026-10-07T02:00:00Z',
-      createdByName: 'Owner Apple',
-      lockedAtUtc: '2026-10-07T02:00:00Z',
-      lockedByName: 'Owner Apple',
-      voidedAtUtc: null,
-      voidedByName: null,
-    });
+    http
+      .expectOne((r) => r.url.endsWith('/api/ops/payroll/runs'))
+      .flush({
+        id: 'run-1',
+        branchId: 'branch-1',
+        branchName: 'Roosevelt Main',
+        from: '2026-09-14',
+        to: '2026-09-20',
+        status: 'locked',
+        note: null,
+        totalGross: 24550,
+        totalDeductions: 0,
+        totalNet: 24550,
+        lineCount: 3,
+        createdAtUtc: '2026-10-07T02:00:00Z',
+        createdByName: 'Owner Apple',
+        lockedAtUtc: '2026-10-07T02:00:00Z',
+        lockedByName: 'Owner Apple',
+        voidedAtUtc: null,
+        voidedByName: null,
+      });
     flushRegisterReload(http, lockedRegister);
     fixture.detectChanges();
     http.verify();
