@@ -282,14 +282,19 @@ public sealed partial class PayrollService
             .GroupBy(p => p.StaffId)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<AttendancePunch>)g.ToList());
 
-        var monthlyIds = staffList
-            .Where(s => windows.ContainsKey(s.Id) && s.PayBasis == PayBasis.Monthly && s.RatePhp is not null)
-            .Select(s => s.Id)
-            .ToList();
-        var leaves = monthlyIds.Count == 0
+        var windowedStaff = staffList.Where(s => windows.ContainsKey(s.Id)).ToList();
+        var slicesByStaff = await RateSlicesByStaffAsync(
+            windowedStaff,
+            earliest.Value,
+            yearEndCap,
+            cancellationToken);
+        // Unpaid leave is loaded for everyone in the window. SumMonthSlices only subtracts it on
+        // months that were Monthly in the rate history, so a mid-year move to Daily still drops
+        // unpaid days from the Monthly months.
+        var leaves = staffIds.Count == 0
             ? []
             : await db.LeaveRequests.AsNoTracking()
-                .Where(l => monthlyIds.Contains(l.StaffId) &&
+                .Where(l => staffIds.Contains(l.StaffId) &&
                             l.Status == LeaveRequestStatus.Approved &&
                             l.LeaveType == LeaveType.Unpaid &&
                             l.StartDate <= yearEndCap &&
@@ -298,12 +303,6 @@ public sealed partial class PayrollService
         var leavesByStaff = leaves
             .GroupBy(l => l.StaffId)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<LeaveRequest>)g.ToList());
-        var windowedStaff = staffList.Where(s => windows.ContainsKey(s.Id)).ToList();
-        var slicesByStaff = await RateSlicesByStaffAsync(
-            windowedStaff,
-            earliest.Value,
-            yearEndCap,
-            cancellationToken);
         // Paid leave is loaded once for the whole window. ComputePeriodGross only reads days inside each slice.
         var paidLeaveByStaff = await PayrollPaidLeave.LoadByStaffAsync(
             db,
@@ -364,15 +363,7 @@ public sealed partial class PayrollService
                 }
             }
 
-            IReadOnlySet<DateOnly>? unpaid = null;
-            if (staff.PayBasis == PayBasis.Monthly && leaves.Count > 0)
-            {
-                var indexed = IndexUnpaidLeaveDays(leaves, sliceStart, sliceEnd);
-                if (indexed.TryGetValue(staff.Id, out var days))
-                {
-                    unpaid = days;
-                }
-            }
+            var unpaid = UnpaidLeaveForMonthSlice(staff.Id, rateSlices, leaves, sliceStart, sliceEnd);
 
             total += ComputePeriodGross(
                 rateSlices,
@@ -385,6 +376,49 @@ public sealed partial class PayrollService
         }
 
         return total;
+    }
+
+    /// <summary>
+    /// Unpaid leave days to subtract from a 13th-month month slice. Uses the rate history for that
+    /// month, not the staff member's current pay basis, so a mid-year Monthly→Daily change still
+    /// drops unpaid days from the Monthly months.
+    /// </summary>
+    internal static IReadOnlySet<DateOnly>? UnpaidLeaveForMonthSlice(
+        Guid staffId,
+        IReadOnlyList<RateSlice> rateSlices,
+        IReadOnlyList<LeaveRequest> leaves,
+        DateOnly sliceStart,
+        DateOnly sliceEnd)
+    {
+        if (leaves.Count == 0 || !HasMonthlyRateInRange(rateSlices, sliceStart, sliceEnd))
+        {
+            return null;
+        }
+
+        var indexed = IndexUnpaidLeaveDays(leaves, sliceStart, sliceEnd);
+        return indexed.TryGetValue(staffId, out var days) ? days : null;
+    }
+
+    /// <summary>True when any priced rate slice overlapping [start, end] is Monthly.</summary>
+    internal static bool HasMonthlyRateInRange(
+        IReadOnlyList<RateSlice> rateSlices,
+        DateOnly start,
+        DateOnly end)
+    {
+        foreach (var slice in rateSlices)
+        {
+            if (slice.Basis != PayBasis.Monthly || slice.RatePhp is null)
+            {
+                continue;
+            }
+
+            if (slice.From <= end && slice.To >= start)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static ThirteenthMonthRowDto ToThirteenthRow(

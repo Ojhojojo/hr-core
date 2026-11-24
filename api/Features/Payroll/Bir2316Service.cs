@@ -75,8 +75,10 @@ public sealed class Bir2316Service(IHrDb db)
                 run.Branch.Name))
             .ToList();
 
+        // Missing months are relative to runs that include this person, not every shop run.
+        // A month the shop locked without this worker still counts as missing for their 2316.
         var missingMonths = MissingMonths(
-            shopRuns.Select(run => (run.PeriodFrom, run.PeriodTo)),
+            includedRuns.Select(run => (run.PeriodFrom, run.PeriodTo)),
             year,
             staff.HireDate,
             staff.SeparationDate);
